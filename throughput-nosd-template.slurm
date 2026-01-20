@@ -47,13 +47,13 @@ enroot start --rw --root \
         
         # Run benchmark (has built-in wait mechanism)
         for MAX_CONCURRENCY in 1 2 4 8 16 32 64 128 256; do
-          echo \"Starting benchmark with max concurrency = $MAX_CONCURRENCY...\"
+          echo \"Starting benchmark with max concurrency = \$MAX_CONCURRENCY...\"
           vllm bench serve \
             --model Qwen/Qwen3-32B \
             --dataset-name hf \
             --dataset-path likaixin/InstructCoder \
             --num-prompts 500 \
-            --max-concurrency $MAX_CONCURRENCY \
+            --max-concurrency \$MAX_CONCURRENCY \
             --temperature {TEMPERATURE} \
             --top-p 1.0 \
             --port $VLLM_PORT
