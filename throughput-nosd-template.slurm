@@ -47,16 +47,23 @@ enroot start --rw --root \
         
         # Run benchmark (has built-in wait mechanism)
         for MAX_CONCURRENCY in 1 2 4 8 16 32 64 128 256; do
-          echo \"Starting benchmark with max concurrency = \$MAX_CONCURRENCY...\"
+
+          NUM_PROMPTS=\$(( \$MAX_CONCURRENCY * 10 ))
+          if [ \$NUM_PROMPTS -lt 50 ]; then
+            NUM_PROMPTS=50
+          fi
+
+          echo \"Starting benchmark with MAX_CONCURRENCY = \$MAX_CONCURRENCY and NUM_PROMPTS = \$NUM_PROMPTS...\"
           vllm bench serve \
             --model Qwen/Qwen3-32B \
             --dataset-name hf \
             --dataset-path likaixin/InstructCoder \
-            --num-prompts 500 \
+            --num-prompts \$NUM_PROMPTS \
             --max-concurrency \$MAX_CONCURRENCY \
             --temperature {TEMPERATURE} \
             --top-p 1.0 \
-            --port $VLLM_PORT
+            --port $VLLM_PORT \
+            --ready-check-timeout-sec 600
         done
         
         echo 'Benchmark completed, stopping server...'
