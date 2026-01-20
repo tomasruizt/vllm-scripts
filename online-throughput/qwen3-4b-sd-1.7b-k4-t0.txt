@@ -15,8 +15,10 @@ vllm bench serve \
   --model Qwen/Qwen3-4B \
   --dataset-name hf \
   --dataset-path likaixin/InstructCoder \
-  --num-prompts 500 \
+  --num-prompts 10 \
   --max-concurrency 32 \
   --temperature 0.0 \
-  --top-p 1.0 | tee results/qwen3-4b-sd-1.7b-k4-t0-run1.log
+  --top-p 1.0 \
+  --save-result \
+  --save-detailed | tee results/qwen3-4b-sd-1.7b-k4-t0-run1.log
 ```
