@@ -1,0 +1,22 @@
+```shell
+mkdir -p results
+
+vllm serve Qwen/Qwen3-4B \
+  --speculative_config.method draft_model \
+  --speculative_config.model Qwen/Qwen3-1.7B \
+  --speculative_config.num_speculative_tokens 4 \
+  --speculative_config.max_model_len 5000 \
+  --max-model-len 5000 \
+  --disable-uvicorn-access-log \
+  --no-enable-prefix-caching | tee results/serve.log
+
+
+vllm bench serve \
+  --model Qwen/Qwen3-4B \
+  --dataset-name hf \
+  --dataset-path likaixin/InstructCoder \
+  --num-prompts 500 \
+  --max-concurrency 32 \
+  --temperature 0.0 \
+  --top-p 1.0 | tee results/qwen3-4b-sd-1.7b-k4-t0-run1.log
+```

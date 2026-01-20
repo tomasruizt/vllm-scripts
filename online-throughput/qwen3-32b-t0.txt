@@ -1,0 +1,17 @@
+```shell
+VLLM_USE_V1=1 vllm serve Qwen/Qwen3-32B \
+  --max-model-len 20000 \
+  --disable-uvicorn-access-log
+
+
+nohup vllm bench serve \
+  --model Qwen/Qwen3-32B \
+  --endpoint-type openai-chat \
+  --endpoint /v1/chat/completions \
+  --dataset-name hf \
+  --dataset-path philschmid/mt-bench \
+  --num-prompts 80 \
+  --max-concurrency 1 \
+  --temperature 0.0 \
+  --top-p 1.0 2>&1 > results/qwen3-32b-t0-run1.out &
+```
