@@ -50,7 +50,7 @@ enroot start --rw --root \
         echo \"Server started with PID: \$SERVER_PID\"
         
         # Run benchmark (has built-in wait mechanism)
-        for MAX_CONCURRENCY in 1 2 4 8 16 32 64 128 256; do
+        for MAX_CONCURRENCY in {CONCURRENCIES}; do
 
           NUM_PROMPTS=\$(( \$MAX_CONCURRENCY * 10 ))
           if [ \$NUM_PROMPTS -lt 50 ]; then
@@ -61,7 +61,7 @@ enroot start --rw --root \
           vllm bench serve \
             --model Qwen/Qwen3-32B \
             --dataset-name hf \
-            --dataset-path likaixin/InstructCoder \
+            --dataset-path {DATASET} \
             --num-prompts \$NUM_PROMPTS \
             --max-concurrency \$MAX_CONCURRENCY \
             --temperature {TEMPERATURE} \

@@ -8,6 +8,7 @@ tp_sizes = [1, 2]
 
 os.makedirs("./generated", exist_ok=True)
 
+
 with open("./throughput-sd-template.slurm", "rt") as f:
     tsd_template = f.read()
 
@@ -17,10 +18,18 @@ method_and_model = [
     ("eagle3", "RedHatAI/Qwen3-32B-speculator.eagle3"),
 ]
 
-combinations = itertools.product(temps, tp_sizes, method_and_model)
-for temp, tp_size, (method, model) in combinations:
+dataset_and_concurrencies = [
+    ("likaixin/InstructCoder", [1, 2, 4, 8, 16, 32, 64, 128, 256]),
+    ("philschmid/mt-bench", [1, 2, 4, 8, 16, 32, 64, 80]),
+]
+
+combinations = itertools.product(
+    temps, tp_sizes, method_and_model, dataset_and_concurrencies
+)
+for temp, tp_size, (method, model), (dataset, concurrencies) in combinations:
     model_short = model.split("/")[-1]
-    jobname = f"vllm-throughput-sd-{method}-{model_short}-t{temp:.1f}-tp{tp_size}"
+    dataset_short = dataset.split("/")[-1]
+    jobname = f"vllm-throughput-{dataset_short}-sd-{method}-{model_short}-t{temp:.1f}-tp{tp_size}"
     filled = tsd_template.format(
         JOB_NAME=jobname,
         TEMPERATURE=temp,
@@ -28,6 +37,8 @@ for temp, tp_size, (method, model) in combinations:
         N_GPUS=tp_size,
         SPECULATIVE_METHOD=method,
         SPECULATIVE_MODEL=model,
+        DATASET=dataset,
+        CONCURRENCIES=concurrencies,
     )
     with open(f"./generated/{jobname}.slurm", "wt") as f:
         f.write(filled)
@@ -35,14 +46,17 @@ for temp, tp_size, (method, model) in combinations:
 with open("./throughput-nosd-template.slurm", "rt") as f:
     tnsd_template = f.read()
 
-combinations = itertools.product(temps, tp_sizes)
-for temp, tp_size in combinations:
-    jobname = f"vllm-throughput-nosd-t{temp:.1f}-tp{tp_size}"
+combinations = itertools.product(temps, tp_sizes, dataset_and_concurrencies)
+for temp, tp_size, (dataset, concurrencies) in combinations:
+    dataset_short = dataset.split("/")[-1]
+    jobname = f"vllm-throughput-{dataset_short}-nosd-t{temp:.1f}-tp{tp_size}"
     filled = tnsd_template.format(
         JOB_NAME=jobname,
         TEMPERATURE=temp,
         VLLM_PORT=next(port_source),
         N_GPUS=tp_size,
+        DATASET=dataset,
+        CONCURRENCIES=concurrencies,
     )
     with open(f"./generated/{jobname}.slurm", "wt") as f:
         f.write(filled)
