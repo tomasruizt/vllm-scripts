@@ -48,10 +48,7 @@ enroot start --rw --root \
         # Run benchmark (has built-in wait mechanism)
         for MAX_CONCURRENCY in {CONCURRENCIES}; do
 
-          NUM_PROMPTS=\$(( \$MAX_CONCURRENCY * 10 ))
-          if [ \$NUM_PROMPTS -lt 50 ]; then
-            NUM_PROMPTS=50
-          fi
+          NUM_PROMPTS={NUM_PROMPTS}
 
           echo \"Starting benchmark with MAX_CONCURRENCY = \$MAX_CONCURRENCY and NUM_PROMPTS = \$NUM_PROMPTS...\"
           vllm bench serve \
