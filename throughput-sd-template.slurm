@@ -38,8 +38,8 @@ enroot start --rw --root \
         vllm serve Qwen/Qwen3-32B \
           --tensor-parallel-size {N_GPUS} \
           --no-enable-prefix-caching \
-          --speculative_config.method=draft_model \
-          --speculative_config.model=Qwen/Qwen3-1.7B \
+          --speculative_config.method={SPECULATIVE_METHOD} \
+          --speculative_config.model={SPECULATIVE_MODEL} \
           --speculative_config.num_speculative_tokens=3 \
           --speculative_config.max_model_len=20000 \
           --max-model-len 20000 \
