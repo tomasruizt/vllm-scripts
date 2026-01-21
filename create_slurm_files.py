@@ -19,8 +19,8 @@ method_and_model = [
 ]
 
 dataset_and_concurrencies = [
-    ("likaixin/InstructCoder", [1, 2, 4, 8, 16, 32, 64, 128, 256]),
-    ("philschmid/mt-bench", [1, 2, 4, 8, 16, 32, 64, 80]),
+    ("likaixin/InstructCoder", "1 2 4 8 16 32 64 128 256"),
+    ("philschmid/mt-bench", "1 2 4 8 16 32 64 80"),
 ]
 
 combinations = itertools.product(
