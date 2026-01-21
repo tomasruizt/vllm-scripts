@@ -5,6 +5,7 @@ port_source = itertools.count(start=15000, step=1)
 
 temps = [0.0]
 tp_sizes = [1]  # , 2]
+all_n_spec_toks = [2, 3, 4]
 
 os.makedirs("./generated", exist_ok=True)
 
@@ -36,16 +37,20 @@ dataset_concurrencies_num_prompts = [
 ]
 
 combinations = itertools.product(
-    temps, tp_sizes, method_and_model, dataset_concurrencies_num_prompts
+    temps,
+    tp_sizes,
+    method_and_model,
+    dataset_concurrencies_num_prompts,
+    all_n_spec_toks,
 )
 for temp, tp_size, (method, model), (
     dataset,
     concurrencies,
     num_prompts,
-) in combinations:
+), n_spec_toks in combinations:
     model_short = model.split("/")[-1]
     dataset_short = dataset.split("/")[-1]
-    jobname = f"vllm-throughput-{dataset_short}-sd-{method}-{model_short}-t{temp:.1f}-tp{tp_size}"
+    jobname = f"vllm-throughput-{dataset_short}-sd-{method}-{model_short}-k{n_spec_toks}-t{temp:.1f}-tp{tp_size}"
     filled = tsd_template.format(
         JOB_NAME=jobname,
         TEMPERATURE=temp,
@@ -56,6 +61,7 @@ for temp, tp_size, (method, model), (
         DATASET=dataset,
         CONCURRENCIES=concurrencies,
         NUM_PROMPTS=num_prompts,
+        N_SPEC_TOKS=n_spec_toks,
     )
     with open(f"./generated/{jobname}.slurm", "wt") as f:
         f.write(filled)

@@ -40,7 +40,7 @@ enroot start --rw --root \
           --no-enable-prefix-caching \
           --speculative_config.method={SPECULATIVE_METHOD} \
           --speculative_config.model={SPECULATIVE_MODEL} \
-          --speculative_config.num_speculative_tokens=3 \
+          --speculative_config.num_speculative_tokens={N_SPEC_TOKS} \
           --speculative_config.max_model_len=20000 \
           --max-model-len 20000 \
           --disable-uvicorn-access-log \
