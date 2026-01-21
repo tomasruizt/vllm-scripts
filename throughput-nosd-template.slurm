@@ -38,7 +38,7 @@ enroot start --rw --root \
         vllm serve Qwen/Qwen3-32B \
           --tensor-parallel-size {N_GPUS} \
           --no-enable-prefix-caching \
-          --max-model-len 20000 \
+          --max-model-len 5000 \
           --disable-uvicorn-access-log \
           --port $VLLM_PORT &
         

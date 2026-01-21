@@ -41,8 +41,8 @@ enroot start --rw --root \
           --speculative_config.method={SPECULATIVE_METHOD} \
           --speculative_config.model={SPECULATIVE_MODEL} \
           --speculative_config.num_speculative_tokens={N_SPEC_TOKS} \
-          --speculative_config.max_model_len=20000 \
-          --max-model-len 20000 \
+          --speculative_config.max_model_len=5000 \
+          --max-model-len 5000 \
           --disable-uvicorn-access-log \
           --port $VLLM_PORT &
         
