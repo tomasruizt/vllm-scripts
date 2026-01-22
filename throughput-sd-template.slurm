@@ -5,7 +5,7 @@
 #SBATCH -o /dss/dssfs02/lwp-dss-0001/pn76je/pn76je-dss-0000/vllm/logs/%x/%a_out.logs
 #SBATCH -e /dss/dssfs02/lwp-dss-0001/pn76je/pn76je-dss-0000/vllm/logs/%x/%a_err.logs
 #SBATCH --job-name {JOB_NAME}
-#SBATCH --time 00:30:00
+#SBATCH --time 01:00:00
 
 # Set container name based on job name and array task ID to avoid conflicts
 CONTAINER_NAME={JOB_NAME}
