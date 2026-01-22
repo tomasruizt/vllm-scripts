@@ -10,15 +10,21 @@ vllm serve Qwen/Qwen3-4B \
   --disable-uvicorn-access-log \
   --no-enable-prefix-caching | tee results/serve.log
 
+vllm serve Qwen/Qwen3-4B \
+  --max-model-len 5000 \
+  --disable-uvicorn-access-log \
+  --no-enable-prefix-caching | tee results/serve-nosd.log
+
 
 vllm bench serve \
   --model Qwen/Qwen3-4B \
   --dataset-name hf \
   --dataset-path likaixin/InstructCoder \
-  --num-prompts 10 \
+  --num-prompts 200 \
   --max-concurrency 32 \
+  --request-rate 32 \
   --temperature 0.0 \
   --top-p 1.0 \
   --save-result \
-  --save-detailed | tee results/qwen3-4b-sd-1.7b-k4-t0-run1.log
+  --save-detailed | tee results/bench.log
 ```
