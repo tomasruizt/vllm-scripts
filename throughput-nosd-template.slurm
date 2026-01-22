@@ -57,7 +57,7 @@ enroot start --rw --root \
             --dataset-path {DATASET} \
             --num-prompts \$NUM_PROMPTS \
             --max-concurrency \$MAX_CONCURRENCY \
-            --request-rate $MAX_CONCURRENCY \
+            --request-rate \$MAX_CONCURRENCY \
             --temperature {TEMPERATURE} \
             --top-p 1.0 \
             --port $VLLM_PORT \
