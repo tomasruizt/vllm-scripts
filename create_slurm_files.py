@@ -22,7 +22,7 @@ method_and_model = [
 dataset_concurrencies_num_prompts = [
     (
         "philschmid/mt-bench",
-        "1 2 4 8 16 32 64 80",
+        "1 2 4 8 16 32 50 80",
         "80",
     ),
     (
