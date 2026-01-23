@@ -14,10 +14,10 @@ def dump_slurm_files(sd_template: str, nosd_template: str, out_dir: str):
     with open(sd_template, "rt") as f:
         tsd_template = f.read()
 
-    method_and_model = [
-        ("draft_model", "Qwen/Qwen3-1.7B"),
-        ("draft_model", "Qwen/Qwen3-4B"),
-        ("eagle3", "RedHatAI/Qwen3-32B-speculator.eagle3"),
+    tgtmodel_method_and_dftmodel = [
+        ("Qwen/Qwen3-32B", "draft_model", "Qwen/Qwen3-1.7B"),
+        ("Qwen/Qwen3-32B", "draft_model", "Qwen/Qwen3-4B"),
+        ("Qwen/Qwen3-32B", "eagle3", "RedHatAI/Qwen3-32B-speculator.eagle3"),
     ]
 
     dataset_concurrencies_num_prompts = [
@@ -34,17 +34,17 @@ def dump_slurm_files(sd_template: str, nosd_template: str, out_dir: str):
     combinations = itertools.product(
         temps,
         tp_sizes,
-        method_and_model,
+        tgtmodel_method_and_dftmodel,
         dataset_concurrencies_num_prompts,
         all_n_spec_toks,
     )
-    for temp, tp_size, (method, model), (
+    for temp, tp_size, (tgtmodel, method, dftmodel), (
         dataset,
         concurrencies,
         num_prompts,
         num_prompts_extra,
     ), n_spec_toks in combinations:
-        model_short = model.split("/")[-1]
+        model_short = dftmodel.split("/")[-1]
         dataset_short = dataset.split("/")[-1]
         jobname = f"vllm-throughput-{dataset_short}-sd-{method}-{model_short}-k{n_spec_toks}-t{temp:.1f}-tp{tp_size}"
         filled = tsd_template.format(
@@ -52,8 +52,9 @@ def dump_slurm_files(sd_template: str, nosd_template: str, out_dir: str):
             TEMPERATURE=temp,
             VLLM_PORT=next(port_source),
             N_GPUS=tp_size,
+            TARGET_MODEL=tgtmodel,
             SPECULATIVE_METHOD=method,
-            SPECULATIVE_MODEL=model,
+            SPECULATIVE_MODEL=dftmodel,
             DATASET=dataset,
             CONCURRENCIES=concurrencies,
             NUM_PROMPTS=num_prompts,
@@ -66,8 +67,15 @@ def dump_slurm_files(sd_template: str, nosd_template: str, out_dir: str):
     with open(nosd_template, "rt") as f:
         tnsd_template = f.read()
 
-    combinations = itertools.product(temps, tp_sizes, dataset_concurrencies_num_prompts)
-    for temp, tp_size, (dataset, concurrencies, num_prompts, num_prompts_extra) in combinations:
+    combinations = itertools.product(
+        temps, tp_sizes, tgtmodel_method_and_dftmodel, dataset_concurrencies_num_prompts
+    )
+    for temp, tp_size, (tgtmodel, _, _), (
+        dataset,
+        concurrencies,
+        num_prompts,
+        num_prompts_extra,
+    ) in combinations:
         dataset_short = dataset.split("/")[-1]
         jobname = f"vllm-throughput-{dataset_short}-nosd-t{temp:.1f}-tp{tp_size}"
         filled = tnsd_template.format(
@@ -75,6 +83,7 @@ def dump_slurm_files(sd_template: str, nosd_template: str, out_dir: str):
             TEMPERATURE=temp,
             VLLM_PORT=next(port_source),
             N_GPUS=tp_size,
+            TARGET_MODEL=tgtmodel,
             DATASET=dataset,
             CONCURRENCIES=concurrencies,
             NUM_PROMPTS=num_prompts,
@@ -89,7 +98,7 @@ def dump_slurm_files(sd_template: str, nosd_template: str, out_dir: str):
 if __name__ == "__main__":
     sd_template = "./throughput-sd-template.slurm"
     nosd_template = "./throughput-nosd-template.slurm"
-    out_dir = "./generated"
+    out_dir = "./generated-lrz"
     dump_slurm_files(sd_template, nosd_template, out_dir)
 
     # KISSKI

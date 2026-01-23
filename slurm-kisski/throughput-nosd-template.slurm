@@ -19,7 +19,7 @@ source /user/m.ruiztellez/u21521/venv/bin/activate
 
 # Launch vLLM server in background
 echo 'Starting vLLM server...'
-vllm serve Qwen/Qwen3-32B \
+vllm serve {TARGET_MODEL} \
   --tensor-parallel-size {N_GPUS} \
   --no-enable-prefix-caching \
   --max-model-len 5000 \
@@ -37,7 +37,7 @@ for MAX_CONCURRENCY in {CONCURRENCIES}; do
 
   echo \"Starting benchmark with MAX_CONCURRENCY = \$MAX_CONCURRENCY and NUM_PROMPTS = \$NUM_PROMPTS...\"
   vllm bench serve \
-    --model Qwen/Qwen3-32B \
+    --model {TARGET_MODEL} \
     --dataset-name hf \
     --dataset-path {DATASET} \
     --num-prompts \$NUM_PROMPTS \
