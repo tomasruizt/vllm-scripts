@@ -8,7 +8,7 @@
 #SBATCH --time 01:00:00
 
 # Set container name based on job name and array task ID to avoid conflicts
-CONTAINER_NAME="{JOB_NAME}"
+CONTAINER_NAME={JOB_NAME}
 
 # Calculate port based on base port and array task ID to avoid conflicts
 VLLM_PORT={VLLM_PORT}
