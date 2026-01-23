@@ -1,0 +1,57 @@
+#!/bin/bash
+#SBATCH --partition kisski
+#SBATCH --gpus H100:{N_GPUS}
+#SBATCH --array=0
+#SBATCH --output /projects/extern/kisski/kisski_trainings/tr_20251001-performance-ai-hpc/dir.project/vllm/logs/%x/%a_out.logs
+#SBATCH --error /projects/extern/kisski/kisski_trainings/tr_20251001-performance-ai-hpc/dir.project/vllm/logs/%x/%a_err.logs
+#SBATCH --job-name {JOB_NAME}
+#SBATCH --time 01:00:00
+
+# Calculate port based on base port and array task ID to avoid conflicts
+export VLLM_PORT=$((15000 + $SLURM_ARRAY_TASK_ID))
+export HF_TOKEN=$HF_TOKEN
+export HF_HOME=$HF_HOME
+export TMPDIR=$LOCAL_TMPDIR
+export VLLM_USE_V1=1
+
+
+source /user/m.ruiztellez/u21521/venv/bin/activate
+
+# Launch vLLM server in background
+echo 'Starting vLLM server...'
+vllm serve Qwen/Qwen3-32B \
+  --tensor-parallel-size {N_GPUS} \
+  --no-enable-prefix-caching \
+  --speculative_config.method={SPECULATIVE_METHOD} \
+  --speculative_config.model={SPECULATIVE_MODEL} \
+  --speculative_config.num_speculative_tokens={N_SPEC_TOKS} \
+  --speculative_config.max_model_len=5000 \
+  --max-model-len 5000 \
+  --disable-uvicorn-access-log \
+  --port $VLLM_PORT &
+
+SERVER_PID=\$!
+echo \"Server started with PID: \$SERVER_PID\"
+
+# Run benchmark (has built-in wait mechanism)
+for MAX_CONCURRENCY in {CONCURRENCIES}; do
+
+  NUM_PROMPTS={NUM_PROMPTS}
+  {NUM_PROMPTS_EXTRA}
+
+  echo \"Starting benchmark with MAX_CONCURRENCY = \$MAX_CONCURRENCY and NUM_PROMPTS = \$NUM_PROMPTS...\"
+  vllm bench serve \
+    --model Qwen/Qwen3-32B \
+    --dataset-name hf \
+    --dataset-path {DATASET} \
+    --num-prompts \$NUM_PROMPTS \
+    --max-concurrency \$MAX_CONCURRENCY \
+    --request-rate \$MAX_CONCURRENCY \
+    --temperature {TEMPERATURE} \
+    --top-p 1.0 \
+    --port $VLLM_PORT \
+    --ready-check-timeout-sec 600
+done
+
+echo 'Benchmark completed, stopping server...'
+kill \$SERVER_PID

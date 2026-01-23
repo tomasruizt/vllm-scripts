@@ -53,6 +53,7 @@ enroot start --rw --root \
         for MAX_CONCURRENCY in {CONCURRENCIES}; do
 
           NUM_PROMPTS={NUM_PROMPTS}
+          {NUM_PROMPTS_EXTRA}
 
           echo \"Starting benchmark with MAX_CONCURRENCY = \$MAX_CONCURRENCY and NUM_PROMPTS = \$NUM_PROMPTS...\"
           vllm bench serve \
