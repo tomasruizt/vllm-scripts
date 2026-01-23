@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH --partition kisski
+#SBATCH --partition kisski-h100
 #SBATCH --gpus H100:{N_GPUS}
 #SBATCH --array=0
-#SBATCH --output /projects/extern/kisski/kisski_trainings/tr_20251001-performance-ai-hpc/dir.project/vllm/logs/%x/%a_out.logs
-#SBATCH --error /projects/extern/kisski/kisski_trainings/tr_20251001-performance-ai-hpc/dir.project/vllm/logs/%x/%a_err.logs
+#SBATCH --output /user/m.ruiztellez/u20468/vllm-scripts/slurm-results/vllm/logs/%x/%a_out.logs
+#SBATCH --error /user/m.ruiztellez/u20468/vllm-scripts/slurm-results/vllm/logs/%x/%a_err.logs
 #SBATCH --job-name {JOB_NAME}
 #SBATCH --time 01:00:00
 

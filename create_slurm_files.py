@@ -79,7 +79,8 @@ def dump_slurm_files(sd_template: str, nosd_template: str, out_dir: str):
         num_prompts_extra,
     ) in combinations:
         dataset_short = dataset.split("/")[-1]
-        jobname = f"vllm-throughput-{dataset_short}-nosd-t{temp:.1f}-tp{tp_size}"
+        tgt_model_short = tgtmodel.split("/")[-1]
+        jobname = f"vllm-throughput-{dataset_short}-nosd-{tgt_model_short}-t{temp:.1f}-tp{tp_size}"
         filled = tnsd_template.format(
             JOB_NAME=jobname,
             TEMPERATURE=temp,
