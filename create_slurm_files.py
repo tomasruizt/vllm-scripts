@@ -18,6 +18,8 @@ def dump_slurm_files(sd_template: str, nosd_template: str, out_dir: str):
         ("Qwen/Qwen3-32B", "draft_model", "Qwen/Qwen3-1.7B"),
         ("Qwen/Qwen3-32B", "draft_model", "Qwen/Qwen3-4B"),
         ("Qwen/Qwen3-32B", "eagle3", "RedHatAI/Qwen3-32B-speculator.eagle3"),
+        ("openai/gpt-oss-120b", "draft_model", "openai/gpt-oss-20b"),
+        ("openai/gpt-oss-120b", "eagle3", "nvidia/gpt-oss-120b-Eagle3-short-context"),
     ]
 
     dataset_concurrencies_num_prompts = [
