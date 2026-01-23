@@ -5,7 +5,7 @@ port_source = itertools.count(start=15000, step=1)
 
 temps = [0.0]
 tp_sizes = [1]  # , 2]
-all_n_spec_toks = [1, 2, 3, 4, 5]
+all_n_spec_toks = [1, 2, 3, 4, 5, 6]
 
 os.makedirs("./generated", exist_ok=True)
 
