@@ -69,10 +69,16 @@ def dump_slurm_files(sd_template: str, nosd_template: str, out_dir: str):
     with open(nosd_template, "rt") as f:
         tnsd_template = f.read()
 
+    nosd_tgt_models = [
+        "Qwen/Qwen3-1.7B",
+        "Qwen/Qwen3-32B",
+        "openai/gpt-oss-20b",
+    ]
+
     combinations = itertools.product(
-        temps, tp_sizes, tgtmodel_method_and_dftmodel, dataset_concurrencies_num_prompts
+        temps, tp_sizes, nosd_tgt_models, dataset_concurrencies_num_prompts
     )
-    for temp, tp_size, (tgtmodel, _, _), (
+    for temp, tp_size, tgtmodel, (
         dataset,
         concurrencies,
         num_prompts,
