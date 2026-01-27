@@ -10,7 +10,7 @@ vllm serve meta-llama/Llama-3.3-70B-Instruct \
   --disable-uvicorn-access-log \
   --no-enable-prefix-caching | tee tp-results/nosd-serve.log
 
-K=3
+K=8
 mkdir -p k$K/tp-results-draft-model
 vllm serve meta-llama/Llama-3.3-70B-Instruct \
   --tensor-parallel-size 2 \
@@ -23,7 +23,7 @@ vllm serve meta-llama/Llama-3.3-70B-Instruct \
   --disable-uvicorn-access-log \
   --no-enable-prefix-caching | tee k$K/tp-results-draft-model/draft-model-serve.log
 
-K=6
+K=7
 mkdir -p k$K/tp-results-eagle3
 vllm serve meta-llama/Llama-3.3-70B-Instruct \
   --tensor-parallel-size 2 \
@@ -46,7 +46,7 @@ Note: I had to remove `--speculative_config.max_model_len` for method=eagle3 bec
 benchmark:
 
 ```shell
-K=6
+K=8
 METHOD=eagle3
 for MAX_CONCURRENCY in 1 2 4 8 16 32 64; do
 

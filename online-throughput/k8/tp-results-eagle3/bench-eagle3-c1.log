@@ -1,0 +1,620 @@
+Namespace(subparser='bench', bench_type='serve', dispatch_function=<function BenchmarkServingSubcommand.cmd at 0x7f6c9292d6c0>, seed=0, num_prompts=50, dataset_name='hf', no_stream=False, dataset_path='likaixin/InstructCoder', no_oversample=False, skip_chat_template=False, disable_shuffle=False, custom_output_len=256, spec_bench_output_len=256, spec_bench_category=None, sonnet_input_len=550, sonnet_output_len=150, sonnet_prefix_len=200, sharegpt_output_len=None, blazedit_min_distance=0.0, blazedit_max_distance=1.0, random_input_len=1024, random_output_len=128, random_range_ratio=0.0, random_prefix_len=0, random_batch_size=1, no_reranker=False, random_mm_base_items_per_request=1, random_mm_num_mm_items_range_ratio=0.0, random_mm_limit_mm_per_prompt={'image': 255, 'video': 1}, random_mm_bucket_config={(256, 256, 1): 0.5, (720, 1280, 1): 0.5, (720, 1280, 16): 0.0}, hf_subset=None, hf_split=None, hf_name=None, hf_output_len=None, prefix_repetition_prefix_len=256, prefix_repetition_suffix_len=256, prefix_repetition_num_prefixes=10, prefix_repetition_output_len=128, label=None, backend='openai', base_url=None, host='127.0.0.1', port=8000, endpoint='/v1/completions', header=None, max_concurrency=1, model='meta-llama/Llama-3.3-70B-Instruct', input_len=None, output_len=None, tokenizer=None, tokenizer_mode='auto', use_beam_search=False, logprobs=None, request_rate=1.0, burstiness=1.0, trust_remote_code=False, disable_tqdm=False, num_warmups=0, profile=False, save_result=False, save_detailed=False, append_result=False, metadata=None, result_dir=None, result_filename=None, ignore_eos=False, percentile_metrics=None, metric_percentiles='99', goodput=None, request_id_prefix='bench-ecba73e2-', top_p=1.0, top_k=None, min_p=None, temperature=0.0, frequency_penalty=None, presence_penalty=None, repetition_penalty=None, served_model_name=None, lora_modules=None, ramp_up_strategy=None, ramp_up_start_rps=None, ramp_up_end_rps=None, ready_check_timeout_sec=600, extra_body=None)
+Starting initial single prompt test run...
+Waiting for endpoint to become up in 600 seconds
+WARNING 01-27 16:32:19 [ready_checker.py:69] Endpoint is not ready. Error='Traceback (most recent call last):
+WARNING 01-27 16:32:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1298, in _wrap_create_connection
+WARNING 01-27 16:32:19 [ready_checker.py:69]     sock = await aiohappyeyeballs.start_connection(
+WARNING 01-27 16:32:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 122, in start_connection
+WARNING 01-27 16:32:19 [ready_checker.py:69]     raise first_exception
+WARNING 01-27 16:32:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 73, in start_connection
+WARNING 01-27 16:32:19 [ready_checker.py:69]     sock = await _connect_sock(
+WARNING 01-27 16:32:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 208, in _connect_sock
+WARNING 01-27 16:32:19 [ready_checker.py:69]     await loop.sock_connect(sock, address)
+WARNING 01-27 16:32:19 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 501, in sock_connect
+WARNING 01-27 16:32:19 [ready_checker.py:69]     return await fut
+WARNING 01-27 16:32:19 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 541, in _sock_connect_cb
+WARNING 01-27 16:32:19 [ready_checker.py:69]     raise OSError(err, f'Connect call failed {address}')
+WARNING 01-27 16:32:19 [ready_checker.py:69] ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8000)
+WARNING 01-27 16:32:19 [ready_checker.py:69] 
+WARNING 01-27 16:32:19 [ready_checker.py:69] The above exception was the direct cause of the following exception:
+WARNING 01-27 16:32:19 [ready_checker.py:69] 
+WARNING 01-27 16:32:19 [ready_checker.py:69] Traceback (most recent call last):
+WARNING 01-27 16:32:19 [ready_checker.py:69]   File "/home/shadeform/code/vllm/vllm/benchmarks/lib/endpoint_request_func.py", line 187, in async_request_openai_completions
+WARNING 01-27 16:32:19 [ready_checker.py:69]     async with session.post(url=api_url, json=payload, headers=headers) as response:
+WARNING 01-27 16:32:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 1510, in __aenter__
+WARNING 01-27 16:32:19 [ready_checker.py:69]     self._resp: _RetType = await self._coro
+WARNING 01-27 16:32:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 779, in _request
+WARNING 01-27 16:32:19 [ready_checker.py:69]     resp = await handler(req)
+WARNING 01-27 16:32:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 734, in _connect_and_send_request
+WARNING 01-27 16:32:19 [ready_checker.py:69]     conn = await self._connector.connect(
+WARNING 01-27 16:32:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 672, in connect
+WARNING 01-27 16:32:19 [ready_checker.py:69]     proto = await self._create_connection(req, traces, timeout)
+WARNING 01-27 16:32:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1239, in _create_connection
+WARNING 01-27 16:32:19 [ready_checker.py:69]     _, proto = await self._create_direct_connection(req, traces, timeout)
+WARNING 01-27 16:32:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1611, in _create_direct_connection
+WARNING 01-27 16:32:19 [ready_checker.py:69]     raise last_exc
+WARNING 01-27 16:32:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1580, in _create_direct_connection
+WARNING 01-27 16:32:19 [ready_checker.py:69]     transp, proto = await self._wrap_create_connection(
+WARNING 01-27 16:32:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1321, in _wrap_create_connection
+WARNING 01-27 16:32:19 [ready_checker.py:69]     raise client_error(req.connection_key, exc) from exc
+WARNING 01-27 16:32:19 [ready_checker.py:69] aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
+WARNING 01-27 16:32:19 [ready_checker.py:69] '
+WARNING 01-27 16:32:24 [ready_checker.py:69] Endpoint is not ready. Error='Traceback (most recent call last):
+WARNING 01-27 16:32:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1298, in _wrap_create_connection
+WARNING 01-27 16:32:24 [ready_checker.py:69]     sock = await aiohappyeyeballs.start_connection(
+WARNING 01-27 16:32:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 122, in start_connection
+WARNING 01-27 16:32:24 [ready_checker.py:69]     raise first_exception
+WARNING 01-27 16:32:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 73, in start_connection
+WARNING 01-27 16:32:24 [ready_checker.py:69]     sock = await _connect_sock(
+WARNING 01-27 16:32:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 208, in _connect_sock
+WARNING 01-27 16:32:24 [ready_checker.py:69]     await loop.sock_connect(sock, address)
+WARNING 01-27 16:32:24 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 501, in sock_connect
+WARNING 01-27 16:32:24 [ready_checker.py:69]     return await fut
+WARNING 01-27 16:32:24 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 541, in _sock_connect_cb
+WARNING 01-27 16:32:24 [ready_checker.py:69]     raise OSError(err, f'Connect call failed {address}')
+WARNING 01-27 16:32:24 [ready_checker.py:69] ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8000)
+WARNING 01-27 16:32:24 [ready_checker.py:69] 
+WARNING 01-27 16:32:24 [ready_checker.py:69] The above exception was the direct cause of the following exception:
+WARNING 01-27 16:32:24 [ready_checker.py:69] 
+WARNING 01-27 16:32:24 [ready_checker.py:69] Traceback (most recent call last):
+WARNING 01-27 16:32:24 [ready_checker.py:69]   File "/home/shadeform/code/vllm/vllm/benchmarks/lib/endpoint_request_func.py", line 187, in async_request_openai_completions
+WARNING 01-27 16:32:24 [ready_checker.py:69]     async with session.post(url=api_url, json=payload, headers=headers) as response:
+WARNING 01-27 16:32:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 1510, in __aenter__
+WARNING 01-27 16:32:24 [ready_checker.py:69]     self._resp: _RetType = await self._coro
+WARNING 01-27 16:32:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 779, in _request
+WARNING 01-27 16:32:24 [ready_checker.py:69]     resp = await handler(req)
+WARNING 01-27 16:32:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 734, in _connect_and_send_request
+WARNING 01-27 16:32:24 [ready_checker.py:69]     conn = await self._connector.connect(
+WARNING 01-27 16:32:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 672, in connect
+WARNING 01-27 16:32:24 [ready_checker.py:69]     proto = await self._create_connection(req, traces, timeout)
+WARNING 01-27 16:32:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1239, in _create_connection
+WARNING 01-27 16:32:24 [ready_checker.py:69]     _, proto = await self._create_direct_connection(req, traces, timeout)
+WARNING 01-27 16:32:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1611, in _create_direct_connection
+WARNING 01-27 16:32:24 [ready_checker.py:69]     raise last_exc
+WARNING 01-27 16:32:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1580, in _create_direct_connection
+WARNING 01-27 16:32:24 [ready_checker.py:69]     transp, proto = await self._wrap_create_connection(
+WARNING 01-27 16:32:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1321, in _wrap_create_connection
+WARNING 01-27 16:32:24 [ready_checker.py:69]     raise client_error(req.connection_key, exc) from exc
+WARNING 01-27 16:32:24 [ready_checker.py:69] aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
+WARNING 01-27 16:32:24 [ready_checker.py:69] '
+WARNING 01-27 16:32:29 [ready_checker.py:69] Endpoint is not ready. Error='Traceback (most recent call last):
+WARNING 01-27 16:32:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1298, in _wrap_create_connection
+WARNING 01-27 16:32:29 [ready_checker.py:69]     sock = await aiohappyeyeballs.start_connection(
+WARNING 01-27 16:32:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 122, in start_connection
+WARNING 01-27 16:32:29 [ready_checker.py:69]     raise first_exception
+WARNING 01-27 16:32:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 73, in start_connection
+WARNING 01-27 16:32:29 [ready_checker.py:69]     sock = await _connect_sock(
+WARNING 01-27 16:32:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 208, in _connect_sock
+WARNING 01-27 16:32:29 [ready_checker.py:69]     await loop.sock_connect(sock, address)
+WARNING 01-27 16:32:29 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 501, in sock_connect
+WARNING 01-27 16:32:29 [ready_checker.py:69]     return await fut
+WARNING 01-27 16:32:29 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 541, in _sock_connect_cb
+WARNING 01-27 16:32:29 [ready_checker.py:69]     raise OSError(err, f'Connect call failed {address}')
+WARNING 01-27 16:32:29 [ready_checker.py:69] ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8000)
+WARNING 01-27 16:32:29 [ready_checker.py:69] 
+WARNING 01-27 16:32:29 [ready_checker.py:69] The above exception was the direct cause of the following exception:
+WARNING 01-27 16:32:29 [ready_checker.py:69] 
+WARNING 01-27 16:32:29 [ready_checker.py:69] Traceback (most recent call last):
+WARNING 01-27 16:32:29 [ready_checker.py:69]   File "/home/shadeform/code/vllm/vllm/benchmarks/lib/endpoint_request_func.py", line 187, in async_request_openai_completions
+WARNING 01-27 16:32:29 [ready_checker.py:69]     async with session.post(url=api_url, json=payload, headers=headers) as response:
+WARNING 01-27 16:32:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 1510, in __aenter__
+WARNING 01-27 16:32:29 [ready_checker.py:69]     self._resp: _RetType = await self._coro
+WARNING 01-27 16:32:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 779, in _request
+WARNING 01-27 16:32:29 [ready_checker.py:69]     resp = await handler(req)
+WARNING 01-27 16:32:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 734, in _connect_and_send_request
+WARNING 01-27 16:32:29 [ready_checker.py:69]     conn = await self._connector.connect(
+WARNING 01-27 16:32:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 672, in connect
+WARNING 01-27 16:32:29 [ready_checker.py:69]     proto = await self._create_connection(req, traces, timeout)
+WARNING 01-27 16:32:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1239, in _create_connection
+WARNING 01-27 16:32:29 [ready_checker.py:69]     _, proto = await self._create_direct_connection(req, traces, timeout)
+WARNING 01-27 16:32:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1611, in _create_direct_connection
+WARNING 01-27 16:32:29 [ready_checker.py:69]     raise last_exc
+WARNING 01-27 16:32:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1580, in _create_direct_connection
+WARNING 01-27 16:32:29 [ready_checker.py:69]     transp, proto = await self._wrap_create_connection(
+WARNING 01-27 16:32:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1321, in _wrap_create_connection
+WARNING 01-27 16:32:29 [ready_checker.py:69]     raise client_error(req.connection_key, exc) from exc
+WARNING 01-27 16:32:29 [ready_checker.py:69] aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
+WARNING 01-27 16:32:29 [ready_checker.py:69] '
+WARNING 01-27 16:32:34 [ready_checker.py:69] Endpoint is not ready. Error='Traceback (most recent call last):
+WARNING 01-27 16:32:34 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1298, in _wrap_create_connection
+WARNING 01-27 16:32:34 [ready_checker.py:69]     sock = await aiohappyeyeballs.start_connection(
+WARNING 01-27 16:32:34 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 122, in start_connection
+WARNING 01-27 16:32:34 [ready_checker.py:69]     raise first_exception
+WARNING 01-27 16:32:34 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 73, in start_connection
+WARNING 01-27 16:32:34 [ready_checker.py:69]     sock = await _connect_sock(
+WARNING 01-27 16:32:34 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 208, in _connect_sock
+WARNING 01-27 16:32:34 [ready_checker.py:69]     await loop.sock_connect(sock, address)
+WARNING 01-27 16:32:34 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 501, in sock_connect
+WARNING 01-27 16:32:34 [ready_checker.py:69]     return await fut
+WARNING 01-27 16:32:34 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 541, in _sock_connect_cb
+WARNING 01-27 16:32:34 [ready_checker.py:69]     raise OSError(err, f'Connect call failed {address}')
+WARNING 01-27 16:32:34 [ready_checker.py:69] ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8000)
+WARNING 01-27 16:32:34 [ready_checker.py:69] 
+WARNING 01-27 16:32:34 [ready_checker.py:69] The above exception was the direct cause of the following exception:
+WARNING 01-27 16:32:34 [ready_checker.py:69] 
+WARNING 01-27 16:32:34 [ready_checker.py:69] Traceback (most recent call last):
+WARNING 01-27 16:32:34 [ready_checker.py:69]   File "/home/shadeform/code/vllm/vllm/benchmarks/lib/endpoint_request_func.py", line 187, in async_request_openai_completions
+WARNING 01-27 16:32:34 [ready_checker.py:69]     async with session.post(url=api_url, json=payload, headers=headers) as response:
+WARNING 01-27 16:32:34 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 1510, in __aenter__
+WARNING 01-27 16:32:34 [ready_checker.py:69]     self._resp: _RetType = await self._coro
+WARNING 01-27 16:32:34 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 779, in _request
+WARNING 01-27 16:32:34 [ready_checker.py:69]     resp = await handler(req)
+WARNING 01-27 16:32:34 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 734, in _connect_and_send_request
+WARNING 01-27 16:32:34 [ready_checker.py:69]     conn = await self._connector.connect(
+WARNING 01-27 16:32:34 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 672, in connect
+WARNING 01-27 16:32:34 [ready_checker.py:69]     proto = await self._create_connection(req, traces, timeout)
+WARNING 01-27 16:32:34 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1239, in _create_connection
+WARNING 01-27 16:32:34 [ready_checker.py:69]     _, proto = await self._create_direct_connection(req, traces, timeout)
+WARNING 01-27 16:32:34 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1611, in _create_direct_connection
+WARNING 01-27 16:32:34 [ready_checker.py:69]     raise last_exc
+WARNING 01-27 16:32:34 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1580, in _create_direct_connection
+WARNING 01-27 16:32:34 [ready_checker.py:69]     transp, proto = await self._wrap_create_connection(
+WARNING 01-27 16:32:34 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1321, in _wrap_create_connection
+WARNING 01-27 16:32:34 [ready_checker.py:69]     raise client_error(req.connection_key, exc) from exc
+WARNING 01-27 16:32:34 [ready_checker.py:69] aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
+WARNING 01-27 16:32:34 [ready_checker.py:69] '
+WARNING 01-27 16:32:39 [ready_checker.py:69] Endpoint is not ready. Error='Traceback (most recent call last):
+WARNING 01-27 16:32:39 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1298, in _wrap_create_connection
+WARNING 01-27 16:32:39 [ready_checker.py:69]     sock = await aiohappyeyeballs.start_connection(
+WARNING 01-27 16:32:39 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 122, in start_connection
+WARNING 01-27 16:32:39 [ready_checker.py:69]     raise first_exception
+WARNING 01-27 16:32:39 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 73, in start_connection
+WARNING 01-27 16:32:39 [ready_checker.py:69]     sock = await _connect_sock(
+WARNING 01-27 16:32:39 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 208, in _connect_sock
+WARNING 01-27 16:32:39 [ready_checker.py:69]     await loop.sock_connect(sock, address)
+WARNING 01-27 16:32:39 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 501, in sock_connect
+WARNING 01-27 16:32:39 [ready_checker.py:69]     return await fut
+WARNING 01-27 16:32:39 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 541, in _sock_connect_cb
+WARNING 01-27 16:32:39 [ready_checker.py:69]     raise OSError(err, f'Connect call failed {address}')
+WARNING 01-27 16:32:39 [ready_checker.py:69] ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8000)
+WARNING 01-27 16:32:39 [ready_checker.py:69] 
+WARNING 01-27 16:32:39 [ready_checker.py:69] The above exception was the direct cause of the following exception:
+WARNING 01-27 16:32:39 [ready_checker.py:69] 
+WARNING 01-27 16:32:39 [ready_checker.py:69] Traceback (most recent call last):
+WARNING 01-27 16:32:39 [ready_checker.py:69]   File "/home/shadeform/code/vllm/vllm/benchmarks/lib/endpoint_request_func.py", line 187, in async_request_openai_completions
+WARNING 01-27 16:32:39 [ready_checker.py:69]     async with session.post(url=api_url, json=payload, headers=headers) as response:
+WARNING 01-27 16:32:39 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 1510, in __aenter__
+WARNING 01-27 16:32:39 [ready_checker.py:69]     self._resp: _RetType = await self._coro
+WARNING 01-27 16:32:39 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 779, in _request
+WARNING 01-27 16:32:39 [ready_checker.py:69]     resp = await handler(req)
+WARNING 01-27 16:32:39 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 734, in _connect_and_send_request
+WARNING 01-27 16:32:39 [ready_checker.py:69]     conn = await self._connector.connect(
+WARNING 01-27 16:32:39 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 672, in connect
+WARNING 01-27 16:32:39 [ready_checker.py:69]     proto = await self._create_connection(req, traces, timeout)
+WARNING 01-27 16:32:39 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1239, in _create_connection
+WARNING 01-27 16:32:39 [ready_checker.py:69]     _, proto = await self._create_direct_connection(req, traces, timeout)
+WARNING 01-27 16:32:39 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1611, in _create_direct_connection
+WARNING 01-27 16:32:39 [ready_checker.py:69]     raise last_exc
+WARNING 01-27 16:32:39 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1580, in _create_direct_connection
+WARNING 01-27 16:32:39 [ready_checker.py:69]     transp, proto = await self._wrap_create_connection(
+WARNING 01-27 16:32:39 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1321, in _wrap_create_connection
+WARNING 01-27 16:32:39 [ready_checker.py:69]     raise client_error(req.connection_key, exc) from exc
+WARNING 01-27 16:32:39 [ready_checker.py:69] aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
+WARNING 01-27 16:32:39 [ready_checker.py:69] '
+WARNING 01-27 16:32:44 [ready_checker.py:69] Endpoint is not ready. Error='Traceback (most recent call last):
+WARNING 01-27 16:32:44 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1298, in _wrap_create_connection
+WARNING 01-27 16:32:44 [ready_checker.py:69]     sock = await aiohappyeyeballs.start_connection(
+WARNING 01-27 16:32:44 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 122, in start_connection
+WARNING 01-27 16:32:44 [ready_checker.py:69]     raise first_exception
+WARNING 01-27 16:32:44 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 73, in start_connection
+WARNING 01-27 16:32:44 [ready_checker.py:69]     sock = await _connect_sock(
+WARNING 01-27 16:32:44 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 208, in _connect_sock
+WARNING 01-27 16:32:44 [ready_checker.py:69]     await loop.sock_connect(sock, address)
+WARNING 01-27 16:32:44 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 501, in sock_connect
+WARNING 01-27 16:32:44 [ready_checker.py:69]     return await fut
+WARNING 01-27 16:32:44 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 541, in _sock_connect_cb
+WARNING 01-27 16:32:44 [ready_checker.py:69]     raise OSError(err, f'Connect call failed {address}')
+WARNING 01-27 16:32:44 [ready_checker.py:69] ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8000)
+WARNING 01-27 16:32:44 [ready_checker.py:69] 
+WARNING 01-27 16:32:44 [ready_checker.py:69] The above exception was the direct cause of the following exception:
+WARNING 01-27 16:32:44 [ready_checker.py:69] 
+WARNING 01-27 16:32:44 [ready_checker.py:69] Traceback (most recent call last):
+WARNING 01-27 16:32:44 [ready_checker.py:69]   File "/home/shadeform/code/vllm/vllm/benchmarks/lib/endpoint_request_func.py", line 187, in async_request_openai_completions
+WARNING 01-27 16:32:44 [ready_checker.py:69]     async with session.post(url=api_url, json=payload, headers=headers) as response:
+WARNING 01-27 16:32:44 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 1510, in __aenter__
+WARNING 01-27 16:32:44 [ready_checker.py:69]     self._resp: _RetType = await self._coro
+WARNING 01-27 16:32:44 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 779, in _request
+WARNING 01-27 16:32:44 [ready_checker.py:69]     resp = await handler(req)
+WARNING 01-27 16:32:44 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 734, in _connect_and_send_request
+WARNING 01-27 16:32:44 [ready_checker.py:69]     conn = await self._connector.connect(
+WARNING 01-27 16:32:44 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 672, in connect
+WARNING 01-27 16:32:44 [ready_checker.py:69]     proto = await self._create_connection(req, traces, timeout)
+WARNING 01-27 16:32:44 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1239, in _create_connection
+WARNING 01-27 16:32:44 [ready_checker.py:69]     _, proto = await self._create_direct_connection(req, traces, timeout)
+WARNING 01-27 16:32:44 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1611, in _create_direct_connection
+WARNING 01-27 16:32:44 [ready_checker.py:69]     raise last_exc
+WARNING 01-27 16:32:44 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1580, in _create_direct_connection
+WARNING 01-27 16:32:44 [ready_checker.py:69]     transp, proto = await self._wrap_create_connection(
+WARNING 01-27 16:32:44 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1321, in _wrap_create_connection
+WARNING 01-27 16:32:44 [ready_checker.py:69]     raise client_error(req.connection_key, exc) from exc
+WARNING 01-27 16:32:44 [ready_checker.py:69] aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
+WARNING 01-27 16:32:44 [ready_checker.py:69] '
+WARNING 01-27 16:32:49 [ready_checker.py:69] Endpoint is not ready. Error='Traceback (most recent call last):
+WARNING 01-27 16:32:49 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1298, in _wrap_create_connection
+WARNING 01-27 16:32:49 [ready_checker.py:69]     sock = await aiohappyeyeballs.start_connection(
+WARNING 01-27 16:32:49 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 122, in start_connection
+WARNING 01-27 16:32:49 [ready_checker.py:69]     raise first_exception
+WARNING 01-27 16:32:49 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 73, in start_connection
+WARNING 01-27 16:32:49 [ready_checker.py:69]     sock = await _connect_sock(
+WARNING 01-27 16:32:49 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 208, in _connect_sock
+WARNING 01-27 16:32:49 [ready_checker.py:69]     await loop.sock_connect(sock, address)
+WARNING 01-27 16:32:49 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 501, in sock_connect
+WARNING 01-27 16:32:49 [ready_checker.py:69]     return await fut
+WARNING 01-27 16:32:49 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 541, in _sock_connect_cb
+WARNING 01-27 16:32:49 [ready_checker.py:69]     raise OSError(err, f'Connect call failed {address}')
+WARNING 01-27 16:32:49 [ready_checker.py:69] ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8000)
+WARNING 01-27 16:32:49 [ready_checker.py:69] 
+WARNING 01-27 16:32:49 [ready_checker.py:69] The above exception was the direct cause of the following exception:
+WARNING 01-27 16:32:49 [ready_checker.py:69] 
+WARNING 01-27 16:32:49 [ready_checker.py:69] Traceback (most recent call last):
+WARNING 01-27 16:32:49 [ready_checker.py:69]   File "/home/shadeform/code/vllm/vllm/benchmarks/lib/endpoint_request_func.py", line 187, in async_request_openai_completions
+WARNING 01-27 16:32:49 [ready_checker.py:69]     async with session.post(url=api_url, json=payload, headers=headers) as response:
+WARNING 01-27 16:32:49 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 1510, in __aenter__
+WARNING 01-27 16:32:49 [ready_checker.py:69]     self._resp: _RetType = await self._coro
+WARNING 01-27 16:32:49 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 779, in _request
+WARNING 01-27 16:32:49 [ready_checker.py:69]     resp = await handler(req)
+WARNING 01-27 16:32:49 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 734, in _connect_and_send_request
+WARNING 01-27 16:32:49 [ready_checker.py:69]     conn = await self._connector.connect(
+WARNING 01-27 16:32:49 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 672, in connect
+WARNING 01-27 16:32:49 [ready_checker.py:69]     proto = await self._create_connection(req, traces, timeout)
+WARNING 01-27 16:32:49 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1239, in _create_connection
+WARNING 01-27 16:32:49 [ready_checker.py:69]     _, proto = await self._create_direct_connection(req, traces, timeout)
+WARNING 01-27 16:32:49 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1611, in _create_direct_connection
+WARNING 01-27 16:32:49 [ready_checker.py:69]     raise last_exc
+WARNING 01-27 16:32:49 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1580, in _create_direct_connection
+WARNING 01-27 16:32:49 [ready_checker.py:69]     transp, proto = await self._wrap_create_connection(
+WARNING 01-27 16:32:49 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1321, in _wrap_create_connection
+WARNING 01-27 16:32:49 [ready_checker.py:69]     raise client_error(req.connection_key, exc) from exc
+WARNING 01-27 16:32:49 [ready_checker.py:69] aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
+WARNING 01-27 16:32:49 [ready_checker.py:69] '
+WARNING 01-27 16:32:54 [ready_checker.py:69] Endpoint is not ready. Error='Traceback (most recent call last):
+WARNING 01-27 16:32:54 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1298, in _wrap_create_connection
+WARNING 01-27 16:32:54 [ready_checker.py:69]     sock = await aiohappyeyeballs.start_connection(
+WARNING 01-27 16:32:54 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 122, in start_connection
+WARNING 01-27 16:32:54 [ready_checker.py:69]     raise first_exception
+WARNING 01-27 16:32:54 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 73, in start_connection
+WARNING 01-27 16:32:54 [ready_checker.py:69]     sock = await _connect_sock(
+WARNING 01-27 16:32:54 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 208, in _connect_sock
+WARNING 01-27 16:32:54 [ready_checker.py:69]     await loop.sock_connect(sock, address)
+WARNING 01-27 16:32:54 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 501, in sock_connect
+WARNING 01-27 16:32:54 [ready_checker.py:69]     return await fut
+WARNING 01-27 16:32:54 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 541, in _sock_connect_cb
+WARNING 01-27 16:32:54 [ready_checker.py:69]     raise OSError(err, f'Connect call failed {address}')
+WARNING 01-27 16:32:54 [ready_checker.py:69] ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8000)
+WARNING 01-27 16:32:54 [ready_checker.py:69] 
+WARNING 01-27 16:32:54 [ready_checker.py:69] The above exception was the direct cause of the following exception:
+WARNING 01-27 16:32:54 [ready_checker.py:69] 
+WARNING 01-27 16:32:54 [ready_checker.py:69] Traceback (most recent call last):
+WARNING 01-27 16:32:54 [ready_checker.py:69]   File "/home/shadeform/code/vllm/vllm/benchmarks/lib/endpoint_request_func.py", line 187, in async_request_openai_completions
+WARNING 01-27 16:32:54 [ready_checker.py:69]     async with session.post(url=api_url, json=payload, headers=headers) as response:
+WARNING 01-27 16:32:54 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 1510, in __aenter__
+WARNING 01-27 16:32:54 [ready_checker.py:69]     self._resp: _RetType = await self._coro
+WARNING 01-27 16:32:54 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 779, in _request
+WARNING 01-27 16:32:54 [ready_checker.py:69]     resp = await handler(req)
+WARNING 01-27 16:32:54 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 734, in _connect_and_send_request
+WARNING 01-27 16:32:54 [ready_checker.py:69]     conn = await self._connector.connect(
+WARNING 01-27 16:32:54 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 672, in connect
+WARNING 01-27 16:32:54 [ready_checker.py:69]     proto = await self._create_connection(req, traces, timeout)
+WARNING 01-27 16:32:54 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1239, in _create_connection
+WARNING 01-27 16:32:54 [ready_checker.py:69]     _, proto = await self._create_direct_connection(req, traces, timeout)
+WARNING 01-27 16:32:54 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1611, in _create_direct_connection
+WARNING 01-27 16:32:54 [ready_checker.py:69]     raise last_exc
+WARNING 01-27 16:32:54 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1580, in _create_direct_connection
+WARNING 01-27 16:32:54 [ready_checker.py:69]     transp, proto = await self._wrap_create_connection(
+WARNING 01-27 16:32:54 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1321, in _wrap_create_connection
+WARNING 01-27 16:32:54 [ready_checker.py:69]     raise client_error(req.connection_key, exc) from exc
+WARNING 01-27 16:32:54 [ready_checker.py:69] aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
+WARNING 01-27 16:32:54 [ready_checker.py:69] '
+WARNING 01-27 16:32:59 [ready_checker.py:69] Endpoint is not ready. Error='Traceback (most recent call last):
+WARNING 01-27 16:32:59 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1298, in _wrap_create_connection
+WARNING 01-27 16:32:59 [ready_checker.py:69]     sock = await aiohappyeyeballs.start_connection(
+WARNING 01-27 16:32:59 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 122, in start_connection
+WARNING 01-27 16:32:59 [ready_checker.py:69]     raise first_exception
+WARNING 01-27 16:32:59 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 73, in start_connection
+WARNING 01-27 16:32:59 [ready_checker.py:69]     sock = await _connect_sock(
+WARNING 01-27 16:32:59 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 208, in _connect_sock
+WARNING 01-27 16:32:59 [ready_checker.py:69]     await loop.sock_connect(sock, address)
+WARNING 01-27 16:32:59 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 501, in sock_connect
+WARNING 01-27 16:32:59 [ready_checker.py:69]     return await fut
+WARNING 01-27 16:32:59 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 541, in _sock_connect_cb
+WARNING 01-27 16:32:59 [ready_checker.py:69]     raise OSError(err, f'Connect call failed {address}')
+WARNING 01-27 16:32:59 [ready_checker.py:69] ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8000)
+WARNING 01-27 16:32:59 [ready_checker.py:69] 
+WARNING 01-27 16:32:59 [ready_checker.py:69] The above exception was the direct cause of the following exception:
+WARNING 01-27 16:32:59 [ready_checker.py:69] 
+WARNING 01-27 16:32:59 [ready_checker.py:69] Traceback (most recent call last):
+WARNING 01-27 16:32:59 [ready_checker.py:69]   File "/home/shadeform/code/vllm/vllm/benchmarks/lib/endpoint_request_func.py", line 187, in async_request_openai_completions
+WARNING 01-27 16:32:59 [ready_checker.py:69]     async with session.post(url=api_url, json=payload, headers=headers) as response:
+WARNING 01-27 16:32:59 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 1510, in __aenter__
+WARNING 01-27 16:32:59 [ready_checker.py:69]     self._resp: _RetType = await self._coro
+WARNING 01-27 16:32:59 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 779, in _request
+WARNING 01-27 16:32:59 [ready_checker.py:69]     resp = await handler(req)
+WARNING 01-27 16:32:59 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 734, in _connect_and_send_request
+WARNING 01-27 16:32:59 [ready_checker.py:69]     conn = await self._connector.connect(
+WARNING 01-27 16:32:59 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 672, in connect
+WARNING 01-27 16:32:59 [ready_checker.py:69]     proto = await self._create_connection(req, traces, timeout)
+WARNING 01-27 16:32:59 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1239, in _create_connection
+WARNING 01-27 16:32:59 [ready_checker.py:69]     _, proto = await self._create_direct_connection(req, traces, timeout)
+WARNING 01-27 16:32:59 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1611, in _create_direct_connection
+WARNING 01-27 16:32:59 [ready_checker.py:69]     raise last_exc
+WARNING 01-27 16:32:59 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1580, in _create_direct_connection
+WARNING 01-27 16:32:59 [ready_checker.py:69]     transp, proto = await self._wrap_create_connection(
+WARNING 01-27 16:32:59 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1321, in _wrap_create_connection
+WARNING 01-27 16:32:59 [ready_checker.py:69]     raise client_error(req.connection_key, exc) from exc
+WARNING 01-27 16:32:59 [ready_checker.py:69] aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
+WARNING 01-27 16:32:59 [ready_checker.py:69] '
+WARNING 01-27 16:33:04 [ready_checker.py:69] Endpoint is not ready. Error='Traceback (most recent call last):
+WARNING 01-27 16:33:04 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1298, in _wrap_create_connection
+WARNING 01-27 16:33:04 [ready_checker.py:69]     sock = await aiohappyeyeballs.start_connection(
+WARNING 01-27 16:33:04 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 122, in start_connection
+WARNING 01-27 16:33:04 [ready_checker.py:69]     raise first_exception
+WARNING 01-27 16:33:04 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 73, in start_connection
+WARNING 01-27 16:33:04 [ready_checker.py:69]     sock = await _connect_sock(
+WARNING 01-27 16:33:04 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 208, in _connect_sock
+WARNING 01-27 16:33:04 [ready_checker.py:69]     await loop.sock_connect(sock, address)
+WARNING 01-27 16:33:04 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 501, in sock_connect
+WARNING 01-27 16:33:04 [ready_checker.py:69]     return await fut
+WARNING 01-27 16:33:04 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 541, in _sock_connect_cb
+WARNING 01-27 16:33:04 [ready_checker.py:69]     raise OSError(err, f'Connect call failed {address}')
+WARNING 01-27 16:33:04 [ready_checker.py:69] ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8000)
+WARNING 01-27 16:33:04 [ready_checker.py:69] 
+WARNING 01-27 16:33:04 [ready_checker.py:69] The above exception was the direct cause of the following exception:
+WARNING 01-27 16:33:04 [ready_checker.py:69] 
+WARNING 01-27 16:33:04 [ready_checker.py:69] Traceback (most recent call last):
+WARNING 01-27 16:33:04 [ready_checker.py:69]   File "/home/shadeform/code/vllm/vllm/benchmarks/lib/endpoint_request_func.py", line 187, in async_request_openai_completions
+WARNING 01-27 16:33:04 [ready_checker.py:69]     async with session.post(url=api_url, json=payload, headers=headers) as response:
+WARNING 01-27 16:33:04 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 1510, in __aenter__
+WARNING 01-27 16:33:04 [ready_checker.py:69]     self._resp: _RetType = await self._coro
+WARNING 01-27 16:33:04 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 779, in _request
+WARNING 01-27 16:33:04 [ready_checker.py:69]     resp = await handler(req)
+WARNING 01-27 16:33:04 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 734, in _connect_and_send_request
+WARNING 01-27 16:33:04 [ready_checker.py:69]     conn = await self._connector.connect(
+WARNING 01-27 16:33:04 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 672, in connect
+WARNING 01-27 16:33:04 [ready_checker.py:69]     proto = await self._create_connection(req, traces, timeout)
+WARNING 01-27 16:33:04 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1239, in _create_connection
+WARNING 01-27 16:33:04 [ready_checker.py:69]     _, proto = await self._create_direct_connection(req, traces, timeout)
+WARNING 01-27 16:33:04 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1611, in _create_direct_connection
+WARNING 01-27 16:33:04 [ready_checker.py:69]     raise last_exc
+WARNING 01-27 16:33:04 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1580, in _create_direct_connection
+WARNING 01-27 16:33:04 [ready_checker.py:69]     transp, proto = await self._wrap_create_connection(
+WARNING 01-27 16:33:04 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1321, in _wrap_create_connection
+WARNING 01-27 16:33:04 [ready_checker.py:69]     raise client_error(req.connection_key, exc) from exc
+WARNING 01-27 16:33:04 [ready_checker.py:69] aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
+WARNING 01-27 16:33:04 [ready_checker.py:69] '
+WARNING 01-27 16:33:09 [ready_checker.py:69] Endpoint is not ready. Error='Traceback (most recent call last):
+WARNING 01-27 16:33:09 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1298, in _wrap_create_connection
+WARNING 01-27 16:33:09 [ready_checker.py:69]     sock = await aiohappyeyeballs.start_connection(
+WARNING 01-27 16:33:09 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 122, in start_connection
+WARNING 01-27 16:33:09 [ready_checker.py:69]     raise first_exception
+WARNING 01-27 16:33:09 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 73, in start_connection
+WARNING 01-27 16:33:09 [ready_checker.py:69]     sock = await _connect_sock(
+WARNING 01-27 16:33:09 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 208, in _connect_sock
+WARNING 01-27 16:33:09 [ready_checker.py:69]     await loop.sock_connect(sock, address)
+WARNING 01-27 16:33:09 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 501, in sock_connect
+WARNING 01-27 16:33:09 [ready_checker.py:69]     return await fut
+WARNING 01-27 16:33:09 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 541, in _sock_connect_cb
+WARNING 01-27 16:33:09 [ready_checker.py:69]     raise OSError(err, f'Connect call failed {address}')
+WARNING 01-27 16:33:09 [ready_checker.py:69] ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8000)
+WARNING 01-27 16:33:09 [ready_checker.py:69] 
+WARNING 01-27 16:33:09 [ready_checker.py:69] The above exception was the direct cause of the following exception:
+WARNING 01-27 16:33:09 [ready_checker.py:69] 
+WARNING 01-27 16:33:09 [ready_checker.py:69] Traceback (most recent call last):
+WARNING 01-27 16:33:09 [ready_checker.py:69]   File "/home/shadeform/code/vllm/vllm/benchmarks/lib/endpoint_request_func.py", line 187, in async_request_openai_completions
+WARNING 01-27 16:33:09 [ready_checker.py:69]     async with session.post(url=api_url, json=payload, headers=headers) as response:
+WARNING 01-27 16:33:09 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 1510, in __aenter__
+WARNING 01-27 16:33:09 [ready_checker.py:69]     self._resp: _RetType = await self._coro
+WARNING 01-27 16:33:09 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 779, in _request
+WARNING 01-27 16:33:09 [ready_checker.py:69]     resp = await handler(req)
+WARNING 01-27 16:33:09 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 734, in _connect_and_send_request
+WARNING 01-27 16:33:09 [ready_checker.py:69]     conn = await self._connector.connect(
+WARNING 01-27 16:33:09 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 672, in connect
+WARNING 01-27 16:33:09 [ready_checker.py:69]     proto = await self._create_connection(req, traces, timeout)
+WARNING 01-27 16:33:09 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1239, in _create_connection
+WARNING 01-27 16:33:09 [ready_checker.py:69]     _, proto = await self._create_direct_connection(req, traces, timeout)
+WARNING 01-27 16:33:09 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1611, in _create_direct_connection
+WARNING 01-27 16:33:09 [ready_checker.py:69]     raise last_exc
+WARNING 01-27 16:33:09 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1580, in _create_direct_connection
+WARNING 01-27 16:33:09 [ready_checker.py:69]     transp, proto = await self._wrap_create_connection(
+WARNING 01-27 16:33:09 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1321, in _wrap_create_connection
+WARNING 01-27 16:33:09 [ready_checker.py:69]     raise client_error(req.connection_key, exc) from exc
+WARNING 01-27 16:33:09 [ready_checker.py:69] aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
+WARNING 01-27 16:33:09 [ready_checker.py:69] '
+WARNING 01-27 16:33:14 [ready_checker.py:69] Endpoint is not ready. Error='Traceback (most recent call last):
+WARNING 01-27 16:33:14 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1298, in _wrap_create_connection
+WARNING 01-27 16:33:14 [ready_checker.py:69]     sock = await aiohappyeyeballs.start_connection(
+WARNING 01-27 16:33:14 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 122, in start_connection
+WARNING 01-27 16:33:14 [ready_checker.py:69]     raise first_exception
+WARNING 01-27 16:33:14 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 73, in start_connection
+WARNING 01-27 16:33:14 [ready_checker.py:69]     sock = await _connect_sock(
+WARNING 01-27 16:33:14 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 208, in _connect_sock
+WARNING 01-27 16:33:14 [ready_checker.py:69]     await loop.sock_connect(sock, address)
+WARNING 01-27 16:33:14 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 501, in sock_connect
+WARNING 01-27 16:33:14 [ready_checker.py:69]     return await fut
+WARNING 01-27 16:33:14 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 541, in _sock_connect_cb
+WARNING 01-27 16:33:14 [ready_checker.py:69]     raise OSError(err, f'Connect call failed {address}')
+WARNING 01-27 16:33:14 [ready_checker.py:69] ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8000)
+WARNING 01-27 16:33:14 [ready_checker.py:69] 
+WARNING 01-27 16:33:14 [ready_checker.py:69] The above exception was the direct cause of the following exception:
+WARNING 01-27 16:33:14 [ready_checker.py:69] 
+WARNING 01-27 16:33:14 [ready_checker.py:69] Traceback (most recent call last):
+WARNING 01-27 16:33:14 [ready_checker.py:69]   File "/home/shadeform/code/vllm/vllm/benchmarks/lib/endpoint_request_func.py", line 187, in async_request_openai_completions
+WARNING 01-27 16:33:14 [ready_checker.py:69]     async with session.post(url=api_url, json=payload, headers=headers) as response:
+WARNING 01-27 16:33:14 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 1510, in __aenter__
+WARNING 01-27 16:33:14 [ready_checker.py:69]     self._resp: _RetType = await self._coro
+WARNING 01-27 16:33:14 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 779, in _request
+WARNING 01-27 16:33:14 [ready_checker.py:69]     resp = await handler(req)
+WARNING 01-27 16:33:14 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 734, in _connect_and_send_request
+WARNING 01-27 16:33:14 [ready_checker.py:69]     conn = await self._connector.connect(
+WARNING 01-27 16:33:14 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 672, in connect
+WARNING 01-27 16:33:14 [ready_checker.py:69]     proto = await self._create_connection(req, traces, timeout)
+WARNING 01-27 16:33:14 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1239, in _create_connection
+WARNING 01-27 16:33:14 [ready_checker.py:69]     _, proto = await self._create_direct_connection(req, traces, timeout)
+WARNING 01-27 16:33:14 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1611, in _create_direct_connection
+WARNING 01-27 16:33:14 [ready_checker.py:69]     raise last_exc
+WARNING 01-27 16:33:14 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1580, in _create_direct_connection
+WARNING 01-27 16:33:14 [ready_checker.py:69]     transp, proto = await self._wrap_create_connection(
+WARNING 01-27 16:33:14 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1321, in _wrap_create_connection
+WARNING 01-27 16:33:14 [ready_checker.py:69]     raise client_error(req.connection_key, exc) from exc
+WARNING 01-27 16:33:14 [ready_checker.py:69] aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
+WARNING 01-27 16:33:14 [ready_checker.py:69] '
+WARNING 01-27 16:33:19 [ready_checker.py:69] Endpoint is not ready. Error='Traceback (most recent call last):
+WARNING 01-27 16:33:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1298, in _wrap_create_connection
+WARNING 01-27 16:33:19 [ready_checker.py:69]     sock = await aiohappyeyeballs.start_connection(
+WARNING 01-27 16:33:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 122, in start_connection
+WARNING 01-27 16:33:19 [ready_checker.py:69]     raise first_exception
+WARNING 01-27 16:33:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 73, in start_connection
+WARNING 01-27 16:33:19 [ready_checker.py:69]     sock = await _connect_sock(
+WARNING 01-27 16:33:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 208, in _connect_sock
+WARNING 01-27 16:33:19 [ready_checker.py:69]     await loop.sock_connect(sock, address)
+WARNING 01-27 16:33:19 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 501, in sock_connect
+WARNING 01-27 16:33:19 [ready_checker.py:69]     return await fut
+WARNING 01-27 16:33:19 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 541, in _sock_connect_cb
+WARNING 01-27 16:33:19 [ready_checker.py:69]     raise OSError(err, f'Connect call failed {address}')
+WARNING 01-27 16:33:19 [ready_checker.py:69] ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8000)
+WARNING 01-27 16:33:19 [ready_checker.py:69] 
+WARNING 01-27 16:33:19 [ready_checker.py:69] The above exception was the direct cause of the following exception:
+WARNING 01-27 16:33:19 [ready_checker.py:69] 
+WARNING 01-27 16:33:19 [ready_checker.py:69] Traceback (most recent call last):
+WARNING 01-27 16:33:19 [ready_checker.py:69]   File "/home/shadeform/code/vllm/vllm/benchmarks/lib/endpoint_request_func.py", line 187, in async_request_openai_completions
+WARNING 01-27 16:33:19 [ready_checker.py:69]     async with session.post(url=api_url, json=payload, headers=headers) as response:
+WARNING 01-27 16:33:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 1510, in __aenter__
+WARNING 01-27 16:33:19 [ready_checker.py:69]     self._resp: _RetType = await self._coro
+WARNING 01-27 16:33:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 779, in _request
+WARNING 01-27 16:33:19 [ready_checker.py:69]     resp = await handler(req)
+WARNING 01-27 16:33:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 734, in _connect_and_send_request
+WARNING 01-27 16:33:19 [ready_checker.py:69]     conn = await self._connector.connect(
+WARNING 01-27 16:33:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 672, in connect
+WARNING 01-27 16:33:19 [ready_checker.py:69]     proto = await self._create_connection(req, traces, timeout)
+WARNING 01-27 16:33:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1239, in _create_connection
+WARNING 01-27 16:33:19 [ready_checker.py:69]     _, proto = await self._create_direct_connection(req, traces, timeout)
+WARNING 01-27 16:33:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1611, in _create_direct_connection
+WARNING 01-27 16:33:19 [ready_checker.py:69]     raise last_exc
+WARNING 01-27 16:33:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1580, in _create_direct_connection
+WARNING 01-27 16:33:19 [ready_checker.py:69]     transp, proto = await self._wrap_create_connection(
+WARNING 01-27 16:33:19 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1321, in _wrap_create_connection
+WARNING 01-27 16:33:19 [ready_checker.py:69]     raise client_error(req.connection_key, exc) from exc
+WARNING 01-27 16:33:19 [ready_checker.py:69] aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
+WARNING 01-27 16:33:19 [ready_checker.py:69] '
+WARNING 01-27 16:33:24 [ready_checker.py:69] Endpoint is not ready. Error='Traceback (most recent call last):
+WARNING 01-27 16:33:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1298, in _wrap_create_connection
+WARNING 01-27 16:33:24 [ready_checker.py:69]     sock = await aiohappyeyeballs.start_connection(
+WARNING 01-27 16:33:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 122, in start_connection
+WARNING 01-27 16:33:24 [ready_checker.py:69]     raise first_exception
+WARNING 01-27 16:33:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 73, in start_connection
+WARNING 01-27 16:33:24 [ready_checker.py:69]     sock = await _connect_sock(
+WARNING 01-27 16:33:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 208, in _connect_sock
+WARNING 01-27 16:33:24 [ready_checker.py:69]     await loop.sock_connect(sock, address)
+WARNING 01-27 16:33:24 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 501, in sock_connect
+WARNING 01-27 16:33:24 [ready_checker.py:69]     return await fut
+WARNING 01-27 16:33:24 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 541, in _sock_connect_cb
+WARNING 01-27 16:33:24 [ready_checker.py:69]     raise OSError(err, f'Connect call failed {address}')
+WARNING 01-27 16:33:24 [ready_checker.py:69] ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8000)
+WARNING 01-27 16:33:24 [ready_checker.py:69] 
+WARNING 01-27 16:33:24 [ready_checker.py:69] The above exception was the direct cause of the following exception:
+WARNING 01-27 16:33:24 [ready_checker.py:69] 
+WARNING 01-27 16:33:24 [ready_checker.py:69] Traceback (most recent call last):
+WARNING 01-27 16:33:24 [ready_checker.py:69]   File "/home/shadeform/code/vllm/vllm/benchmarks/lib/endpoint_request_func.py", line 187, in async_request_openai_completions
+WARNING 01-27 16:33:24 [ready_checker.py:69]     async with session.post(url=api_url, json=payload, headers=headers) as response:
+WARNING 01-27 16:33:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 1510, in __aenter__
+WARNING 01-27 16:33:24 [ready_checker.py:69]     self._resp: _RetType = await self._coro
+WARNING 01-27 16:33:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 779, in _request
+WARNING 01-27 16:33:24 [ready_checker.py:69]     resp = await handler(req)
+WARNING 01-27 16:33:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 734, in _connect_and_send_request
+WARNING 01-27 16:33:24 [ready_checker.py:69]     conn = await self._connector.connect(
+WARNING 01-27 16:33:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 672, in connect
+WARNING 01-27 16:33:24 [ready_checker.py:69]     proto = await self._create_connection(req, traces, timeout)
+WARNING 01-27 16:33:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1239, in _create_connection
+WARNING 01-27 16:33:24 [ready_checker.py:69]     _, proto = await self._create_direct_connection(req, traces, timeout)
+WARNING 01-27 16:33:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1611, in _create_direct_connection
+WARNING 01-27 16:33:24 [ready_checker.py:69]     raise last_exc
+WARNING 01-27 16:33:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1580, in _create_direct_connection
+WARNING 01-27 16:33:24 [ready_checker.py:69]     transp, proto = await self._wrap_create_connection(
+WARNING 01-27 16:33:24 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1321, in _wrap_create_connection
+WARNING 01-27 16:33:24 [ready_checker.py:69]     raise client_error(req.connection_key, exc) from exc
+WARNING 01-27 16:33:24 [ready_checker.py:69] aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
+WARNING 01-27 16:33:24 [ready_checker.py:69] '
+WARNING 01-27 16:33:29 [ready_checker.py:69] Endpoint is not ready. Error='Traceback (most recent call last):
+WARNING 01-27 16:33:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1298, in _wrap_create_connection
+WARNING 01-27 16:33:29 [ready_checker.py:69]     sock = await aiohappyeyeballs.start_connection(
+WARNING 01-27 16:33:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 122, in start_connection
+WARNING 01-27 16:33:29 [ready_checker.py:69]     raise first_exception
+WARNING 01-27 16:33:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 73, in start_connection
+WARNING 01-27 16:33:29 [ready_checker.py:69]     sock = await _connect_sock(
+WARNING 01-27 16:33:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohappyeyeballs/impl.py", line 208, in _connect_sock
+WARNING 01-27 16:33:29 [ready_checker.py:69]     await loop.sock_connect(sock, address)
+WARNING 01-27 16:33:29 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 501, in sock_connect
+WARNING 01-27 16:33:29 [ready_checker.py:69]     return await fut
+WARNING 01-27 16:33:29 [ready_checker.py:69]   File "/usr/lib/python3.10/asyncio/selector_events.py", line 541, in _sock_connect_cb
+WARNING 01-27 16:33:29 [ready_checker.py:69]     raise OSError(err, f'Connect call failed {address}')
+WARNING 01-27 16:33:29 [ready_checker.py:69] ConnectionRefusedError: [Errno 111] Connect call failed ('127.0.0.1', 8000)
+WARNING 01-27 16:33:29 [ready_checker.py:69] 
+WARNING 01-27 16:33:29 [ready_checker.py:69] The above exception was the direct cause of the following exception:
+WARNING 01-27 16:33:29 [ready_checker.py:69] 
+WARNING 01-27 16:33:29 [ready_checker.py:69] Traceback (most recent call last):
+WARNING 01-27 16:33:29 [ready_checker.py:69]   File "/home/shadeform/code/vllm/vllm/benchmarks/lib/endpoint_request_func.py", line 187, in async_request_openai_completions
+WARNING 01-27 16:33:29 [ready_checker.py:69]     async with session.post(url=api_url, json=payload, headers=headers) as response:
+WARNING 01-27 16:33:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 1510, in __aenter__
+WARNING 01-27 16:33:29 [ready_checker.py:69]     self._resp: _RetType = await self._coro
+WARNING 01-27 16:33:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 779, in _request
+WARNING 01-27 16:33:29 [ready_checker.py:69]     resp = await handler(req)
+WARNING 01-27 16:33:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/client.py", line 734, in _connect_and_send_request
+WARNING 01-27 16:33:29 [ready_checker.py:69]     conn = await self._connector.connect(
+WARNING 01-27 16:33:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 672, in connect
+WARNING 01-27 16:33:29 [ready_checker.py:69]     proto = await self._create_connection(req, traces, timeout)
+WARNING 01-27 16:33:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1239, in _create_connection
+WARNING 01-27 16:33:29 [ready_checker.py:69]     _, proto = await self._create_direct_connection(req, traces, timeout)
+WARNING 01-27 16:33:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1611, in _create_direct_connection
+WARNING 01-27 16:33:29 [ready_checker.py:69]     raise last_exc
+WARNING 01-27 16:33:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1580, in _create_direct_connection
+WARNING 01-27 16:33:29 [ready_checker.py:69]     transp, proto = await self._wrap_create_connection(
+WARNING 01-27 16:33:29 [ready_checker.py:69]   File "/home/shadeform/.venv/lib/python3.10/site-packages/aiohttp/connector.py", line 1321, in _wrap_create_connection
+WARNING 01-27 16:33:29 [ready_checker.py:69]     raise client_error(req.connection_key, exc) from exc
+WARNING 01-27 16:33:29 [ready_checker.py:69] aiohttp.client_exceptions.ClientConnectorError: Cannot connect to host 127.0.0.1:8000 ssl:default [Connect call failed ('127.0.0.1', 8000)]
+WARNING 01-27 16:33:29 [ready_checker.py:69] '
+Initial test run completed.
+Starting main benchmark run...
+Traffic request rate: 1.0
+Burstiness factor: 1.0 (Poisson process)
+Maximum request concurrency: 1
+tip: install termplotlib and gnuplot to plot the metrics
+============ Serving Benchmark Result ============
+Successful requests:                     50        
+Failed requests:                         0         
+Maximum request concurrency:             1         
+Request rate configured (RPS):           1.00      
+Benchmark duration (s):                  109.62    
+Total input tokens:                      8501      
+Total generated tokens:                  7315      
+Request throughput (req/s):              0.46      
+Output token throughput (tok/s):         66.73     
+Peak output token throughput (tok/s):    19.00     
+Peak concurrent requests:                3.00      
+Total token throughput (tok/s):          144.28    
+---------------Time to First Token----------------
+Mean TTFT (ms):                          126.60    
+Median TTFT (ms):                        127.19    
+P99 TTFT (ms):                           154.15    
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          13.93     
+Median TPOT (ms):                        13.01     
+P99 TPOT (ms):                           25.07     
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           53.28     
+Median ITL (ms):                         53.28     
+P99 ITL (ms):                            53.78     
+---------------Speculative Decoding---------------
+Acceptance rate (%):                     35.15     
+Acceptance length:                       3.81      
+Drafts:                                  1924      
+Draft tokens:                            15392     
+Accepted tokens:                         5410      
+Per-position acceptance (%):
+  Position 0:                            74.12     
+  Position 1:                            56.44     
+  Position 2:                            42.78     
+  Position 3:                            32.22     
+  Position 4:                            25.94     
+  Position 5:                            20.11     
+  Position 6:                            16.63     
+  Position 7:                            12.94     
+==================================================
