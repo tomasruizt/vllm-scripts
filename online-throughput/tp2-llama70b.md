@@ -43,6 +43,7 @@ benchmark:
 
 ```shell
 # Run benchmark (has built-in wait mechanism)
+METHOD=eagle3
 for MAX_CONCURRENCY in 1 2 4 8 16 32 64; do
 
   NUM_PROMPTS=$(( MAX_CONCURRENCY * 10 ))
@@ -60,6 +61,6 @@ for MAX_CONCURRENCY in 1 2 4 8 16 32 64; do
     --request-rate $MAX_CONCURRENCY \
     --temperature 0.0 \
     --top-p 1.0 \
-    --ready-check-timeout-sec 600 | tee tp-results/bench-eagle3-c$MAX_CONCURRENCY.log
+    --ready-check-timeout-sec 600 | tee tp-results/bench-$METHOD-c$MAX_CONCURRENCY.log
 done
 ```
