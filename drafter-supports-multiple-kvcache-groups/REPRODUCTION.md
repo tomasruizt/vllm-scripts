@@ -191,6 +191,53 @@ vllm bench serve \
 
 ---
 
+## Profiling (GPT-OSS)
+
+Used to investigate the performance gap between standalone and spec decode execution.
+
+### Standalone Model (gpt-oss-120b)
+
+```bash
+# Start server
+vllm serve openai/gpt-oss-120b \
+  --port 8000 \
+  --no-enable-prefix-caching
+
+# Profile with single request from mt-bench
+vllm bench serve \
+  --model openai/gpt-oss-120b \
+  --dataset-name hf \
+  --dataset-path philschmid/mt-bench \
+  --num-prompts 1 \
+  --output-len 10 \
+  --profile \
+  --endpoint /v1/completions
+```
+
+### Spec Decode (gpt-oss-120b + gpt-oss-20b)
+
+```bash
+# Start server with spec decode
+vllm serve openai/gpt-oss-120b \
+  --port 8000 \
+  --no-enable-prefix-caching \
+  --speculative-config '{"method": "draft_model", "model": "openai/gpt-oss-20b", "num_speculative_tokens": 3}'
+
+# Profile with single request from mt-bench
+vllm bench serve \
+  --model openai/gpt-oss-120b \
+  --dataset-name hf \
+  --dataset-path philschmid/mt-bench \
+  --num-prompts 1 \
+  --output-len 10 \
+  --profile \
+  --endpoint /v1/completions
+```
+
+The `--profile` flag generates PyTorch profiler output. Profiles are saved to `./profiles/` by default.
+
+---
+
 ## Notes
 
 - **Prefix caching** is disabled (`--no-enable-prefix-caching`) to ensure fair benchmark comparisons across runs

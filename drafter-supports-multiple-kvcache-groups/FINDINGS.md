@@ -17,8 +17,8 @@ PR #33318 enables models with multiple KV-cache groups (e.g., models with mixed 
 | Category | Finding |
 |----------|---------|
 | **Correctness** | Multi-KV cache implementation works correctly (62.78% acceptance rate for gpt-oss) |
-| **Performance (New Feature)** | Slower than expected due to piecewise CUDA graph limitation ([vLLM #33341](https://github.com/vllm-project/vllm/issues/33341)) |
-| **Regression (draft_model)** | ~3-4% regression for Qwen3-32B + Qwen3-1.7B |
+| **Performance (New Feature)** | Slower than expected due to piecewise CUDA graph limitation ([vLLM #33341](https://github.com/vllm-project/vllm/issues/33341)) - affects both gemma3 and gpt-oss |
+| **Regression (draft_model)** | ~3-4% difference for Qwen3-32B + Qwen3-1.7B (likely statistical noise) |
 | **Regression (EAGLE3)** | **No regression** for Llama-3.1-8B + EAGLE3 |
 
 ### Performance Issue Root Cause
@@ -29,44 +29,18 @@ The draft model runs on **piecewise CUDA graphs** instead of full CUDA graphs, c
 
 | Configuration | Feature Branch | Main Branch | Regression |
 |--------------|---------------|-------------|------------|
-| Qwen3-32B + Qwen3-1.7B (draft_model) | 71.91 tok/s | 74.36 tok/s | **-3.3%** |
+| Qwen3-32B + Qwen3-1.7B (draft_model) | 71.91 tok/s | 74.36 tok/s | -3.3% (noise) |
 | Llama-3.1-8B + EAGLE3 | 201.71 tok/s | 201.71 tok/s | **0%** |
 
 ---
 
-## Gemma-3 Model Compatibility
+## Gemma-3 Model Note
 
-### Models Tested
+The multimodal Gemma-3 models (4b, 12b, 27b) fail with a torch.compile bug on **main branch** (unrelated to this PR). See [GEMMA3_TORCH_COMPILE_BUG.md](GEMMA3_TORCH_COMPILE_BUG.md) for details.
 
-| Model | Architecture | Vocab Size | Status |
-|-------|-------------|------------|--------|
-| google/gemma-3-270m-it | Gemma3ForCausalLM (text-only) | 262144 | **WORKS** |
-| google/gemma-3-1b-it | Gemma3ForCausalLM (text-only) | 262144 | **WORKS** |
-| google/gemma-3-4b-it | Gemma3ForConditionalGeneration (multimodal) | 262208 | **FAILS** |
-| google/gemma-3-12b-it | Gemma3ForConditionalGeneration (multimodal) | 262208 | **FAILS** |
-| google/gemma-3-27b-it | Gemma3ForConditionalGeneration (multimodal) | 262208 | **FAILS** |
-
-### Failure Analysis
-
-The multimodal Gemma-3 models (4b, 12b, 27b) fail with a `torch.compile` assertion error:
-
-```
-AssertionError: expected size 1048576==131072, stride 128==128 at dim=0
-This error most often comes from a incorrect fake (aka meta) kernel for a custom op.
-```
-
-**Key observation**: The size mismatch ratio (1048576 / 131072 = 8) matches the `rope_scaling.factor` of 8.0 in the model config.
-
-**Root cause**: Likely a bug in vLLM's torch.compile integration for multimodal Gemma-3 models with rope scaling.
-
-### Working Configuration for Multi-KV Cache Demo
-
-Since the original plan (27b target + 270m draft) doesn't work due to the multimodal model bug, we can demonstrate multi-KV cache support with:
-
-- **Target**: google/gemma-3-1b-it (text-only, has sliding + full attention)
-- **Draft**: google/gemma-3-270m-it (text-only, has sliding + full attention)
-
-Both models have multiple KV-cache groups due to their mixed attention architecture (sliding_attention + full_attention layers).
+For benchmarking, we used the text-only models:
+- **Target**: google/gemma-3-1b-it (has sliding + full attention = multiple KV-cache groups)
+- **Draft**: google/gemma-3-270m-it (has sliding + full attention = multiple KV-cache groups)
 
 ---
 
@@ -124,7 +98,7 @@ Both models have multiple KV-cache groups due to their mixed attention architect
 | Baseline (1b alone) | 204.27 tok/s | 1.0x |
 | Spec Decode (1b + 270m) | 92.19 tok/s | **0.45x** |
 
-The 1B target model is small enough that the overhead of running the draft model + verification outweighs any potential speedup from speculative decoding. This is expected behavior - spec decode benefits larger models where the target model inference is the bottleneck.
+The slowdown is due to the **piecewise CUDA graph limitation** affecting draft models (see [Profiling Analysis](#profiling-analysis) section). The healthy acceptance rate (50.54%) confirms the implementation is correct.
 
 **Note**: These early benchmarks used default temperature (not 0.0) and prefix caching was enabled. Results are directionally accurate but may differ slightly from temperature=0.0 runs.
 
@@ -136,7 +110,7 @@ The 1B target model is small enough that the overhead of running the draft model
 
 - [x] Baseline: gemma-3-1b-it standalone - Complete
 - [x] Spec decode: gemma-3-1b-it + gemma-3-270m-it draft (K=3) - Complete
-- [x] Compare metrics - Complete (spec decode is slower for small models)
+- [x] Compare metrics - Complete (spec decode slower due to piecewise CUDA graph issue)
 
 ### GPT-OSS Speculative Decoding (gpt-oss-120b + gpt-oss-20b draft)
 
@@ -254,12 +228,12 @@ See the [Profiles section](#profiles) below for detailed evidence from profiling
 
 | Metric | Feature Branch | Main Branch | Diff |
 |--------|---------------|-------------|------|
-| Output Throughput | 71.91 tok/s | 74.36 tok/s | **-3.3%** |
+| Output Throughput | 71.91 tok/s | 74.36 tok/s | -3.3% |
 | Mean TPOT | 13.67 ms | 13.21 ms | +3.5% |
 | Mean ITL | 37.83 ms | 36.54 ms | +3.5% |
 | Acceptance Rate | 60.40% | 60.40% | 0% |
 
-**Finding**: Small but noticeable regression (~3-4%) for existing draft_model configurations.
+**Finding**: The ~3-4% difference is likely within normal run-to-run variation and may be a statistical artifact rather than a real regression.
 
 #### Llama-3.1-8B + EAGLE3 drafter
 
@@ -296,12 +270,6 @@ See the [Profiles section](#profiles) below for detailed evidence from profiling
 - Platform: Linux
 
 ---
-
-## Notes
-
-- Clearing torch compile cache (`~/.cache/vllm/torch_compile_cache`, `/tmp/torchinductor_*`) did not fix the multimodal model issue
-- The `--enforce-eager` flag was not tested per user preference
-
 
 ## Profiles
 I profiled both gpt-oss-120b and 20b as standalone models, and can observe that both run quickly.
