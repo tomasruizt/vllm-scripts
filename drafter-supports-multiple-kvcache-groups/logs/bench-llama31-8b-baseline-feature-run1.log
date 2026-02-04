@@ -1,0 +1,36 @@
+WARNING 02-04 14:21:09 [__init__.py:144] xccl is not enabled in this torch build, communication is not available.
+Namespace(subparser='bench', bench_type='serve', dispatch_function=<function BenchmarkServingSubcommand.cmd at 0x7f4616d087c0>, seed=0, num_prompts=50, dataset_name='hf', no_stream=False, dataset_path='philschmid/mt-bench', no_oversample=False, skip_chat_template=False, enable_multimodal_chat=False, disable_shuffle=False, custom_output_len=256, spec_bench_output_len=256, spec_bench_category=None, sonnet_input_len=550, sonnet_output_len=150, sonnet_prefix_len=200, sharegpt_output_len=None, blazedit_min_distance=0.0, blazedit_max_distance=1.0, random_input_len=1024, random_output_len=128, random_range_ratio=0.0, random_prefix_len=0, random_batch_size=1, no_reranker=False, random_mm_base_items_per_request=1, random_mm_num_mm_items_range_ratio=0.0, random_mm_limit_mm_per_prompt={'image': 255, 'video': 1}, random_mm_bucket_config={(256, 256, 1): 0.5, (720, 1280, 1): 0.5, (720, 1280, 16): 0.0}, hf_subset=None, hf_split=None, hf_name=None, hf_output_len=None, prefix_repetition_prefix_len=256, prefix_repetition_suffix_len=256, prefix_repetition_num_prefixes=10, prefix_repetition_output_len=128, label=None, backend='openai-chat', base_url=None, host='127.0.0.1', port=8000, endpoint='/v1/chat/completions', header=None, max_concurrency=1, model='meta-llama/Llama-3.1-8B-Instruct', input_len=None, output_len=None, tokenizer=None, tokenizer_mode='auto', use_beam_search=False, logprobs=None, request_rate=1.0, burstiness=1.0, trust_remote_code=False, disable_tqdm=False, num_warmups=0, profile=False, save_result=False, save_detailed=False, append_result=False, metadata=None, result_dir=None, result_filename=None, ignore_eos=False, percentile_metrics=None, metric_percentiles='99', goodput=None, request_id_prefix='bench-e009c954-', top_p=1.0, top_k=None, min_p=None, temperature=0.0, frequency_penalty=None, presence_penalty=None, repetition_penalty=None, served_model_name=None, lora_modules=None, ramp_up_strategy=None, ramp_up_start_rps=None, ramp_up_end_rps=None, ready_check_timeout_sec=0, extra_body=None)
+Starting initial single prompt test run...
+Skipping endpoint ready check.
+Starting main benchmark run...
+Traffic request rate: 1.0
+Burstiness factor: 1.0 (Poisson process)
+Maximum request concurrency: 1
+  0%|          | 0/50 [00:00<?, ?it/s]  2%|▏         | 1/50 [00:01<01:21,  1.67s/it]  4%|▍         | 2/50 [00:03<01:17,  1.61s/it]  6%|▌         | 3/50 [00:04<01:08,  1.47s/it]  8%|▊         | 4/50 [00:05<01:04,  1.40s/it] 10%|█         | 5/50 [00:06<00:49,  1.09s/it] 12%|█▏        | 6/50 [00:07<00:51,  1.16s/it] 14%|█▍        | 7/50 [00:08<00:51,  1.20s/it] 16%|█▌        | 8/50 [00:09<00:48,  1.14s/it] 18%|█▊        | 9/50 [00:11<00:48,  1.19s/it] 20%|██        | 10/50 [00:12<00:51,  1.28s/it] 22%|██▏       | 11/50 [00:14<00:52,  1.35s/it] 24%|██▍       | 12/50 [00:14<00:40,  1.06s/it] 26%|██▌       | 13/50 [00:15<00:41,  1.13s/it] 28%|██▊       | 14/50 [00:18<00:53,  1.49s/it] 30%|███       | 15/50 [00:19<00:50,  1.43s/it] 32%|███▏      | 16/50 [00:20<00:47,  1.39s/it] 34%|███▍      | 17/50 [00:22<00:44,  1.36s/it] 36%|███▌      | 18/50 [00:23<00:41,  1.30s/it] 38%|███▊      | 19/50 [00:24<00:40,  1.29s/it] 40%|████      | 20/50 [00:24<00:29,  1.00it/s] 42%|████▏     | 21/50 [00:27<00:40,  1.41s/it] 44%|████▍     | 22/50 [00:28<00:40,  1.45s/it] 46%|████▌     | 23/50 [00:29<00:30,  1.12s/it] 48%|████▊     | 24/50 [00:30<00:33,  1.29s/it] 50%|█████     | 25/50 [00:31<00:30,  1.21s/it] 52%|█████▏    | 26/50 [00:33<00:29,  1.23s/it] 54%|█████▍    | 27/50 [00:34<00:28,  1.25s/it] 56%|█████▌    | 28/50 [00:35<00:27,  1.25s/it] 58%|█████▊    | 29/50 [00:36<00:26,  1.26s/it] 60%|██████    | 30/50 [00:38<00:24,  1.23s/it] 62%|██████▏   | 31/50 [00:39<00:23,  1.25s/it] 64%|██████▍   | 32/50 [00:39<00:18,  1.03s/it] 66%|██████▌   | 33/50 [00:41<00:18,  1.07s/it] 68%|██████▊   | 34/50 [00:42<00:16,  1.01s/it] 70%|███████   | 35/50 [00:43<00:16,  1.10s/it] 72%|███████▏  | 36/50 [00:43<00:13,  1.03it/s] 76%|███████▌  | 38/50 [00:44<00:08,  1.44it/s] 78%|███████▊  | 39/50 [00:46<00:09,  1.18it/s] 80%|████████  | 40/50 [00:47<00:09,  1.04it/s] 82%|████████▏ | 41/50 [00:48<00:08,  1.04it/s] 84%|████████▍ | 42/50 [00:49<00:08,  1.05s/it] 86%|████████▌ | 43/50 [00:50<00:07,  1.12s/it] 88%|████████▊ | 44/50 [00:51<00:05,  1.10it/s] 90%|█████████ | 45/50 [00:52<00:05,  1.02s/it] 92%|█████████▏| 46/50 [00:53<00:04,  1.10s/it] 94%|█████████▍| 47/50 [00:55<00:03,  1.16s/it] 96%|█████████▌| 48/50 [00:56<00:02,  1.20s/it] 98%|█████████▊| 49/50 [00:56<00:00,  1.13it/s]100%|██████████| 50/50 [00:57<00:00,  1.21it/s]100%|██████████| 50/50 [00:57<00:00,  1.15s/it]
+tip: install termplotlib and gnuplot to plot the metrics
+============ Serving Benchmark Result ============
+Successful requests:                     50        
+Failed requests:                         0         
+Maximum request concurrency:             1         
+Request rate configured (RPS):           1.00      
+Benchmark duration (s):                  57.25     
+Total input tokens:                      5055      
+Total generated tokens:                  10282     
+Request throughput (req/s):              0.87      
+Output token throughput (tok/s):         179.60    
+Peak output token throughput (tok/s):    200.00    
+Peak concurrent requests:                4.00      
+Total token throughput (tok/s):          267.89    
+---------------Time to First Token----------------
+Mean TTFT (ms):                          13.69     
+Median TTFT (ms):                        12.90     
+P99 TTFT (ms):                           22.98     
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          5.01      
+Median TPOT (ms):                        5.01      
+P99 TPOT (ms):                           5.03      
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           4.99      
+Median ITL (ms):                         5.01      
+P99 ITL (ms):                            5.31      
+==================================================

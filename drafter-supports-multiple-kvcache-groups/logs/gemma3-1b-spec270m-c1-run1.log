@@ -1,0 +1,46 @@
+WARNING 02-04 12:01:18 [__init__.py:144] xccl is not enabled in this torch build, communication is not available.
+Namespace(subparser='bench', bench_type='serve', dispatch_function=<function BenchmarkServingSubcommand.cmd at 0x7f9735c047c0>, seed=0, num_prompts=50, dataset_name='hf', no_stream=False, dataset_path='philschmid/mt-bench', no_oversample=False, skip_chat_template=False, enable_multimodal_chat=False, disable_shuffle=False, custom_output_len=256, spec_bench_output_len=256, spec_bench_category=None, sonnet_input_len=550, sonnet_output_len=150, sonnet_prefix_len=200, sharegpt_output_len=None, blazedit_min_distance=0.0, blazedit_max_distance=1.0, random_input_len=1024, random_output_len=128, random_range_ratio=0.0, random_prefix_len=0, random_batch_size=1, no_reranker=False, random_mm_base_items_per_request=1, random_mm_num_mm_items_range_ratio=0.0, random_mm_limit_mm_per_prompt={'image': 255, 'video': 1}, random_mm_bucket_config={(256, 256, 1): 0.5, (720, 1280, 1): 0.5, (720, 1280, 16): 0.0}, hf_subset=None, hf_split=None, hf_name=None, hf_output_len=None, prefix_repetition_prefix_len=256, prefix_repetition_suffix_len=256, prefix_repetition_num_prefixes=10, prefix_repetition_output_len=128, label=None, backend='openai-chat', base_url='http://localhost:8000', host='127.0.0.1', port=8000, endpoint='/v1/chat/completions', header=None, max_concurrency=1, model='google/gemma-3-1b-it', input_len=None, output_len=None, tokenizer=None, tokenizer_mode='auto', use_beam_search=False, logprobs=None, request_rate=1.0, burstiness=1.0, trust_remote_code=False, disable_tqdm=False, num_warmups=0, profile=False, save_result=True, save_detailed=False, append_result=False, metadata=None, result_dir='/home/shadeform/code/bench', result_filename='gemma3-1b-spec270m-c1-run1.json', ignore_eos=False, percentile_metrics=None, metric_percentiles='99', goodput=None, request_id_prefix='bench-39518ec6-', top_p=None, top_k=None, min_p=None, temperature=0.0, frequency_penalty=None, presence_penalty=None, repetition_penalty=None, served_model_name=None, lora_modules=None, ramp_up_strategy=None, ramp_up_start_rps=None, ramp_up_end_rps=None, ready_check_timeout_sec=0, extra_body=None)
+Starting initial single prompt test run...
+Skipping endpoint ready check.
+Starting main benchmark run...
+Traffic request rate: 1.0
+Burstiness factor: 1.0 (Poisson process)
+Maximum request concurrency: 1
+  0%|          | 0/50 [00:00<?, ?it/s]  2%|▏         | 1/50 [00:01<00:56,  1.16s/it]  4%|▍         | 2/50 [00:04<01:57,  2.45s/it]  6%|▌         | 3/50 [00:07<02:11,  2.80s/it]  8%|▊         | 4/50 [00:11<02:17,  3.00s/it] 10%|█         | 5/50 [00:11<01:34,  2.09s/it] 12%|█▏        | 6/50 [00:13<01:36,  2.20s/it] 14%|█▍        | 7/50 [00:16<01:37,  2.26s/it] 16%|█▌        | 8/50 [00:18<01:31,  2.19s/it] 18%|█▊        | 9/50 [00:19<01:12,  1.76s/it] 20%|██        | 10/50 [00:22<01:34,  2.37s/it] 22%|██▏       | 11/50 [00:26<01:43,  2.66s/it] 24%|██▍       | 12/50 [00:27<01:19,  2.10s/it] 26%|██▌       | 13/50 [00:30<01:28,  2.39s/it] 28%|██▊       | 14/50 [00:32<01:29,  2.48s/it] 30%|███       | 15/50 [00:35<01:30,  2.60s/it] 32%|███▏      | 16/50 [00:38<01:32,  2.71s/it] 34%|███▍      | 17/50 [00:41<01:33,  2.82s/it] 36%|███▌      | 18/50 [00:44<01:34,  2.95s/it] 38%|███▊      | 19/50 [00:46<01:22,  2.68s/it] 40%|████      | 20/50 [00:47<01:01,  2.06s/it] 42%|████▏     | 21/50 [00:49<00:59,  2.06s/it] 44%|████▍     | 22/50 [00:52<01:08,  2.43s/it] 46%|████▌     | 23/50 [00:53<00:52,  1.94s/it] 48%|████▊     | 24/50 [00:55<00:51,  1.98s/it] 50%|█████     | 25/50 [00:57<00:48,  1.95s/it] 52%|█████▏    | 26/50 [01:01<00:56,  2.36s/it] 54%|█████▍    | 27/50 [01:04<01:00,  2.61s/it] 56%|█████▌    | 28/50 [01:07<00:58,  2.67s/it] 58%|█████▊    | 29/50 [01:09<00:52,  2.48s/it] 60%|██████    | 30/50 [01:11<00:51,  2.57s/it] 62%|██████▏   | 31/50 [01:14<00:48,  2.56s/it] 64%|██████▍   | 32/50 [01:15<00:39,  2.21s/it] 66%|██████▌   | 33/50 [01:17<00:36,  2.15s/it] 68%|██████▊   | 34/50 [01:21<00:39,  2.48s/it] 70%|███████   | 35/50 [01:23<00:38,  2.53s/it] 72%|███████▏  | 36/50 [01:24<00:29,  2.09s/it] 74%|███████▍  | 37/50 [01:24<00:19,  1.53s/it] 76%|███████▌  | 38/50 [01:26<00:19,  1.62s/it] 78%|███████▊  | 39/50 [01:29<00:21,  1.92s/it] 80%|████████  | 40/50 [01:32<00:23,  2.35s/it] 82%|████████▏ | 41/50 [01:33<00:17,  1.97s/it] 84%|████████▍ | 42/50 [01:36<00:16,  2.07s/it] 86%|████████▌ | 43/50 [01:38<00:15,  2.15s/it] 88%|████████▊ | 44/50 [01:39<00:10,  1.67s/it] 90%|█████████ | 45/50 [01:41<00:10,  2.03s/it] 92%|█████████▏| 46/50 [01:45<00:09,  2.45s/it] 94%|█████████▍| 47/50 [01:47<00:07,  2.34s/it] 96%|█████████▌| 48/50 [01:50<00:04,  2.47s/it] 98%|█████████▊| 49/50 [01:50<00:01,  1.87s/it]100%|██████████| 50/50 [01:52<00:00,  1.93s/it]100%|██████████| 50/50 [01:52<00:00,  2.25s/it]
+tip: install termplotlib and gnuplot to plot the metrics
+============ Serving Benchmark Result ============
+Successful requests:                     50        
+Failed requests:                         0         
+Maximum request concurrency:             1         
+Request rate configured (RPS):           1.00      
+Benchmark duration (s):                  112.73    
+Total input tokens:                      3868      
+Total generated tokens:                  10392     
+Request throughput (req/s):              0.44      
+Output token throughput (tok/s):         92.19     
+Peak output token throughput (tok/s):    40.00     
+Peak concurrent requests:                3.00      
+Total token throughput (tok/s):          126.50    
+---------------Time to First Token----------------
+Mean TTFT (ms):                          42.32     
+Median TTFT (ms):                        39.97     
+P99 TTFT (ms):                           93.41     
+-----Time per Output Token (excl. 1st token)------
+Mean TPOT (ms):                          10.84     
+Median TPOT (ms):                        10.75     
+P99 TPOT (ms):                           18.84     
+---------------Inter-token Latency----------------
+Mean ITL (ms):                           26.08     
+Median ITL (ms):                         26.29     
+P99 ITL (ms):                            28.06     
+---------------Speculative Decoding---------------
+Acceptance rate (%):                     50.54     
+Acceptance length:                       2.52      
+Drafts:                                  4130      
+Draft tokens:                            12390     
+Accepted tokens:                         6262      
+Per-position acceptance (%):
+  Position 0:                            67.70     
+  Position 1:                            47.80     
+  Position 2:                            36.13     
+==================================================
