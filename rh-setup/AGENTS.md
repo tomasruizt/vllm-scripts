@@ -4,6 +4,7 @@
 * When creating PRs that are meant only for reviewing changes between two commits, don't mention the PRs or issues, because they become polluted with these references.
 * structure code top-down. i.e. top in the file is high-level code/policy, while below is lower-level code that is used by the higher-level code.
 * to use GPUs, reserve them over canhazgpu (https://github.com/russellb/canhazgpu).
+* when writing md files, dont break lines unless there is a good reason, since e.g. on Github your lines will be wrapped. Let the IDE / website take care of rendering, so you don't have to. I suggest only breaking lines after a dot, or similar.
 
 custom commands:
 * vllm-install: install from precompiled wheels
