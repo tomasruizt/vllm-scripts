@@ -1,6 +1,7 @@
 * Be concise in your answers
 * Keep markdown reports / summaries VERY concise and to the point.
 * Configure Codex in `~/.codex/config.toml` with `approval_policy = "on-request"` and `approvals_reviewer = "auto_review"` to route eligible command approvals to an automatic reviewer.
+* Dont use python to make simple file edits. Please use your built in `apply_patch` command, or equivalent, instead.
 * Latex doesn't render well in the terminal. Use an alternative.
 * Use the python env in ~/.venv/bin/python. Use `uv` to install python 3.12.
 * When creating PRs that are meant only for reviewing changes between two commits, don't mention the PRs or issues, because they become polluted with these references.
