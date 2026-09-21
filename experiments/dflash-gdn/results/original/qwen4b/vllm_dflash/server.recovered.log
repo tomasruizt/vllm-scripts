@@ -1,0 +1,89 @@
+RECOVERED PARTIAL SERVER LOG: captured terminal output from the original benchmark server session. Output limits may have truncated sections. This is not a complete original server log.
+
+--- Captured terminal output at 2026-09-18T11:44:31.028Z ---
+Reserved 1 GPU(s): [6] for command execution (timeout: 0h 45m 0s)
+
+--- Captured terminal output at 2026-09-18T11:45:03.212Z ---
+Warning: truncated output (original token count: 2293)
+Total output lines: 27
+
+/home/USER/code/vllm-49730/vllm/entrypoints/openai/api_server.py:24: DeprecationWarning: `vllm.entrypoints.openai.api_server` is deprecated and will likely beunsupported in a future version. Use the corresponding function from `vllm.entrypoints.launchers` instead.
+  warnings.warn(
+/home/USER/code/vllm-49730/vllm/entrypoints/openai/api_server.py:51: DeprecationWarning: The `python -m vllm.entrypoints.openai.api_server` command is deprecated and may be removed in a future release. Please use `vllm server` instead.
+  warnings.warn(
+(APIServer pid=35566) INFO 09-18 11:44:37 [api_utils.py:347] 
+(APIServer pid=35566) INFO 09-18 11:44:37 [api_utils.py:347]        █     █     █▄   ▄█
+(APIServer pid=35566) INFO 09-18 11:44:37 [api_utils.py:347]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.1.dev21510+gb6e7c1f1f
+(APIServer pid=35566) INFO 09-18 11:44:37 [api_utils.py:347]   █▄█▀ █     █     █     █  model   Qwen/Qwen3.5-4B
+(APIServer pid=35566) INFO 09-18 11:44:37 [api_utils.py:347]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=35566) INFO 09-18 11:44:37 [api_utils.py:347] 
+(APIServer pid=35566) INFO 09-18 11:44:37 [api_utils.py:286] non-default args: {'api_server_count': 1, 'enable_auto_tool_choice': True, 'tool_call_parser': 'qwen3_coder', 'disable_access_log_for_endpoints': '/metrics,/health,/ping', 'model': 'Qwen/Qwen3.5-4B', 'trust_remote_code': True, 'max_model_len': 32768, 'quantization': 'fp8', 'served_model_name': ['qwen'], 'reasoning_parser': 'qwen3', 'enable_prefix_caching': True, 'language_…1493 tokens truncated…specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': False, 'fuse_act_quant': False, 'fuse_attn_quant': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False, 'enable_qk_norm_rope_fusion': False, 'fuse_rope_kvcache_cat_mla': False, 'fuse_act_padding': False, 'fuse_qk_norm_rope_kvcache': False}, 'max_cudagraph_capture_size': 128, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': False, 'static_all_moe_layers': []}, kernel_config=KernelConfig(ir_op_priority=IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'], gelu_and_mul_sparse=['triton', 'native']), enable_flashinfer_autotune=True, enable_cutedsl_warmup=True, enable_jit_warmup=True, moe_backend='auto', sparse_indexer_topk_backend='auto', linear_backend='auto', linear_backend_per_quant=None)
+(EngineCore pid=37262) INFO 09-18 11:45:02 [registry.py:140] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+(EngineCore pid=37262) INFO 09-18 11:45:02 [parallel_state.py:1817] world_size=1 rank=0 local_rank=0 distributed_init_method=file:///tmp/vllm_dist_409ada78585d40b4b4fd3a474bea858e backend=nccl
+(EngineCore pid=37262) INFO 09-18 11:45:02 [parallel_state.py:2261] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, ETP rank 0, EP rank N/A, EPLB rank N/A
+(EngineCore pid=37262) INFO 09-18 11:45:02 [gpu_worker.py:442] Using V2 Model Runner
+
+--- Captured terminal output at 2026-09-18T11:45:35.784Z ---
+Warning: truncated output (original token count: 1176)
+Total output lines: 36
+
+(EngineCore pid=37262) INFO 09-18 11:45:03 [model_runner.py:387] Loading model from scratch...
+(EngineCore pid=37262) INFO 09-18 11:45:03 [__init__.py:755] Selected CutlassFP8ScaledMMLinearKernel for Fp8PerTensorOnlineLinearMethod
+(EngineCore pid=37262) INFO 09-18 11:45:03 [deep_gemm.py:196] deep_gemm not found in site-packages, trying vendored vllm.third_party.deep_gemm
+(EngineCore pid=37262) INFO 09-18 11:45:03 [deep_gemm.py:223] DeepGEMM PDL enabled on vllm.third_party.deep_gemm.
+(EngineCore pid=37262) INFO 09-18 11:45:03 [deep_gemm.py:136] DeepGEMM E8M0 enabled on current platform.
+(EngineCore pid=37262) INFO 09-18 11:45:03 [cuda.py:595] Using backend AttentionBackendEnum.FLASH_ATTN for vit attention
+(EngineCore pid=37262) INFO 09-18 11:45:03 [mm_encoder_attention.py:372] Using AttentionBackendEnum.FLASH_ATTN for MMEncoderAttention.
+(EngineCore pid=37262) INFO 09-18 11:45:03 [qwen_gdn_linear_attn.py:176] Using FlashInfer GDN prefill kernel (requested=auto, head_k_dim=128).
+(EngineC…676 tokens truncated… Model loading took 6.13 GiB memory and 5.472902 seconds
+(EngineCore pid=37262) INFO 09-18 11:45:08 [topk_topp_sampler.py:78] Using FlashInfer for top-p & top-k sampling.
+(EngineCore pid=37262) INFO 09-18 11:45:08 [interface.py:918] Setting attention block size to 592 tokens to ensure that attention page size is >= mamba page size.
+(EngineCore pid=37262) INFO 09-18 11:45:08 [interface.py:942] Padding mamba page size by 1.37% to ensure that mamba page size and attention page size are exactly equal.
+(EngineCore pid=37262) INFO 09-18 11:45:08 [utils.py:320] Using LBNHC KV cache layout.
+(EngineCore pid=37262) INFO 09-18 11:45:17 [backends.py:1090] Using cache directory: /home/USER/.cache/vllm/torch_compile_cache/957a36e527/rank_0_0/backbone for vLLM's torch.compile
+(EngineCore pid=37262) INFO 09-18 11:45:17 [backends.py:1151] Dynamo bytecode transform time: 8.22 s
+(EngineCore pid=37262) INFO 09-18 11:45:34 [backends.py:391] Compiling a graph for compile range (1, 8192) takes 16.47 s
+
+--- Captured terminal output at 2026-09-18T11:46:09.008Z ---
+Warning: truncated output (original token count: 719)
+Total output lines: 16
+
+(EngineCore pid=37262) INFO 09-18 11:45:39 [backends.py:916] collected artifacts: 33 entries, 13 artifacts, 36261141 bytes total
+(EngineCore pid=37262) INFO 09-18 11:45:40 [decorators.py:714] saved AOT compiled function to /home/USER/.cache/vllm/torch_compile_cache/torch_aot_compile/94e87d61f367b99c613e3d33b5e9f9e6d3c9e43ce8bad5f010b9acad02edc841/rank_0_0/model
+(EngineCore pid=37262) INFO 09-18 11:45:40 [monitor.py:53] torch.compile took 30.69 s in total
+(EngineCore pid=37262) INFO 09-18 11:45:46 [monitor.py:81] Initial profiling/warmup run took 6.52 s
+(EngineCore pid=37262) INFO 09-18 11:45:47 [backends.py:1090] Using cache directory: /home/USER/.cache/vllm/torch_compile_cache/957a36e527/rank_0_0/dflash_head for vLLM's torch.compile
+(EngineCore pid=37262) INFO 09-18 11:45:47 [backends.py:1151] Dynamo bytecode transform time: 1.05 s
+(EngineCore pid=37262) INFO 09-18 11:46:03 [backends.py:391] Compiling a graph for compile range (1, 8192) takes 15.78 s
+(EngineCore pid=37262)…219 tokens truncated… | 1/8 [00:00<00:05,  1.36it/s]Capturing CUDA graphs (PIECEWISE):  50%|█████     | 4/8 [00:00<00:00,  4.96it/s]Capturing CUDA graphs (PIECEWISE):  62%|██████▎   | 5/8 [00:01<00:00,  4.86it/s]Capturing CUDA graphs (PIECEWISE): 100%|██████████| 8/8 [00:01<00:00,  4.93it/s]Capturing CUDA graphs (PIECEWISE): 100%|██████████| 8/8 [00:01<00:00,  4.48it/s]
+(EngineCore pid=37262) Capturing CUDA graphs (FULL):   0%|          | 0/2 [00:00<?, ?it/s]Capturing CUDA graphs (FULL):  50%|█████     | 1/2 [00:00<00:00,  2.47it/s]Capturing CUDA graphs (FULL): 100%|██████████| 2/2 [00:00<00:00,  4.44it/s]
+(EngineCore pid=37262) INFO 09-18 11:46:08 [speculator.py:149] Capturing model for DFlash speculator...
+(EngineCore pid=37262) Capturing dflash CUDA graphs (FULL):   0%|          | 0/4 [00:00<?, ?it/s]Capturing dflash CUDA graphs (FULL): 100%|██████████| 4/4 [00:00<00:00, 60.41it/s]
+
+--- Captured terminal output at 2026-09-18T11:46:31.867Z ---
+Warning: truncated output (original token count: 891)
+Total output lines: 19
+
+(EngineCore pid=37262) INFO 09-18 11:46:09 [model_runner.py:1057] Graph capturing finished in 3 secs, took 0.27 GiB
+(EngineCore pid=37262) INFO 09-18 11:46:09 [gpu_worker.py:642] Available KV cache memory: 63.14 GiB
+(EngineCore pid=37262) INFO 09-18 11:46:09 [gpu_worker.py:657] CUDA graph memory profiling is enabled (default since v0.21.0). The current --gpu-memory-utilization=0.9200 is equivalent to --gpu-memory-utilization=0.9160 without CUDA graph memory profiling. To maintain the same effective KV cache size as before, increase --gpu-memory-utilization to 0.9240. To disable, set VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS=0.
+(EngineCore pid=37262) WARNING 09-18 11:46:10 [kv_cache_utils.py:2219] Speculative decoding (method=dflash) is enabled but no KV cache group could be identified as the draft model's.
+(EngineCore pid=37262) INFO 09-18 11:46:10 [kv_cache_utils.py:2404] GPU KV cache size: 838,974 tokens, Maximum concurrency for 32,768 tokens per request: 25.60x
+(EngineCore pid=37262) INFO 09-18 11:46:10 [kernel_warmup.py:171] JIT kernel warmup starting.
+(EngineCore pid=37262) INFO 09-18 11:46:10 [kernel_warmup.py:184] JIT kernel warmup finished in 0.00s.
+(EngineCore pid=37262) IN…291 tokens truncated….jit: [Autotuner]: Saved 0 configs to /home/USER/.cache/vllm/flashinfer_autotune_cache/0.6.18.post1/90a/8e3a54c605297d60c1eb8f69c9b96f8e7f5a565b932fccd9323e6e59ea194981/autotune_configs.json (0 new, 0 from previous config)
+(EngineCore pid=37262) Capturing CUDA graphs (PIECEWISE):   0%|          | 0/8 [00:00<?, ?it/s]Capturing CUDA graphs (PIECEWISE):  38%|███▊      | 3/8 [00:00<00:00, 21.54it/s]Capturing CUDA graphs (PIECEWISE):  75%|███████▌  | 6/8 [00:00<00:00, 23.02it/s]Capturing CUDA graphs (PIECEWISE): 100%|██████████| 8/8 [00:00<00:00, 23.78it/s]
+(EngineCore pid=37262) Capturing CUDA graphs (FULL):   0%|          | 0/4 [00:00<?, ?it/s]Capturing CUDA graphs (FULL):  75%|███████▌  | 3/4 [00:00<00:00, 21.36it/s]Capturing CUDA graphs (FULL): 100%|██████████| 4/4 [00:00<00:00, 21.64it/s]
+(EngineCore pid=37262) INFO 09-18 11:46:31 [speculator.py:149] Capturing model for DFlash speculator...
+(EngineCore pid=37262) Capturing dflash CUDA graphs (FULL):   0%|          | 0/4 [00:00<?, ?it/s]Capturing dflash CUDA graphs (FULL): 100%|██████████| 4/4 [00:00<00:00, 146.83it/s]
+
+--- Captured terminal output at 2026-09-18T11:49:26.003Z ---
+Warning: truncated output (original token count: 9112)
+Total output lines: 312
+
+(EngineCore pid=37262) INFO 09-18 11:46:32 [model_runner.py:1057] Graph capturing finished in 2 secs, took 0.23 GiB
+(EngineCore pid=37262) INFO 09-18 11:46:32 [gpu_worker.py:828] CUDA graph pool memory: 0.23 GiB (actual), 0.32 GiB (estimated), difference: 0.08 GiB (35.4%).
+(EngineCore pid=37262) INFO 09-18 11:46:32 [gpu_worker.py:891] Free memory on device (78.66/79.17 GiB) on startup. Desired GPU…8912 tokens truncated…66) INFO:     Waiting for application shutdown.
+(APIServer pid=35566) INFO:     Application shutdown complete.
+/home/USER/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

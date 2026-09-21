@@ -1,0 +1,59 @@
+{
+  "command": [
+    "nsys",
+    "profile",
+    "--trace=cuda,nvtx,osrt",
+    "--sample=none",
+    "--cpuctxsw=none",
+    "--cuda-graph-trace=graph",
+    "--capture-range=cudaProfilerApi",
+    "--capture-range-end=stop-shutdown",
+    "--kill=none",
+    "--output",
+    "/home/USER/code/vllm-49730/benchmarks/dflash_4b/results/nsys-triton-20/20_tokens",
+    "/home/USER/.venv/bin/python",
+    "-m",
+    "vllm.entrypoints.openai.api_server",
+    "--model",
+    "/home/USER/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+    "--served-model-name",
+    "qwen",
+    "--quantization",
+    "fp8",
+    "--language-model-only",
+    "--max-model-len",
+    "4096",
+    "--max-num-seqs",
+    "8",
+    "--gpu-memory-utilization",
+    "0.8",
+    "--speculative-config",
+    "{\"method\": \"dflash\", \"model\": \"/home/USER/.cache/huggingface/hub/models--z-lab--Qwen3.5-4B-DFlash/snapshots/9a1996ccf887b79ab3af4fcbf8c1d1f4b5658bcf\", \"num_speculative_tokens\": 15}",
+    "--profiler-config",
+    "{\"profiler\": \"cuda\"}",
+    "--disable-uvicorn-access-log",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "8110"
+  ],
+  "request": {
+    "model": "qwen",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Question: Janet\u2019s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market?\nAnswer:"
+      }
+    ],
+    "max_tokens": 20,
+    "temperature": 0
+  },
+  "versions": {
+    "vllm": "0.1.dev21510+gb6e7c1f1f.precompiled",
+    "torch": "2.13.0+cu130",
+    "flashinfer-python": "0.6.18.post1",
+    "aiperf": "0.12.0"
+  },
+  "commit": "45211c2b5a564ce4c2c3fb5e144c745ffc3ef3d1",
+  "cuda_visible_devices": "5"
+}

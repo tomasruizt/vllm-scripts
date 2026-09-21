@@ -1,0 +1,229 @@
+17:04:08.336 INFO     Starting AIPerf System (_single_run.py:64)
+17:04:08.340 INFO     [OK] Tokenizer /home/USER/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a detected (tokenizer_display.py:297)
+17:04:08.340 INFO     1 tokenizer validated | 0.0s (tokenizer_display.py:306)
+17:04:08.341 INFO     Prefetching 1 tokenizer into HF cache... (tokenizer_validator.py:129)
+17:04:12.449 INFO       Cached /home/USER/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a (4.10s) (tokenizer_validator.py:146)
+17:04:12.494 INFO     1 tokenizer cached • 4.2s (tokenizer_validator.py:166)
+17:04:12.821 INFO     Registered Worker Manager (id: 'worker_manager') (system_controller.py:411)
+17:04:12.833 INFO     Server Metrics: Discovered 1 endpoints: ['http://127.0.0.1:8704/metrics'] (manager.py:97)
+17:04:12.864 INFO     GPU telemetry export enabled: /home/USER/code/vllm-49730/benchmarks/dflash_4b/results/sglang-no-prefix-95-bf16-prefill2048/4B/sglang_dflash/c32/aiperf/gpu_telemetry_export.jsonl (jsonl_writer.py:56)
+17:04:12.869 INFO     Telemetry streaming is disabled (set --otel-url and/or --mlflow-tracking-uri to enable) (otel_metrics_results_processor.py:127)
+17:04:12.869 INFO     Record metrics export enabled: /home/USER/code/vllm-49730/benchmarks/dflash_4b/results/sglang-no-prefix-95-bf16-prefill2048/4B/sglang_dflash/c32/aiperf/profile_export.jsonl (record_export_jsonl_writer.py:62)
+17:04:12.923 INFO     Registered Record Processor (id: 'record_processor_4f18a0fc') (system_controller.py:411)
+17:04:12.924 INFO     Registered Gpu Telemetry Manager (id: 'gpu_telemetry_manager') (system_controller.py:411)
+17:04:12.926 INFO     Registered Record Processor (id: 'record_processor_05f8647e') (system_controller.py:411)
+17:04:12.929 INFO     Registered Record Processor (id: 'record_processor_832a4216') (system_controller.py:411)
+17:04:12.930 INFO     Registered Record Processor (id: 'record_processor_267d3cd3') (system_controller.py:411)
+17:04:12.931 INFO     Registered Record Processor (id: 'record_processor_5603fdb5') (system_controller.py:411)
+17:04:12.933 INFO     Registered Record Processor (id: 'record_processor_b73cc5af') (system_controller.py:411)
+17:04:12.933 INFO     Registered Record Processor (id: 'record_processor_8fb5589a') (system_controller.py:411)
+17:04:12.945 INFO     Registered Server Metrics Manager (id: 'server_metrics_manager') (system_controller.py:411)
+17:04:12.949 INFO     Registered Dataset Manager (id: 'dataset_manager') (system_controller.py:411)
+17:04:12.975 INFO     Registered Records Manager (id: 'records_manager') (system_controller.py:411)
+17:04:13.004 INFO     Registered Record Processor (id: 'record_processor_d24c7317') (system_controller.py:411)
+17:04:13.017 INFO     Registered Worker (id: 'worker_90a0f888') (system_controller.py:411)
+17:04:13.030 INFO     Registered Worker (id: 'worker_f21d91e7') (system_controller.py:411)
+17:04:13.031 INFO     Registered Worker (id: 'worker_2c29f6b3') (system_controller.py:411)
+17:04:13.038 INFO     Registered Worker (id: 'worker_ca1ad4c1') (system_controller.py:411)
+17:04:13.042 INFO     Registered Worker (id: 'worker_d65bb293') (system_controller.py:411)
+17:04:13.118 INFO     Registered Worker (id: 'worker_f3bfd1c8') (system_controller.py:411)
+17:04:13.126 INFO     Registered Worker (id: 'worker_b358bd4b') (system_controller.py:411)
+17:04:13.127 INFO     Registered Timing Manager (id: 'timing_manager') (system_controller.py:411)
+17:04:13.138 INFO     Registered Worker (id: 'worker_62928ee2') (system_controller.py:411)
+17:04:13.141 INFO     Registered Worker (id: 'worker_415e3715') (system_controller.py:411)
+17:04:13.145 INFO     Registered Worker (id: 'worker_940c74a8') (system_controller.py:411)
+17:04:13.145 INFO     Registered Worker (id: 'worker_7800a5b3') (system_controller.py:411)
+17:04:13.146 INFO     Registered Worker (id: 'worker_b7dee8de') (system_controller.py:411)
+17:04:13.148 INFO     Registered Worker (id: 'worker_d4e3e4be') (system_controller.py:411)
+17:04:13.149 INFO     Registered Worker (id: 'worker_263080e2') (system_controller.py:411)
+17:04:13.149 INFO     Registered Worker (id: 'worker_3d934a6e') (system_controller.py:411)
+17:04:13.149 INFO     Registered Worker (id: 'worker_466af701') (system_controller.py:411)
+17:04:13.150 INFO     Registered Worker (id: 'worker_5e060c5f') (system_controller.py:411)
+17:04:13.154 INFO     Registered Worker (id: 'worker_99c3d7f2') (system_controller.py:411)
+17:04:13.155 INFO     Registered Worker (id: 'worker_2ea638d9') (system_controller.py:411)
+17:04:13.155 INFO     Registered Worker (id: 'worker_17e864ff') (system_controller.py:411)
+17:04:13.165 INFO     Registered Worker (id: 'worker_248266cc') (system_controller.py:411)
+17:04:13.165 INFO     Registered Worker (id: 'worker_6814141f') (system_controller.py:411)
+17:04:13.166 INFO     Registered Worker (id: 'worker_f32bfe96') (system_controller.py:411)
+17:04:13.168 INFO     Registered Worker (id: 'worker_effdeb5c') (system_controller.py:411)
+17:04:13.170 INFO     Registered Worker (id: 'worker_b592c89b') (system_controller.py:411)
+17:04:13.171 INFO     Registered Worker (id: 'worker_078c418a') (system_controller.py:411)
+17:04:13.176 INFO     Registered Worker (id: 'worker_e2313867') (system_controller.py:411)
+17:04:13.181 INFO     Registered Worker (id: 'worker_dbfe57e6') (system_controller.py:411)
+17:04:13.184 INFO     Registered Worker (id: 'worker_b7c5d1cf') (system_controller.py:411)
+17:04:13.194 INFO     Registered Worker (id: 'worker_f6050f5f') (system_controller.py:411)
+17:04:13.194 INFO     Registered Worker (id: 'worker_61faa2bd') (system_controller.py:411)
+17:04:13.194 INFO     Registered Worker (id: 'worker_d9fd44cd') (system_controller.py:411)
+17:04:13.315 INFO     AIPerf System is CONFIGURING (system_controller.py:292)
+17:04:13.315 INFO     Configuring all services to start profiling (system_controller.py:305)
+17:04:13.316 INFO     Configuring tokenizers for inference result parser (resolve_alias: True) (inference_result_parser.py:86)
+17:04:13.316 INFO     Configuring tokenizers for inference result parser (resolve_alias: True) (inference_result_parser.py:86)
+17:04:13.316 INFO     Configuring tokenizers for inference result parser (resolve_alias: True) (inference_result_parser.py:86)
+17:04:13.316 INFO     Configuring tokenizers for inference result parser (resolve_alias: True) (inference_result_parser.py:86)
+17:04:13.316 INFO     Configuring tokenizers for inference result parser (resolve_alias: True) (inference_result_parser.py:86)
+17:04:13.316 INFO     Configuring tokenizers for inference result parser (resolve_alias: True) (inference_result_parser.py:86)
+17:04:13.316 INFO     Configuring tokenizers for inference result parser (resolve_alias: True) (inference_result_parser.py:86)
+17:04:13.316 INFO     Configuring tokenizers for inference result parser (resolve_alias: True) (inference_result_parser.py:86)
+17:04:13.317 INFO     Waiting for dataset to be configured before configuring timing (manager.py:124)
+17:04:13.317 INFO     Configuring tokenizer(s) for dataset manager (dataset_manager.py:240)
+17:04:13.329 INFO     Server Metrics: Capturing baseline metrics... (manager.py:191)
+17:04:13.340 WARNING  GPU Telemetry: http://localhost:9400/metrics is not reachable (manager.py:253)
+17:04:13.341 WARNING  GPU Telemetry: http://localhost:9401/metrics is not reachable (manager.py:253)
+17:04:13.342 INFO     DCGM telemetry skipped: no telemetry sources reachable (system_controller.py:531)
+17:04:13.342 INFO     Waiting for result domains: profile, server_metrics (system_controller.py:824)
+17:04:13.346 WARNING  Dropping non-finite (NaN/Inf) sample(s) from metric 'sglang:fwd_occupancy': 1 in this scrape; affected data will be missing from server_metrics_export. Further occurrences for this metric name will not be logged. (data_collector.py:374)
+17:04:13.349 INFO     Server metrics enabled - 1/1 endpoint(s) reachable. (system_controller.py:559)
+17:04:17.626 INFO     Initialized tokenizers: {'qwen': {'class': 'Qwen2Tokenizer', 'name_or_path': '/home/USER/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a'}} in 4.31 seconds (inference_result_parser.py:109)
+17:04:17.698 INFO     Initialized tokenizers: {'qwen': {'class': 'Qwen2Tokenizer', 'name_or_path': '/home/USER/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a'}} in 4.38 seconds (inference_result_parser.py:109)
+17:04:17.765 INFO     Tokenizer(s) configured in 4.45 seconds (dataset_manager.py:244)
+17:04:17.765 INFO     Configuring dataset for dataset_manager (dataset_manager.py:250)
+17:04:17.900 INFO     Initialized tokenizers: {'qwen': {'class': 'Qwen2Tokenizer', 'name_or_path': '/home/USER/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a'}} in 4.58 seconds (inference_result_parser.py:109)
+17:04:17.909 INFO     Initialized tokenizers: {'qwen': {'class': 'Qwen2Tokenizer', 'name_or_path': '/home/USER/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a'}} in 4.59 seconds (inference_result_parser.py:109)
+17:04:17.937 INFO     Initialized tokenizers: {'qwen': {'class': 'Qwen2Tokenizer', 'name_or_path': '/home/USER/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a'}} in 4.62 seconds (inference_result_parser.py:109)
+17:04:18.071 INFO     Initialized tokenizers: {'qwen': {'class': 'Qwen2Tokenizer', 'name_or_path': '/home/USER/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a'}} in 4.76 seconds (inference_result_parser.py:109)
+17:04:18.078 INFO     Initialized tokenizers: {'qwen': {'class': 'Qwen2Tokenizer', 'name_or_path': '/home/USER/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a'}} in 4.76 seconds (inference_result_parser.py:109)
+17:04:18.104 INFO     Initialized tokenizers: {'qwen': {'class': 'Qwen2Tokenizer', 'name_or_path': '/home/USER/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a'}} in 4.79 seconds (inference_result_parser.py:109)
+17:04:18.175 INFO     Loading HuggingFace dataset 'openai/gsm8k' (split=test) (base_hf_dataset.py:48)
+17:04:18.440 INFO     HTTP Request: HEAD https://huggingface.co/datasets/openai/gsm8k/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect" (_client.py:1025)
+17:04:18.445 INFO     HTTP Request: HEAD https://huggingface.co/api/resolve-cache/datasets/openai/gsm8k/740312add88f781978c0658806c59bc2815b9866/README.md?%2Fdatasets%2Fopenai%2Fgsm8k%2Fresolve%2Fmain%2FREADME.md=&etag=%22ad25b2c451d0fcd2793678b2baa917c962acf281%22 "HTTP/1.1 200 OK" (_client.py:1025)
+17:04:18.567 INFO     HTTP Request: HEAD https://huggingface.co/datasets/openai/gsm8k/resolve/740312add88f781978c0658806c59bc2815b9866/gsm8k.py "HTTP/1.1 404 Not Found" (_client.py:1025)
+17:04:18.875 INFO     HTTP Request: HEAD https://s3.amazonaws.com/datasets.huggingface.co/datasets/datasets/openai/gsm8k/openai/gsm8k.py "HTTP/1.1 404 Not Found" (_client.py:1025)
+17:04:18.999 INFO     HTTP Request: GET https://huggingface.co/api/datasets/openai/gsm8k/revision/740312add88f781978c0658806c59bc2815b9866 "HTTP/1.1 200 OK" (_client.py:1025)
+17:04:19.122 INFO     HTTP Request: HEAD https://huggingface.co/datasets/openai/gsm8k/resolve/740312add88f781978c0658806c59bc2815b9866/.huggingface.yaml "HTTP/1.1 404 Not Found" (_client.py:1025)
+17:04:19.298 INFO     HTTP Request: GET https://datasets-server.huggingface.co/info?dataset=openai/gsm8k "HTTP/1.1 200 OK" (_client.py:1025)
+17:04:19.427 INFO     HTTP Request: GET https://huggingface.co/api/datasets/openai/gsm8k/tree/740312add88f781978c0658806c59bc2815b9866/main?recursive=true&expand=false "HTTP/1.1 200 OK" (_client.py:1025)
+17:04:19.548 INFO     HTTP Request: GET https://huggingface.co/api/datasets/openai/gsm8k/tree/740312add88f781978c0658806c59bc2815b9866?recursive=false&expand=false "HTTP/1.1 200 OK" (_client.py:1025)
+17:04:19.667 INFO     HTTP Request: HEAD https://huggingface.co/datasets/openai/gsm8k/resolve/740312add88f781978c0658806c59bc2815b9866/dataset_infos.json "HTTP/1.1 404 Not Found" (_client.py:1025)
+17:04:19.724 INFO     Memory-mapped backing store initialized (streaming to /tmp/aiperf_mmap_37b593494891/dataset.dat) (memory_map_utils.py:160)
+17:04:19.788 INFO     Data file finalized: 1319 conversations, 1.36 MB (memory_map_utils.py:288)
+17:04:19.789 INFO     Index file created: /tmp/aiperf_mmap_37b593494891/index.dat (memory_map_utils.py:295)
+17:04:19.789 INFO     Backing store finalized: client_type=DatasetClientStoreType.MEMORY_MAP format=MemoryMapFormat.CONVERSATION data_file_path=PosixPath('/tmp/aiperf_mmap_37b593494891/dataset.dat') index_file_path=PosixPath('/tmp/aiperf_mmap_37b593494891/index.dat') conversation_count=1319 total_size_bytes=1431128 compressed=False compressed_data_file_path=None compressed_index_file_path=None compressed_size_bytes=0 (dataset_manager.py:969)
+17:04:19.801 INFO     sampling strategy: sequential, unique conversations: 1319, unique turn count: 1319 (dataset_manager.py:987)
+17:04:19.811 INFO     Generating inputs.json file at /home/USER/code/vllm-49730/benchmarks/dflash_4b/results/sglang-no-prefix-95-bf16-prefill2048/4B/sglang_dflash/c32/aiperf/inputs.json (dataset_manager.py:489)
+17:04:19.829 INFO     inputs.json file generated in 0.02 seconds (dataset_manager.py:508)
+17:04:19.829 INFO     Initialized 2 phase(s): ['Warmup', 'Profiling'] (phase_orchestrator.py:228)
+17:04:20.162 INFO     Dataset client initialized and freed 1319 conversations from memory (dataset_manager.py:327)
+17:04:20.162 INFO     Dataset configured in 2.40 seconds (dataset_manager.py:263)
+17:04:20.163 INFO     All services configured in 6.85 seconds (system_controller.py:316)
+17:04:20.163 INFO     AIPerf System is CONFIGURED (system_controller.py:294)
+17:04:20.164 INFO     Server Metrics: Started 1 collector(s) successfully (manager.py:281)
+17:04:20.165 INFO     All services started profiling successfully (system_controller.py:338)
+17:04:20.165 INFO     AIPerf System is PROFILING (system_controller.py:296)
+17:04:20.167 INFO     Creating interval generator: pattern=concurrency_burst, rate=None, smoothness=None (request_rate.py:114)
+17:04:20.167 NOTICE   Phase warmup (warmup) started | phase_index=0 | target: 64 requests (runner.py:559)
+17:04:20.168 INFO     Credit phase start: warmup (records_manager.py:943)
+17:04:21.938 NOTICE   Phase warmup (warmup) sending complete | sent=64, completed=32, in_flight=32 | sessions: sent=64, completed=32 (runner.py:997)
+17:04:22.784 NOTICE   Phase warmup (warmup) complete | completed=64, cancelled=0, errors=0 | sessions: completed=64, cancelled=0 | elapsed=2.62s (runner.py:1120)
+17:04:22.785 INFO     Server Metrics: Warmup complete, capturing final warmup metrics... (manager.py:304)
+17:04:22.787 INFO     Creating interval generator: pattern=concurrency_burst, rate=None, smoothness=None (request_rate.py:114)
+17:04:22.787 NOTICE   Phase profiling (profiling) started | phase_index=1 | profiling_index=0 | target: 640 requests (runner.py:559)
+17:04:22.788 INFO     Credit phase start: profiling (records_manager.py:943)
+17:04:45.518 NOTICE   Phase profiling (profiling) sending complete | sent=640, completed=608, in_flight=32 | sessions: sent=640, completed=608 (runner.py:997)
+17:04:45.519 INFO     Sent 640 requests. Waiting for all to complete... (records_manager.py:959)
+17:04:46.408 NOTICE   Phase profiling (profiling) complete | completed=640, cancelled=0, errors=0 | sessions: completed=640, cancelled=0 | elapsed=23.62s (runner.py:1120)
+17:04:46.409 NOTICE   All credits completed (phase_orchestrator.py:245)
+17:04:46.409 INFO     Received CREDIT_PHASE_COMPLETE message, Phase complete: PhaseRecordsStats(phase=CreditPhase.PROFILING, phase_index=1, profiling_index=0, phase_name='profiling', phase_kind='profiling', start_ns=1790010262787810953, sent_end_ns=1790010285518013419, requests_end_ns=1790010286408630991, baseline_start_ns=1790010262787795770, baseline_end_ns=1790010286408664451, total_expected_requests=640, expected_duration_sec=None, expected_num_sessions=None, expected_grace_period_sec=None, final_requests_sent=None, final_requests_completed=640, final_requests_cancelled=0, final_request_errors=0, final_sent_sessions=None, final_completed_sessions=None, final_cancelled_sessions=None, timeout_triggered=False, grace_period_timeout_triggered=False, was_cancelled=False, records_end_ns=None, success_records=639, error_records=0) (records_manager.py:985)
+17:04:46.409 INFO     Received credits complete from 'timing_manager' (system_controller.py:446)
+17:04:46.409 NOTICE   All requests have completed, please wait for the results to be processed (currently 639 of 640 records processed)... (records_manager.py:996)
+17:04:46.410 INFO     All credits complete, please wait for the results to be processed... (records_manager.py:1022)
+17:04:46.411 INFO     Processed 640 valid requests and 0 errors (640 total). (records_manager.py:858)
+17:04:46.411 INFO     Received all records, processing now... (records_manager.py:864)
+17:04:46.412 INFO     Server Metrics: Profiling complete, capturing final metrics... (manager.py:355)
+17:04:46.413 INFO     Waiting 2.0s for server metrics flush period... (records_manager.py:918)
+17:04:48.408 INFO     Processing records results... (records_manager.py:1908)
+17:04:48.455 WARNING  Detected 1 counter reset(s) in counter metric with labels {'endpoint': '/metrics', 'method': 'GET'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 74.00 (export_stats.py:348)
+17:04:48.457 WARNING  Detected 1 counter reset(s) in counter metric with labels {'endpoint': '/metrics', 'method': 'GET', 'status_code': '200'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 74.00 (export_stats.py:348)
+17:04:48.520 WARNING  Detected 1 counter reset(s) in counter metric with labels {'endpoint': '/metrics', 'method': 'GET'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 74.00 (export_stats.py:348)
+17:04:48.521 WARNING  Detected 1 counter reset(s) in counter metric with labels {'endpoint': '/metrics', 'method': 'GET', 'status_code': '200'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 74.00 (export_stats.py:348)
+17:04:48.568 WARNING  Detected 1 counter reset(s) in counter metric with labels {'endpoint': '/metrics', 'method': 'GET'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 74.00 (export_stats.py:348)
+17:04:48.569 WARNING  Detected 1 counter reset(s) in counter metric with labels {'endpoint': '/metrics', 'method': 'GET', 'status_code': '200'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 74.00 (export_stats.py:348)
+17:04:48.572 INFO     Waiting for result domains: server_metrics (system_controller.py:824)
+17:04:48.632 INFO     _finalize_and_process_results completed (records_manager.py:925)
+17:04:48.634 INFO     All results received, initiating shutdown (system_controller.py:819)
+17:04:49.239 INFO     Exporting all records (exporter_manager.py:69)
+17:04:49.292 INFO     Exporting console data (exporter_manager.py:326)
+
+
+                                           NVIDIA AIPerf | LLM Metrics: Effective                                           
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┓
+┃                                    Metric ┃      avg ┃    min ┃        max ┃       p99 ┃       p90 ┃      p50 ┃      std ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━┩
+│          Effective Concurrency (requests) │    31.50 │   0.00 │      32.00 │     32.00 │     32.00 │    32.00 │     2.96 │
+│  Effective Decode Throughput (tokens/sec) │ 6,908.78 │   0.00 │ 132,680.50 │  9,671.73 │  8,732.56 │ 7,772.75 │ 4,098.70 │
+│ Effective Prefill Throughput (tokens/sec) │ 1,637.12 │   0.00 │  22,255.11 │  7,070.96 │  3,842.38 │   996.90 │ 2,058.46 │
+│   Effective Decode Concurrency (requests) │    28.52 │   0.00 │      32.00 │     32.00 │     31.00 │    29.00 │     3.68 │
+│  Effective Prefill Concurrency (requests) │     2.98 │   0.00 │      32.00 │      8.00 │      6.00 │     3.00 │     2.73 │
+│   Effective Total Throughput (tokens/sec) │ 8,545.89 │   0.00 │  30,630.34 │ 13,390.28 │ 10,325.33 │ 8,256.76 │ 1,968.43 │
+│      Effective Decode Throughput Per User │   242.84 │   0.00 │  10,528.01 │    422.13 │    292.23 │   263.19 │   187.60 │
+│                         (tokens/sec/user) │          │        │            │           │           │          │          │
+│     Effective Prefill Throughput Per User │   417.40 │   0.00 │   1,963.28 │  1,048.90 │    779.74 │   416.37 │   276.33 │
+│                         (tokens/sec/user) │          │        │            │           │           │          │          │
+│                 Tokens In Flight (tokens) │ 5,527.13 │   0.00 │   7,208.82 │  6,913.13 │  6,251.32 │ 5,620.48 │   751.71 │
+│         Effective Latency (CO-aware) (ms) │ 1,163.29 │ 636.51 │   2,278.80 │  2,037.67 │  1,645.24 │ 1,081.12 │   324.65 │
+└───────────────────────────────────────────┴──────────┴────────┴────────────┴───────────┴───────────┴──────────┴──────────┘
+                                           NVIDIA AIPerf | LLM Metrics: Active                                           
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┓
+┃                                 Metric ┃      avg ┃    min ┃        max ┃       p99 ┃       p90 ┃      p50 ┃      std ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━┩
+│  Active Decode Throughput (tokens/sec) │ 6,927.21 │   0.00 │ 132,680.50 │  9,671.73 │  8,732.56 │ 7,779.71 │ 4,088.58 │
+│ Active Prefill Throughput (tokens/sec) │ 1,896.08 │  69.74 │  22,255.11 │  7,089.30 │  4,029.79 │ 1,265.70 │ 2,101.55 │
+│      Active Decode Throughput Per User │   243.49 │   0.00 │  10,528.01 │    422.13 │    292.23 │   263.25 │   187.43 │
+│                      (tokens/sec/user) │          │        │            │           │           │          │          │
+│     Active Prefill Throughput Per User │   483.43 │  69.74 │   1,963.28 │  1,052.65 │    796.50 │   485.52 │   237.73 │
+│                      (tokens/sec/user) │          │        │            │           │           │          │          │
+│   Active Total Throughput (tokens/sec) │ 8,546.78 │ 253.17 │  30,630.34 │ 13,390.28 │ 10,325.33 │ 8,256.76 │ 1,966.61 │
+└────────────────────────────────────────┴──────────┴────────┴────────────┴───────────┴───────────┴──────────┴──────────┘
+                                               NVIDIA AIPerf | LLM Metrics                                                
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━┓
+┃                                        Metric ┃      avg ┃    min ┃      max ┃      p99 ┃      p90 ┃      p50 ┃    std ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━┩
+│                      Time to First Token (ms) │   109.89 │  32.64 │   786.77 │   575.70 │   181.51 │    82.84 │  83.55 │
+│                     Time to Second Token (ms) │    19.26 │   0.76 │    49.08 │    38.77 │    20.64 │    18.69 │   4.48 │
+│               Time to First Output Token (ms) │   109.89 │  32.64 │   786.77 │   575.70 │   181.51 │    82.84 │  83.55 │
+│                          Request Latency (ms) │ 1,162.54 │ 635.61 │ 2,277.84 │ 2,036.76 │ 1,644.60 │ 1,080.21 │ 324.65 │
+│                          Decode Duration (ms) │ 1,052.65 │  61.28 │ 2,138.99 │ 1,905.53 │ 1,536.96 │   974.39 │ 331.01 │
+│                      Inter Token Latency (ms) │     4.13 │   0.24 │     8.39 │     7.47 │     6.03 │     3.82 │   1.30 │
+│              Output Token Throughput Per User │   278.07 │ 119.22 │ 4,161.17 │   543.81 │   360.69 │   261.62 │ 231.27 │
+│                             (tokens/sec/user) │          │        │          │          │          │          │        │
+│ E2E Output Token Throughput (tokens/sec/user) │   236.51 │ 112.39 │   402.76 │   367.98 │   321.65 │   236.99 │  61.09 │
+│               Output Sequence Length (tokens) │   255.99 │ 254.00 │   256.00 │   256.00 │   256.00 │   256.00 │   0.13 │
+│                Input Sequence Length (tokens) │    60.42 │  23.00 │   141.00 │   122.22 │    91.00 │    57.00 │  21.35 │
+│          Output Token Throughput (tokens/sec) │ 6,935.87 │    N/A │      N/A │      N/A │      N/A │      N/A │    N/A │
+│           Input Token Throughput (tokens/sec) │ 1,637.12 │    N/A │      N/A │      N/A │      N/A │      N/A │    N/A │
+│             Request Throughput (requests/sec) │    27.09 │    N/A │      N/A │      N/A │      N/A │      N/A │    N/A │
+│                      Request Count (requests) │   640.00 │    N/A │      N/A │      N/A │      N/A │      N/A │    N/A │
+└───────────────────────────────────────────────┴──────────┴────────┴──────────┴──────────┴──────────┴──────────┴────────┘
+
+
+╭──────────────────────────────────────────── GPU Telemetry Platform ─────────────────────────────────────────────╮
+│  Platform: unknown                                                                                              │
+│  Metric semantics are platform-specific; cross-platform comparisons require workload and collector validation.  │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+No GPU telemetry data collected during the benchmarking run.
+
+CLI Command: aiperf profile --model 'qwen' --tokenizer 
+'/home/USER/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00dd
+f55e13ccb7b8cd0a' --url 'http://127.0.0.1:8704' --request-count 640 --warmup-request-count 64 
+--public-dataset 'spec_al_gsm8k' --extra-inputs 'max_completion_tokens:256' --concurrency 32 
+--endpoint-type 'chat' --streaming --output-artifact-dir 
+'/home/USER/code/vllm-49730/benchmarks/dflash_4b/results/sglang-no-prefix-95-bf16-prefill2048/
+4B/sglang_dflash/c32/aiperf'
+Benchmark Duration: 23.62 sec
+CSV Export: 
+/home/USER/code/vllm-49730/benchmarks/dflash_4b/results/sglang-no-prefix-95-bf16-prefill2048/4
+B/sglang_dflash/c32/aiperf/profile_export_aiperf.csv
+JSON Export: 
+/home/USER/code/vllm-49730/benchmarks/dflash_4b/results/sglang-no-prefix-95-bf16-prefill2048/4
+B/sglang_dflash/c32/aiperf/profile_export_aiperf.json
+Server Metrics CSV Export: 
+/home/USER/code/vllm-49730/benchmarks/dflash_4b/results/sglang-no-prefix-95-bf16-prefill2048/4
+B/sglang_dflash/c32/aiperf/server_metrics_export.csv
+Server Metrics JSON Export: 
+/home/USER/code/vllm-49730/benchmarks/dflash_4b/results/sglang-no-prefix-95-bf16-prefill2048/4
+B/sglang_dflash/c32/aiperf/server_metrics_export.json
+Log File: 
+/home/USER/code/vllm-49730/benchmarks/dflash_4b/results/sglang-no-prefix-95-bf16-prefill2048/4
+B/sglang_dflash/c32/aiperf/logs/aiperf.log
+

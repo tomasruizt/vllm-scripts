@@ -1,0 +1,159 @@
+diff --git a/benchmarks/dflash_4b/run.py b/benchmarks/dflash_4b/run.py
+index 8224c713e1..97b3488a82 100644
+--- a/benchmarks/dflash_4b/run.py
++++ b/benchmarks/dflash_4b/run.py
+@@ -29,12 +29,16 @@ def main():
+     parser.add_argument("--request-count", type=int, default=200)
+     parser.add_argument("--warmup-request-count", type=int, default=20)
+     parser.add_argument("--concurrency", type=int, default=1)
++    parser.add_argument("--concurrencies", type=int, nargs="+")
++    parser.add_argument("--sglang-max-running-requests", type=int, default=32)
+     parser.add_argument("--attn-group-size", type=int)
+     parser.add_argument("--output", type=Path, default=HERE / "results")
+     parser.add_argument("--dry-run", action="store_true")
+     args = parser.parse_args()
+     if args.concurrency <= 0:
+         parser.error("--concurrency must be a positive integer")
++    if args.concurrencies and any(c <= 0 for c in args.concurrencies):
++        parser.error("--concurrencies must be positive integers")
+     target_model, draft_model = (
+         (TARGET_27B, DRAFT_27B) if args.model_size == "27B" else (TARGET, DRAFT)
+     )
+@@ -83,51 +87,71 @@ def main():
+         try:
+             wait_ready(server, base)
+             startup_seconds = time.monotonic() - startup_start
+-            snapshot(base, output, "before", args.engine)
+-            bench = [
+-                str(Path(sys.executable).parent / "aiperf"),
+-                "profile",
+-                "--model",
+-                "qwen",
+-                "--tokenizer",
+-                target,
+-                "--url",
+-                base,
+-                "--request-count",
+-                str(args.request_count),
+-                "--warmup-request-count",
+-                str(args.warmup_request_count),
+-                "--public-dataset",
+-                "spec_al_gsm8k",
+-                "--extra-inputs",
+-                "max_completion_tokens:256",
+-                "--concurrency",
+-                str(args.concurrency),
+-                "--endpoint-type",
+-                "chat",
+-                "--streaming",
+-                "--output-artifact-dir",
+-                str(output / "aiperf"),
+-            ]
+-            config["benchmark_command"] = bench
+-            write_json(output / "run_config.json", config)
+-            print(f"Running {args.engine} {args.mode}; logs: {output}", flush=True)
+-            with (output / "benchmark.log").open("w") as bench_log:
+-                benchmark_start = time.monotonic()
+-                subprocess.run(bench, stdout=bench_log, stderr=bench_log, check=True)
+-                benchmark_seconds = time.monotonic() - benchmark_start
+-            snapshot(base, output, "after", args.engine)
+-            summary = summarize(output, args.engine, args.mode, args.request_count)
+-            summary["timing_seconds"] = {
+-                "server_startup": startup_seconds,
+-                "benchmark_wall_clock": benchmark_seconds,
+-            }
+-            write_json(output / "summary.json", summary)
+-            print(json.dumps(summary, indent=2))
++            for concurrency in args.concurrencies or [args.concurrency]:
++                run_output = output
++                if args.concurrencies:
++                    args.concurrency = concurrency
++                    args.request_count = 100 if concurrency == 1 else 20 * concurrency
++                    args.warmup_request_count = (
++                        10 if concurrency == 1 else 2 * concurrency
++                    )
++                    run_output = output / f"c{concurrency}"
++                    run_output.mkdir(exist_ok=False)
++                run_benchmark(args, target, base, run_output, config, startup_seconds)
+         finally:
+             stop(server)
+ 
+ 
++def run_benchmark(args, target, base, output, config, startup_seconds):
++    config = dict(
++        config,
++        concurrency=args.concurrency,
++        measured_requests=args.request_count,
++        warmup_requests=args.warmup_request_count,
++    )
++    snapshot(base, output, "before", args.engine)
++    bench = [
++        str(Path(sys.executable).parent / "aiperf"),
++        "profile",
++        "--model",
++        "qwen",
++        "--tokenizer",
++        target,
++        "--url",
++        base,
++        "--request-count",
++        str(args.request_count),
++        "--warmup-request-count",
++        str(args.warmup_request_count),
++        "--public-dataset",
++        "spec_al_gsm8k",
++        "--extra-inputs",
++        "max_completion_tokens:256",
++        "--concurrency",
++        str(args.concurrency),
++        "--endpoint-type",
++        "chat",
++        "--streaming",
++        "--output-artifact-dir",
++        str(output / "aiperf"),
++    ]
++    config["benchmark_command"] = bench
++    write_json(output / "run_config.json", config)
++    print(f"Running {args.engine} {args.mode}; logs: {output}", flush=True)
++    with (output / "benchmark.log").open("w") as bench_log:
++        benchmark_start = time.monotonic()
++        subprocess.run(bench, stdout=bench_log, stderr=bench_log, check=True)
++        benchmark_seconds = time.monotonic() - benchmark_start
++    snapshot(base, output, "after", args.engine)
++    summary = summarize(output, args.engine, args.mode, args.request_count)
++    summary["timing_seconds"] = {
++        "server_startup": startup_seconds,
++        "benchmark_wall_clock": benchmark_seconds,
++    }
++    write_json(output / "summary.json", summary)
++    print(json.dumps(summary, indent=2))
++
++
+ def download_model(model):
+     # The Hub CLI works in either environment without importing vLLM into SGLang.
+     command = [
+@@ -164,7 +188,7 @@ def server_command(args, target, draft):
+             "32768",
+             "--max-num-seqs",
+             "128",
+-            "--enable-prefix-caching",
++            "--no-enable-prefix-caching",
+             "--reasoning-parser",
+             "qwen3",
+             "--enable-auto-tool-choice",
+@@ -214,7 +238,14 @@ def server_command(args, target, draft):
+             "--context-length",
+             "32768",
+             "--mem-fraction-static",
+-            "0.8",
++            "0.95",
++            "--mamba-ssm-dtype",
++            "bfloat16",
++            "--disable-radix-cache",
++            "--max-running-requests",
++            str(args.sglang_max_running_requests),
++            "--chunked-prefill-size",
++            "2048",
+             "--enable-metrics",
+             "--trust-remote-code",
+         ]

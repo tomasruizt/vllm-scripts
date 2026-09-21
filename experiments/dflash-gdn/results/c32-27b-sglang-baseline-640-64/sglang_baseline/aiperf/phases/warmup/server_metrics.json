@@ -1,0 +1,3516 @@
+{
+  "data": {
+    "benchmark_id": "c8cb543217fb",
+    "end_ns": 1789999166847400693,
+    "endpoint_summaries": {
+      "127.0.0.1:8273": {
+        "endpoint_url": "http://127.0.0.1:8273/metrics",
+        "info": {
+          "avg_fetch_latency_ms": 11.741541414948454,
+          "avg_update_interval_ms": 331.95866449870806,
+          "duration_seconds": 128.468003161,
+          "first_fetch_ns": 1789999166906796073,
+          "first_update_ns": 1789999166906796073,
+          "last_fetch_ns": 1789999295374799234,
+          "last_update_ns": 1789999295374799234,
+          "median_update_interval_ms": 333.451753,
+          "total_fetches": 388,
+          "unique_updates": 388
+        },
+        "metrics": {
+          "sglang:cache_hit_rate": {
+            "description": "The prefix cache hit rate.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:context_len": {
+            "description": "Maximum context length.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 32768.0,
+                  "max": 32768.0,
+                  "min": 32768.0,
+                  "p1": 32768.0,
+                  "p10": 32768.0,
+                  "p25": 32768.0,
+                  "p5": 32768.0,
+                  "p50": 32768.0,
+                  "p75": 32768.0,
+                  "p90": 32768.0,
+                  "p95": 32768.0,
+                  "p99": 32768.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:cuda_graph_passes": {
+            "description": "Total number of forward passes categorized by CUDA graph.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "mode": "prefill_cuda_graph",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "rate": 0.4981346841999597,
+                  "total": 64.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "mode": "decode_cuda_graph",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "rate": 63.76123957759484,
+                  "total": 8192.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "mode": "prefill_none",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "sglang:decode_sum_seq_lens": {
+            "description": "The sum of all sequence lengths in decode.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 4086.146907216495,
+                  "max": 6739.0,
+                  "min": 1212.0,
+                  "p1": 1424.76,
+                  "p10": 2058.0,
+                  "p25": 2821.0,
+                  "p5": 1649.0,
+                  "p50": 4049.0,
+                  "p75": 5388.25,
+                  "p90": 6134.8,
+                  "p95": 6317.0,
+                  "p99": 6499.62,
+                  "std": 1523.1411601904726
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:e2e_request_latency_seconds": {
+            "description": "Histogram of End-to-end request latency in seconds",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 0,
+                  "0.1": 0,
+                  "0.2": 0,
+                  "0.4": 0,
+                  "0.6": 0,
+                  "0.8": 0,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "1200.0": 0,
+                  "1800.0": 0,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "2400.0": 0,
+                  "4.0": 0,
+                  "40.0": 0,
+                  "400.0": 0,
+                  "6.0": 0,
+                  "60.0": 0,
+                  "600.0": 0,
+                  "8.0": 0,
+                  "80.0": 0
+                },
+                "labels": {
+                  "engine_type": "unified",
+                  "is_streaming": "false",
+                  "model_name": "qwen"
+                },
+                "stats": {
+                  "count": 0
+                }
+              },
+              {
+                "buckets": {
+                  "+Inf": 640,
+                  "0.1": 0,
+                  "0.2": 0,
+                  "0.4": 0,
+                  "0.6": 0,
+                  "0.8": 0,
+                  "1.0": 0,
+                  "10.0": 640,
+                  "100.0": 640,
+                  "1200.0": 640,
+                  "1800.0": 640,
+                  "2.0": 0,
+                  "20.0": 640,
+                  "200.0": 640,
+                  "2400.0": 640,
+                  "4.0": 96,
+                  "40.0": 640,
+                  "400.0": 640,
+                  "6.0": 268,
+                  "60.0": 640,
+                  "600.0": 640,
+                  "8.0": 401,
+                  "80.0": 640
+                },
+                "labels": {
+                  "engine_type": "unified",
+                  "is_streaming": "true",
+                  "model_name": "qwen"
+                },
+                "stats": {
+                  "avg": 6.329384450092038,
+                  "count": 640,
+                  "count_rate": 4.9813468419995965,
+                  "p10_estimate": 3.214578757488585,
+                  "p1_estimate": 2.016453757488585,
+                  "p25_estimate": 4.535279841292344,
+                  "p50_estimate": 6.485416432469188,
+                  "p5_estimate": 2.548953757488585,
+                  "p75_estimate": 8.277732088365337,
+                  "p90_estimate": 9.079824138574542,
+                  "p95_estimate": 9.347188155310942,
+                  "p99_estimate": 9.561079368700065,
+                  "sum": 4050.8060480589047,
+                  "sum_rate": 31.52885924226733
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "sglang:evicted_tokens": {
+            "description": "The number of tokens evicted from GPU to CPU.",
+            "series": [
+              {
+                "labels": {
+                  "cache_type": "UnifiedRadixCache"
+                },
+                "stats": {
+                  "rate": 1103.2749252496233,
+                  "total": 141748.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "sglang:eviction_duration_seconds": {
+            "description": "Time taken to evict memory from GPU to CPU in seconds.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 418,
+                  "0.001": 417,
+                  "0.002": 418,
+                  "0.003": 418,
+                  "0.004": 418,
+                  "0.005": 418,
+                  "0.006": 418,
+                  "0.007": 418,
+                  "0.008": 418,
+                  "0.009": 418,
+                  "0.01": 418,
+                  "0.02": 418,
+                  "0.03": 418,
+                  "0.04": 418,
+                  "0.05": 418,
+                  "0.1": 418,
+                  "0.2": 418,
+                  "0.5": 418,
+                  "1.0": 418
+                },
+                "labels": {
+                  "cache_type": "UnifiedRadixCache"
+                },
+                "stats": {
+                  "avg": 0.00013241766056304344,
+                  "count": 418,
+                  "count_rate": 3.2534421561809865,
+                  "p10_estimate": 0.0,
+                  "p1_estimate": 0.0,
+                  "p25_estimate": 0.0,
+                  "p50_estimate": 0.0000620292446735526,
+                  "p5_estimate": 0.0,
+                  "p75_estimate": 0.0002660698716320177,
+                  "p90_estimate": 0.00038849424780709686,
+                  "p95_estimate": 0.0004293023731987898,
+                  "p99_estimate": 0.0004619488735121443,
+                  "sum": 0.055350582115352154,
+                  "sum_rate": 0.00043081319909867
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "sglang:full_token_usage": {
+            "description": "The token usage for full attention layers.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.013350033509139303,
+                  "max": 0.023356401384083045,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.005575719649561953,
+                  "p25": 0.008327504969447102,
+                  "p5": 0.005102333799602444,
+                  "p50": 0.013625487742030479,
+                  "p75": 0.01821762497239196,
+                  "p90": 0.02116248251490834,
+                  "p95": 0.022403003754693368,
+                  "p99": 0.02299017153795185,
+                  "std": 0.005754856605863323
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:gen_throughput": {
+            "description": "The generation throughput (token/s).",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 1269.8726364439206,
+                  "max": 1361.6137050408117,
+                  "min": 0.0,
+                  "p1": 397.99507361854984,
+                  "p10": 1082.7117859071102,
+                  "p25": 1306.758662487366,
+                  "p5": 1069.4636738651993,
+                  "p50": 1318.5425773595434,
+                  "p75": 1325.7023665516924,
+                  "p90": 1328.6021264068488,
+                  "p95": 1329.6366052678795,
+                  "p99": 1341.7541648068482,
+                  "std": 154.43248078693583
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:generation_tokens": {
+            "description": "Number of generation tokens processed.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "is_streaming": "false",
+                  "model_name": "qwen"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "is_streaming": "true",
+                  "model_name": "qwen"
+                },
+                "stats": {
+                  "rate": 1275.2247915518967,
+                  "total": 163840.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "sglang:generation_tokens_histogram": {
+            "description": "Histogram of generation token length.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 640,
+                  "1.1e+06": 640,
+                  "100.0": 0,
+                  "1000.0": 640,
+                  "10000.0": 640,
+                  "100000.0": 640,
+                  "12500.0": 640,
+                  "1500.0": 640,
+                  "15000.0": 640,
+                  "17500.0": 640,
+                  "1e+06": 640,
+                  "2000.0": 640,
+                  "20000.0": 640,
+                  "200000.0": 640,
+                  "22500.0": 640,
+                  "25000.0": 640,
+                  "27500.0": 640,
+                  "300.0": 640,
+                  "3000.0": 640,
+                  "30000.0": 640,
+                  "300000.0": 640,
+                  "35000.0": 640,
+                  "4000.0": 640,
+                  "40000.0": 640,
+                  "400000.0": 640,
+                  "500.0": 640,
+                  "5000.0": 640,
+                  "6000.0": 640,
+                  "60000.0": 640,
+                  "600000.0": 640,
+                  "700.0": 640,
+                  "7000.0": 640,
+                  "8000.0": 640,
+                  "80000.0": 640,
+                  "800000.0": 640,
+                  "9000.0": 640
+                },
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen"
+                },
+                "stats": {
+                  "avg": 256.0,
+                  "count": 640,
+                  "count_rate": 4.9813468419995965,
+                  "p10_estimate": 183.964990234375,
+                  "p1_estimate": 165.99311523437498,
+                  "p25_estimate": 213.918115234375,
+                  "p50_estimate": 263.839990234375,
+                  "p5_estimate": 173.980615234375,
+                  "p75_estimate": 300.0,
+                  "p90_estimate": 300.0,
+                  "p95_estimate": 300.0,
+                  "p99_estimate": 300.0,
+                  "sum": 163840.0,
+                  "sum_rate": 1275.2247915518967
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "sglang:graph_memory_usage_gb": {
+            "description": "Memory used by captured device graphs in GB.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "phase": "prefill",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 2.529296875,
+                  "max": 2.529296875,
+                  "min": 2.529296875,
+                  "p1": 2.529296875,
+                  "p10": 2.529296875,
+                  "p25": 2.529296875,
+                  "p5": 2.529296875,
+                  "p50": 2.529296875,
+                  "p75": 2.529296875,
+                  "p90": 2.529296875,
+                  "p95": 2.529296875,
+                  "p99": 2.529296875,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "phase": "decode",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.080078125,
+                  "max": 0.080078125,
+                  "min": 0.080078125,
+                  "p1": 0.080078125,
+                  "p10": 0.080078125,
+                  "p25": 0.080078125,
+                  "p5": 0.080078125,
+                  "p50": 0.080078125,
+                  "p75": 0.080078125,
+                  "p90": 0.080078125,
+                  "p95": 0.080078125,
+                  "p99": 0.080078125,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "phase": "target_verify",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "phase": "draft_prefill",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "phase": "draft_decode",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "phase": "draft_extend",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:http_requests": {
+            "description": "Total number of HTTP requests by endpoint and method",
+            "series": [
+              {
+                "labels": {
+                  "endpoint": "/health",
+                  "method": "GET"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "endpoint": "/model_info",
+                  "method": "GET"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "endpoint": "/v1/chat/completions",
+                  "method": "POST"
+                },
+                "stats": {
+                  "rate": 4.9813468419995965,
+                  "total": 640.0
+                }
+              },
+              {
+                "labels": {
+                  "endpoint": "/metrics",
+                  "method": "GET"
+                },
+                "stats": {
+                  "rate": 3.0199415229622555,
+                  "total": 388.0
+                }
+              },
+              {
+                "labels": {
+                  "endpoint": "/get_server_info",
+                  "method": "GET"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "endpoint": "/metrics",
+                  "method": "HEAD"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "sglang:http_requests_active": {
+            "description": "Number of currently active HTTP requests",
+            "series": [
+              {
+                "labels": {
+                  "endpoint": "/health",
+                  "method": "GET"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "endpoint": "/model_info",
+                  "method": "GET"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "endpoint": "/v1/chat/completions",
+                  "method": "POST"
+                },
+                "stats": {
+                  "avg": 41.20618556701031,
+                  "max": 52.0,
+                  "min": 20.0,
+                  "p1": 20.0,
+                  "p10": 32.0,
+                  "p25": 32.0,
+                  "p5": 32.0,
+                  "p50": 32.0,
+                  "p75": 52.0,
+                  "p90": 52.0,
+                  "p95": 52.0,
+                  "p99": 52.0,
+                  "std": 10.263140584789353
+                }
+              },
+              {
+                "labels": {
+                  "endpoint": "/metrics",
+                  "method": "GET"
+                },
+                "stats": {
+                  "avg": 1.0,
+                  "max": 1.0,
+                  "min": 1.0,
+                  "p1": 1.0,
+                  "p10": 1.0,
+                  "p25": 1.0,
+                  "p5": 1.0,
+                  "p50": 1.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "p95": 1.0,
+                  "p99": 1.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "endpoint": "/get_server_info",
+                  "method": "GET"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "endpoint": "/metrics",
+                  "method": "HEAD"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:http_responses": {
+            "description": "Total number of HTTP responses by endpoint and status code",
+            "series": [
+              {
+                "labels": {
+                  "endpoint": "/health",
+                  "method": "GET",
+                  "status_code": "503"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "endpoint": "/model_info",
+                  "method": "GET",
+                  "status_code": "200"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "endpoint": "/v1/chat/completions",
+                  "method": "POST",
+                  "status_code": "200"
+                },
+                "stats": {
+                  "rate": 4.856813170949607,
+                  "total": 624.0
+                }
+              },
+              {
+                "labels": {
+                  "endpoint": "/health",
+                  "method": "GET",
+                  "status_code": "200"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "endpoint": "/metrics",
+                  "method": "GET",
+                  "status_code": "200"
+                },
+                "stats": {
+                  "rate": 3.0199415229622555,
+                  "total": 388.0
+                }
+              },
+              {
+                "labels": {
+                  "endpoint": "/get_server_info",
+                  "method": "GET",
+                  "status_code": "200"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "endpoint": "/metrics",
+                  "method": "HEAD",
+                  "status_code": "200"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "sglang:inter_token_latency_seconds": {
+            "description": "Histogram of inter-token latency in seconds.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 163200,
+                  "0.002": 980,
+                  "0.004": 1081,
+                  "0.006": 1100,
+                  "0.008": 1595,
+                  "0.01": 2647,
+                  "0.015": 51313,
+                  "0.02": 161196,
+                  "0.025": 163027,
+                  "0.03": 163139,
+                  "0.035": 163159,
+                  "0.04": 163159,
+                  "0.06": 163180,
+                  "0.08": 163180,
+                  "0.1": 163180,
+                  "0.2": 163180,
+                  "0.4": 163180,
+                  "0.6": 163180,
+                  "0.8": 163200,
+                  "1.0": 163200,
+                  "2.0": 163200,
+                  "4.0": 163200,
+                  "6.0": 163200,
+                  "8.0": 163200
+                },
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen"
+                },
+                "stats": {
+                  "avg": 0.01516372720060377,
+                  "count": 163200,
+                  "count_rate": 1270.2434447098972,
+                  "p10_estimate": 0.012466267216085602,
+                  "p1_estimate": 0.008,
+                  "p25_estimate": 0.01387092523594596,
+                  "p50_estimate": 0.015,
+                  "p5_estimate": 0.011627942657917991,
+                  "p75_estimate": 0.01684411010166541,
+                  "p90_estimate": 0.01795793751886428,
+                  "p95_estimate": 0.018329213324597242,
+                  "p99_estimate": 0.02,
+                  "sum": 2474.7202791385353,
+                  "sum_rate": 19.2616250739361
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "sglang:is_cuda_graph": {
+            "description": "Whether the batch is using CUDA graph.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:kv_available_tokens": {
+            "description": "Number of free token slots in the KV cache pool.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 250837.54123711342,
+                  "max": 263207.0,
+                  "min": 238302.0,
+                  "p1": 239102.0,
+                  "p10": 242318.0,
+                  "p25": 245519.0,
+                  "p5": 240863.3,
+                  "p50": 250856.0,
+                  "p75": 256172.0,
+                  "p90": 259551.9,
+                  "p95": 260637.0,
+                  "p99": 262261.78,
+                  "std": 6340.390791259794
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:kv_cache_memory_usage_gb": {
+            "description": "Memory used by the KV cache pools in GB.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 16.58087158203125,
+                  "max": 16.58087158203125,
+                  "min": 16.58087158203125,
+                  "p1": 16.58087158203125,
+                  "p10": 16.58087158203125,
+                  "p25": 16.58087158203125,
+                  "p5": 16.58087158203125,
+                  "p50": 16.58087158203125,
+                  "p75": 16.58087158203125,
+                  "p90": 16.58087158203125,
+                  "p95": 16.58087158203125,
+                  "p99": 16.58087158203125,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:kv_evictable_tokens": {
+            "description": "Number of evictable (radix-cached) token slots in the KV cache pool.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 17195.788659793816,
+                  "max": 32340.0,
+                  "min": 7209.0,
+                  "p1": 7209.0,
+                  "p10": 9043.0,
+                  "p25": 11908.0,
+                  "p5": 7960.0,
+                  "p50": 18005.0,
+                  "p75": 22800.0,
+                  "p90": 25565.0,
+                  "p95": 26692.0,
+                  "p99": 27290.0,
+                  "std": 6171.852426864443
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:kv_used_tokens": {
+            "description": "Number of actively used token slots in the KV cache pool.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 3626.6701030927834,
+                  "max": 6345.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 1514.7,
+                  "p25": 2262.25,
+                  "p5": 1386.1,
+                  "p50": 3701.5,
+                  "p75": 4949.0,
+                  "p90": 5749.0,
+                  "p95": 6086.0,
+                  "p99": 6245.51,
+                  "std": 1563.3643455488302
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:mamba_available_tokens": {
+            "description": "Number of free state slots in the mamba SSM pool (hybrid-SSM only).",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.6030927835051546,
+                  "max": 40.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 40.0,
+                  "std": 4.826412122463756
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:mamba_evictable_tokens": {
+            "description": "Number of evictable (radix-cached) state slots in the mamba SSM pool.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 31.257731958762886,
+                  "max": 68.0,
+                  "min": 25.0,
+                  "p1": 25.0,
+                  "p10": 28.0,
+                  "p25": 29.0,
+                  "p5": 27.0,
+                  "p50": 31.0,
+                  "p75": 32.0,
+                  "p90": 34.0,
+                  "p95": 34.0,
+                  "p99": 62.0,
+                  "std": 4.6211028148187605
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:mamba_usage": {
+            "description": "The token usage for Mamba layers.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.6876389731150194,
+                  "max": 0.7549019607843137,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.6666666666666666,
+                  "p25": 0.6862745098039216,
+                  "p5": 0.6666666666666666,
+                  "p50": 0.696078431372549,
+                  "p75": 0.7156862745098039,
+                  "p90": 0.7254901960784313,
+                  "p95": 0.7352941176470589,
+                  "p99": 0.7549019607843137,
+                  "std": 0.0892532807037256
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:mamba_used_tokens": {
+            "description": "Number of actively used state slots in the mamba SSM pool.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 70.13917525773196,
+                  "max": 77.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 68.0,
+                  "p25": 70.0,
+                  "p5": 68.0,
+                  "p50": 71.0,
+                  "p75": 73.0,
+                  "p90": 74.0,
+                  "p95": 75.0,
+                  "p99": 77.0,
+                  "std": 9.10383463178001
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:max_total_num_tokens": {
+            "description": "Maximum total number of tokens in the KV cache pool.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 271660.0,
+                  "max": 271660.0,
+                  "min": 271660.0,
+                  "p1": 271660.0,
+                  "p10": 271660.0,
+                  "p25": 271660.0,
+                  "p5": 271660.0,
+                  "p50": 271660.0,
+                  "p75": 271660.0,
+                  "p90": 271660.0,
+                  "p95": 271660.0,
+                  "p99": 271660.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:new_token_ratio": {
+            "description": "The new token ratio.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.13025147766322973,
+                  "max": 0.7,
+                  "min": 0.098,
+                  "p1": 0.098,
+                  "p10": 0.098,
+                  "p25": 0.098,
+                  "p5": 0.098,
+                  "p50": 0.098,
+                  "p75": 0.098,
+                  "p90": 0.098,
+                  "p95": 0.4431466666666608,
+                  "p99": 0.7,
+                  "std": 0.1189545946482698
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:num_decode_prealloc_queue_reqs": {
+            "description": "The number of requests in the decode prealloc queue.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:num_decode_transfer_queue_reqs": {
+            "description": "The number of requests in the decode transfer queue.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:num_grammar_queue_reqs": {
+            "description": "The number of requests in the grammar waiting queue.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:num_pages": {
+            "description": "Number of KV cache pages.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 271660.0,
+                  "max": 271660.0,
+                  "min": 271660.0,
+                  "p1": 271660.0,
+                  "p10": 271660.0,
+                  "p25": 271660.0,
+                  "p5": 271660.0,
+                  "p50": 271660.0,
+                  "p75": 271660.0,
+                  "p90": 271660.0,
+                  "p95": 271660.0,
+                  "p99": 271660.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:num_paused_reqs": {
+            "description": "The number of paused requests by async weight sync.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pid": "1400186",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:num_prefill_bootstrap_queue_reqs": {
+            "description": "The number of requests in the prefill bootstrap queue.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:num_prefill_inflight_queue_reqs": {
+            "description": "The number of requests in the prefill inflight queue.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:num_queue_reqs": {
+            "description": "The number of requests in the waiting queue.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 11.56701030927835,
+                  "max": 12.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 12.0,
+                  "p25": 12.0,
+                  "p5": 12.0,
+                  "p50": 12.0,
+                  "p75": 12.0,
+                  "p90": 12.0,
+                  "p95": 12.0,
+                  "p99": 12.0,
+                  "std": 2.2408341769704814
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:num_requests": {
+            "description": "Number of requests processed.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "is_streaming": "false",
+                  "model_name": "qwen"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "is_streaming": "true",
+                  "model_name": "qwen"
+                },
+                "stats": {
+                  "rate": 4.9813468419995965,
+                  "total": 640.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "sglang:num_retracted_reqs": {
+            "description": "The number of retracted requests.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pid": "1400186",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:num_running_reqs": {
+            "description": "The number of running requests.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 19.36340206185567,
+                  "max": 20.0,
+                  "min": 0.0,
+                  "p1": 10.57,
+                  "p10": 20.0,
+                  "p25": 20.0,
+                  "p5": 14.0,
+                  "p50": 20.0,
+                  "p75": 20.0,
+                  "p90": 20.0,
+                  "p95": 20.0,
+                  "p99": 20.0,
+                  "std": 2.5077452679418273
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:num_unique_running_routing_keys": {
+            "description": "Number of unique routing keys in running batch.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:num_used_tokens": {
+            "description": "The number of used tokens.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 3626.6701030927834,
+                  "max": 6345.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 1514.7,
+                  "p25": 2262.25,
+                  "p5": 1386.1,
+                  "p50": 3701.5,
+                  "p75": 4949.0,
+                  "p90": 5749.0,
+                  "p95": 6086.0,
+                  "p99": 6245.51,
+                  "std": 1563.3643455488302
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:page_size": {
+            "description": "KV cache page size in tokens.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 1.0,
+                  "max": 1.0,
+                  "min": 1.0,
+                  "p1": 1.0,
+                  "p10": 1.0,
+                  "p25": 1.0,
+                  "p5": 1.0,
+                  "p50": 1.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "p95": 1.0,
+                  "p99": 1.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:pending_prealloc_token_usage": {
+            "description": "The token usage for pending preallocated tokens (not preallocated yet).",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:per_stage_req_latency_seconds": {
+            "description": "The latency of each stage of requests.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 640,
+                  "0.001": 640,
+                  "0.0016200000000000001": 640,
+                  "0.0026244000000000007": 640,
+                  "0.004251528": 640,
+                  "0.006887475360000002": 640,
+                  "0.011157710083200004": 640,
+                  "0.018075490334784006": 640,
+                  "0.029282294342350097": 640,
+                  "0.047437316834607154": 640,
+                  "0.07684845327206359": 640,
+                  "0.12449449430074302": 640,
+                  "0.20168108076720373": 640,
+                  "0.3267233508428701": 640,
+                  "0.5292918283654495": 640,
+                  "0.8574527619520282": 640,
+                  "1.389073474362286": 640,
+                  "106.74814798599316": 640,
+                  "1191.064887146242": 640,
+                  "15.49887911119774": 640,
+                  "172.93199973730896": 640,
+                  "2.2502990284669036": 640,
+                  "25.10818416014034": 640,
+                  "280.1498395744405": 640,
+                  "3.6454844261163837": 640,
+                  "40.67525833942735": 640,
+                  "453.84274011059364": 640,
+                  "5.905684770308542": 640,
+                  "65.89391850987231": 640,
+                  "735.2252389791618": 640,
+                  "9.567209327899839": 640
+                },
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "stage": "request_process",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 6.725442653987557e-6,
+                  "count": 640,
+                  "count_rate": 4.9813468419995965,
+                  "p10_estimate": 0.0,
+                  "p1_estimate": 0.0,
+                  "p25_estimate": 1.3805589915693793e-6,
+                  "p50_estimate": 4.74423674332566e-6,
+                  "p5_estimate": 0.0,
+                  "p75_estimate": 0.000012064115639569804,
+                  "p90_estimate": 0.000016459769383417846,
+                  "p95_estimate": 0.000017924987298033858,
+                  "p99_estimate": 0.000019097161629726672,
+                  "sum": 0.004304283298552036,
+                  "sum_rate": 0.000033501762525490304
+                }
+              },
+              {
+                "buckets": {
+                  "+Inf": 640,
+                  "0.001": 0,
+                  "0.0016200000000000001": 0,
+                  "0.0026244000000000007": 0,
+                  "0.004251528": 0,
+                  "0.006887475360000002": 0,
+                  "0.011157710083200004": 0,
+                  "0.018075490334784006": 0,
+                  "0.029282294342350097": 0,
+                  "0.047437316834607154": 0,
+                  "0.07684845327206359": 6,
+                  "0.12449449430074302": 316,
+                  "0.20168108076720373": 640,
+                  "0.3267233508428701": 640,
+                  "0.5292918283654495": 640,
+                  "0.8574527619520282": 640,
+                  "1.389073474362286": 640,
+                  "106.74814798599316": 640,
+                  "1191.064887146242": 640,
+                  "15.49887911119774": 640,
+                  "172.93199973730896": 640,
+                  "2.2502990284669036": 640,
+                  "25.10818416014034": 640,
+                  "280.1498395744405": 640,
+                  "3.6454844261163837": 640,
+                  "40.67525833942735": 640,
+                  "453.84274011059364": 640,
+                  "5.905684770308542": 640,
+                  "65.89391850987231": 640,
+                  "735.2252389791618": 640,
+                  "9.567209327899839": 640
+                },
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "stage": "prefill_forward",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.11711922270187643,
+                  "count": 640,
+                  "count_rate": 4.9813468419995965,
+                  "p10_estimate": 0.08542499894484162,
+                  "p1_estimate": 0.07707831242816145,
+                  "p25_estimate": 0.09933614313930858,
+                  "p50_estimate": 0.12449449430074302,
+                  "p5_estimate": 0.0807879508800193,
+                  "p75_estimate": 0.13165231404179575,
+                  "p90_estimate": 0.1544866792047904,
+                  "p95_estimate": 0.1620981342591219,
+                  "p99_estimate": 0.16818729830258713,
+                  "sum": 74.95630252920091,
+                  "sum_rate": 0.5834114701434396
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "sglang:process_cpu_seconds": {
+            "description": "Total CPU time consumed by this process (user + system)",
+            "series": [
+              {
+                "labels": {
+                  "component": "tokenizer"
+                },
+                "stats": {
+                  "rate": 0.10048310582846062,
+                  "total": 12.91
+                }
+              },
+              {
+                "labels": {
+                  "component": "detokenizer"
+                },
+                "stats": {
+                  "rate": 0.026696905731341574,
+                  "total": 3.429999999999998
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "sglang:prompt_tokens": {
+            "description": "Number of prefill tokens processed.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "is_streaming": "false",
+                  "model_name": "qwen"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "is_streaming": "true",
+                  "model_name": "qwen"
+                },
+                "stats": {
+                  "rate": 350.79578463894035,
+                  "total": 45070.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "sglang:prompt_tokens_histogram": {
+            "description": "Histogram of prompt token length.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 640,
+                  "1.1e+06": 640,
+                  "100.0": 572,
+                  "1000.0": 640,
+                  "10000.0": 640,
+                  "100000.0": 640,
+                  "12500.0": 640,
+                  "1500.0": 640,
+                  "15000.0": 640,
+                  "17500.0": 640,
+                  "1e+06": 640,
+                  "2000.0": 640,
+                  "20000.0": 640,
+                  "200000.0": 640,
+                  "22500.0": 640,
+                  "25000.0": 640,
+                  "27500.0": 640,
+                  "300.0": 640,
+                  "3000.0": 640,
+                  "30000.0": 640,
+                  "300000.0": 640,
+                  "35000.0": 640,
+                  "4000.0": 640,
+                  "40000.0": 640,
+                  "400000.0": 640,
+                  "500.0": 640,
+                  "5000.0": 640,
+                  "6000.0": 640,
+                  "60000.0": 640,
+                  "600000.0": 640,
+                  "700.0": 640,
+                  "7000.0": 640,
+                  "8000.0": 640,
+                  "80000.0": 640,
+                  "800000.0": 640,
+                  "9000.0": 640
+                },
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen"
+                },
+                "stats": {
+                  "avg": 70.421875,
+                  "count": 640,
+                  "count_rate": 4.9813468419995965,
+                  "p10_estimate": 36.476880508983335,
+                  "p1_estimate": 30.88348053025473,
+                  "p25_estimate": 45.799213806864344,
+                  "p50_estimate": 61.33643596999935,
+                  "p5_estimate": 33.36943607635633,
+                  "p75_estimate": 76.87365813313437,
+                  "p90_estimate": 100.0,
+                  "p95_estimate": 183.7657624558094,
+                  "p99_estimate": 258.9422330440448,
+                  "sum": 45070.0,
+                  "sum_rate": 350.79578463894035
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "sglang:queue_time_seconds": {
+            "description": "Histogram of queueing time in seconds.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 640,
+                  "0.0": 0,
+                  "0.001": 76,
+                  "0.005": 268,
+                  "0.01": 268,
+                  "0.05": 268,
+                  "0.1": 268,
+                  "0.2": 268,
+                  "0.5": 268,
+                  "1.0": 268,
+                  "10.0": 640,
+                  "100.0": 640,
+                  "1000.0": 640,
+                  "1200.0": 640,
+                  "1400.0": 640,
+                  "15.0": 640,
+                  "1600.0": 640,
+                  "1800.0": 640,
+                  "2.0": 268,
+                  "20.0": 640,
+                  "200.0": 640,
+                  "2000.0": 640,
+                  "2500.0": 640,
+                  "3.0": 268,
+                  "30.0": 640,
+                  "300.0": 640,
+                  "3000.0": 640,
+                  "4.0": 640,
+                  "40.0": 640,
+                  "400.0": 640,
+                  "5.0": 640,
+                  "50.0": 640,
+                  "500.0": 640,
+                  "60.0": 640,
+                  "600.0": 640,
+                  "70.0": 640,
+                  "700.0": 640,
+                  "80.0": 640,
+                  "800.0": 640,
+                  "90.0": 640,
+                  "900.0": 640
+                },
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 2.3058212230549544,
+                  "count": 640,
+                  "count_rate": 4.9813468419995965,
+                  "p10_estimate": 0.001,
+                  "p1_estimate": 0.0004778752825034317,
+                  "p25_estimate": 0.0014906727699452492,
+                  "p50_estimate": 3.5397849462365594,
+                  "p5_estimate": 0.0008141910719771159,
+                  "p75_estimate": 3.9692204301075265,
+                  "p90_estimate": 4.0,
+                  "p95_estimate": 4.0,
+                  "p99_estimate": 4.0,
+                  "sum": 1475.7255827551708,
+                  "sum_rate": 11.486095267680444
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "sglang:realtime_tokens": {
+            "description": "Total number of tokens processed (updated on each log interval). mode: prefill_compute, prefill_cache, decode.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "mode": "prefill_compute",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "rate": 350.79578463894035,
+                  "total": 45070.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "mode": "decode",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "rate": 1275.2247915518967,
+                  "total": 163840.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "sglang:routing_key_all_req_count": {
+            "description": "Distribution of routing keys by running+waiting request count (gt < count <= le).",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "0",
+                  "le": "1",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "1",
+                  "le": "2",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "2",
+                  "le": "3",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "3",
+                  "le": "5",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "5",
+                  "le": "7",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "7",
+                  "le": "10",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "10",
+                  "le": "20",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "20",
+                  "le": "50",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "50",
+                  "le": "100",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "100",
+                  "le": "200",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "200",
+                  "le": "+Inf",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:routing_key_running_req_count": {
+            "description": "Distribution of routing keys by running request count (gt < count <= le).",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "0",
+                  "le": "1",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "1",
+                  "le": "2",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "2",
+                  "le": "3",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "3",
+                  "le": "5",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "5",
+                  "le": "7",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "7",
+                  "le": "10",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "10",
+                  "le": "20",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "20",
+                  "le": "50",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "50",
+                  "le": "100",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "100",
+                  "le": "200",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "gt": "200",
+                  "le": "+Inf",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:routing_keys_active": {
+            "description": "Number of unique routing keys with active requests",
+            "series": [
+              {
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:spec_accept_length": {
+            "description": "Mean acceptance length of speculative decoding (accepted drafts + bonus token per forward).",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:spec_accept_rate": {
+            "description": "Speculative acceptance rate (`accepted drafts / proposed drafts` in batch).",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:spec_block_accept_length": {
+            "description": "Mean uncapped full-block accept length per verify step (accept + cap-trimmed drafts; exact only in DSpark cap-accept mode).",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:spec_cap_length": {
+            "description": "Mean DSpark confidence-scheduled verify window per verify step, incl the bonus slot (0 when no cap is scheduled).",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:spec_num_draft_tokens": {
+            "description": "Currently active speculative_num_draft_tokens (decouples from steps under topk>1).",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:spec_num_steps": {
+            "description": "Currently active speculative_num_steps.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:startup_available_gpu_memory_gb": {
+            "description": "Available GPU memory in GB at startup.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 12.69146728515625,
+                  "max": 12.69146728515625,
+                  "min": 12.69146728515625,
+                  "p1": 12.69146728515625,
+                  "p10": 12.69146728515625,
+                  "p25": 12.69146728515625,
+                  "p5": 12.69146728515625,
+                  "p50": 12.69146728515625,
+                  "p75": 12.69146728515625,
+                  "p90": 12.69146728515625,
+                  "p95": 12.69146728515625,
+                  "p99": 12.69146728515625,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:startup_cuda_graph_time_seconds": {
+            "description": "CUDA graph capture duration by phase in seconds.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "phase": "prefill"
+                },
+                "stats": {
+                  "avg": 24.312582370825112,
+                  "max": 24.312582370825112,
+                  "min": 24.312582370825112,
+                  "p1": 24.312582370825112,
+                  "p10": 24.312582370825112,
+                  "p25": 24.312582370825112,
+                  "p5": 24.312582370825112,
+                  "p50": 24.312582370825112,
+                  "p75": 24.312582370825112,
+                  "p90": 24.312582370825112,
+                  "p95": 24.312582370825112,
+                  "p99": 24.312582370825112,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "phase": "decode"
+                },
+                "stats": {
+                  "avg": 2.3677362659946084,
+                  "max": 2.3677362659946084,
+                  "min": 2.3677362659946084,
+                  "p1": 2.3677362659946084,
+                  "p10": 2.3677362659946084,
+                  "p25": 2.3677362659946084,
+                  "p5": 2.3677362659946084,
+                  "p50": 2.3677362659946084,
+                  "p75": 2.3677362659946084,
+                  "p90": 2.3677362659946084,
+                  "p95": 2.3677362659946084,
+                  "p99": 2.3677362659946084,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "phase": "target_verify"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "phase": "draft_prefill"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "phase": "draft_decode"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "phase": "draft_extend"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:startup_time_seconds": {
+            "description": "Engine startup duration by phase in seconds.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "phase": "load_weight"
+                },
+                "stats": {
+                  "avg": 9.97387711983174,
+                  "max": 9.97387711983174,
+                  "min": 9.97387711983174,
+                  "p1": 9.97387711983174,
+                  "p10": 9.97387711983174,
+                  "p25": 9.97387711983174,
+                  "p5": 9.97387711983174,
+                  "p50": 9.97387711983174,
+                  "p75": 9.97387711983174,
+                  "p90": 9.97387711983174,
+                  "p95": 9.97387711983174,
+                  "p99": 9.97387711983174,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "phase": "kv_cache_allocation"
+                },
+                "stats": {
+                  "avg": 0.019306753762066364,
+                  "max": 0.019306753762066364,
+                  "min": 0.019306753762066364,
+                  "p1": 0.019306753762066364,
+                  "p10": 0.019306753762066364,
+                  "p25": 0.019306753762066364,
+                  "p5": 0.019306753762066364,
+                  "p50": 0.019306753762066364,
+                  "p75": 0.019306753762066364,
+                  "p90": 0.019306753762066364,
+                  "p95": 0.019306753762066364,
+                  "p99": 0.019306753762066364,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "phase": "scheduler_e2e"
+                },
+                "stats": {
+                  "avg": 40.035304754041135,
+                  "max": 40.035304754041135,
+                  "min": 40.035304754041135,
+                  "p1": 40.035304754041135,
+                  "p10": 40.035304754041135,
+                  "p25": 40.035304754041135,
+                  "p5": 40.035304754041135,
+                  "p50": 40.035304754041135,
+                  "p75": 40.035304754041135,
+                  "p90": 40.035304754041135,
+                  "p95": 40.035304754041135,
+                  "p99": 40.035304754041135,
+                  "std": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "phase": "tokenizer_e2e"
+                },
+                "stats": {
+                  "avg": 49.017189170233905,
+                  "max": 49.017189170233905,
+                  "min": 49.017189170233905,
+                  "p1": 49.017189170233905,
+                  "p10": 49.017189170233905,
+                  "p25": 49.017189170233905,
+                  "p5": 49.017189170233905,
+                  "p50": 49.017189170233905,
+                  "p75": 49.017189170233905,
+                  "p90": 49.017189170233905,
+                  "p95": 49.017189170233905,
+                  "p99": 49.017189170233905,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:swa_available_tokens": {
+            "description": "Number of free token slots in the SWA pool (hybrid-SWA only).",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:swa_evictable_tokens": {
+            "description": "Number of evictable (radix-cached) token slots in the SWA pool.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:swa_token_usage": {
+            "description": "The token usage for SWA layers.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:swa_used_tokens": {
+            "description": "Number of actively used token slots in the SWA pool.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:time_to_first_token_seconds": {
+            "description": "Histogram of time to first token in seconds.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 0,
+                  "0.1": 0,
+                  "0.2": 0,
+                  "0.4": 0,
+                  "0.6": 0,
+                  "0.8": 0,
+                  "1.0": 0,
+                  "10.0": 0,
+                  "100.0": 0,
+                  "2.0": 0,
+                  "20.0": 0,
+                  "200.0": 0,
+                  "4.0": 0,
+                  "40.0": 0,
+                  "400.0": 0,
+                  "6.0": 0,
+                  "60.0": 0,
+                  "8.0": 0,
+                  "80.0": 0
+                },
+                "labels": {
+                  "engine_type": "unified",
+                  "is_streaming": "false",
+                  "model_name": "qwen"
+                },
+                "stats": {
+                  "count": 0
+                }
+              },
+              {
+                "buckets": {
+                  "+Inf": 640,
+                  "0.1": 0,
+                  "0.2": 268,
+                  "0.4": 268,
+                  "0.6": 268,
+                  "0.8": 268,
+                  "1.0": 268,
+                  "10.0": 640,
+                  "100.0": 640,
+                  "2.0": 268,
+                  "20.0": 640,
+                  "200.0": 640,
+                  "4.0": 268,
+                  "40.0": 640,
+                  "400.0": 640,
+                  "6.0": 640,
+                  "60.0": 640,
+                  "8.0": 640,
+                  "80.0": 640
+                },
+                "labels": {
+                  "engine_type": "unified",
+                  "is_streaming": "true",
+                  "model_name": "qwen"
+                },
+                "stats": {
+                  "avg": 2.4614297732769046,
+                  "count": 640,
+                  "count_rate": 4.9813468419995965,
+                  "p10_estimate": 0.1,
+                  "p1_estimate": 0.1,
+                  "p25_estimate": 0.12007978762533435,
+                  "p50_estimate": 4.0,
+                  "p5_estimate": 0.1,
+                  "p75_estimate": 4.338440860215053,
+                  "p90_estimate": 4.853763440860216,
+                  "p95_estimate": 5.025537634408602,
+                  "p99_estimate": 5.162956989247312,
+                  "sum": 1575.315054897219,
+                  "sum_rate": 12.261235427916692
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "sglang:token_usage": {
+            "description": "The token usage.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.691237113402062,
+                  "max": 0.75,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.67,
+                  "p25": 0.69,
+                  "p5": 0.67,
+                  "p50": 0.7,
+                  "p75": 0.72,
+                  "p90": 0.73,
+                  "p95": 0.74,
+                  "p99": 0.75,
+                  "std": 0.08962462899734744
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:uncached_prompt_tokens_histogram": {
+            "description": "Histogram of uncached (compute) prompt token length.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 640,
+                  "1.1e+06": 640,
+                  "100.0": 572,
+                  "1000.0": 640,
+                  "10000.0": 640,
+                  "100000.0": 640,
+                  "12500.0": 640,
+                  "1500.0": 640,
+                  "15000.0": 640,
+                  "17500.0": 640,
+                  "1e+06": 640,
+                  "2000.0": 640,
+                  "20000.0": 640,
+                  "200000.0": 640,
+                  "22500.0": 640,
+                  "25000.0": 640,
+                  "27500.0": 640,
+                  "300.0": 640,
+                  "3000.0": 640,
+                  "30000.0": 640,
+                  "300000.0": 640,
+                  "35000.0": 640,
+                  "4000.0": 640,
+                  "40000.0": 640,
+                  "400000.0": 640,
+                  "500.0": 640,
+                  "5000.0": 640,
+                  "6000.0": 640,
+                  "60000.0": 640,
+                  "600000.0": 640,
+                  "700.0": 640,
+                  "7000.0": 640,
+                  "8000.0": 640,
+                  "80000.0": 640,
+                  "800000.0": 640,
+                  "9000.0": 640
+                },
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen"
+                },
+                "stats": {
+                  "avg": 70.421875,
+                  "count": 640,
+                  "count_rate": 4.9813468419995965,
+                  "p10_estimate": 36.476880508983335,
+                  "p1_estimate": 30.88348053025473,
+                  "p25_estimate": 45.799213806864344,
+                  "p50_estimate": 61.33643596999935,
+                  "p5_estimate": 33.36943607635633,
+                  "p75_estimate": 76.87365813313437,
+                  "p90_estimate": 100.0,
+                  "p95_estimate": 183.7657624558094,
+                  "p99_estimate": 258.9422330440448,
+                  "sum": 45070.0,
+                  "sum_rate": 350.79578463894035
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "sglang:utilization": {
+            "description": "The utilization.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 0.0,
+                  "max": 0.0,
+                  "min": 0.0,
+                  "p1": 0.0,
+                  "p10": 0.0,
+                  "p25": 0.0,
+                  "p5": 0.0,
+                  "p50": 0.0,
+                  "p75": 0.0,
+                  "p90": 0.0,
+                  "p95": 0.0,
+                  "p99": 0.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "sglang:weight_memory_usage_gb": {
+            "description": "Memory used by model weights in GB.",
+            "series": [
+              {
+                "labels": {
+                  "engine_type": "unified",
+                  "model_name": "qwen",
+                  "moe_ep_rank": "0",
+                  "pp_rank": "0",
+                  "tp_rank": "0"
+                },
+                "stats": {
+                  "avg": 30.193359375,
+                  "max": 30.193359375,
+                  "min": 30.193359375,
+                  "p1": 30.193359375,
+                  "p10": 30.193359375,
+                  "p25": 30.193359375,
+                  "p5": 30.193359375,
+                  "p50": 30.193359375,
+                  "p75": 30.193359375,
+                  "p90": 30.193359375,
+                  "p95": 30.193359375,
+                  "p99": 30.193359375,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          }
+        }
+      }
+    },
+    "endpoints_configured": [
+      "http://127.0.0.1:8273/metrics"
+    ],
+    "endpoints_successful": [
+      "http://127.0.0.1:8273/metrics"
+    ],
+    "error_summary": [],
+    "start_ns": 1789999151361857376,
+    "warmup_end_ns": 1789999166895490264
+  },
+  "phase": {
+    "end_ns": 1789999166847378565,
+    "phase_index": 0,
+    "phase_kind": "warmup",
+    "phase_name": "warmup",
+    "profiling_index": null,
+    "start_ns": 1789999151361874272,
+    "was_cancelled": false
+  },
+  "schema_version": 1,
+  "warnings": []
+}

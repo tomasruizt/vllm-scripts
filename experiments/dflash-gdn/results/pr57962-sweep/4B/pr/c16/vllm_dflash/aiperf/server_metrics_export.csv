@@ -1,0 +1,147 @@
+# AIPerf Server Metrics Export (CSV)
+# aiperf_version: 0.12.0
+# schema_version: 1.0
+# benchmark_id: 690d2fd4bfec
+# Note: Same benchmark_id and version appear in JSON and Parquet exports
+#
+Endpoint,Type,Metric,Unit,avg,min,max,std,p1,p5,p10,p25,p50,p75,p90,p95,p99,engine,model_name,reason,sleep_state,Description
+127.0.0.1:8416,gauge,process_max_fds,,524288.0000,524288.0000,524288.0000,0.0000,524288.0000,524288.0000,524288.0000,524288.0000,524288.0000,524288.0000,524288.0000,524288.0000,524288.0000,,,,,Maximum number of open file descriptors.
+127.0.0.1:8416,gauge,process_open_fds,,91.0000,91.0000,91.0000,0.0000,91.0000,91.0000,91.0000,91.0000,91.0000,91.0000,91.0000,91.0000,91.0000,,,,,Number of open file descriptors.
+127.0.0.1:8416,gauge,process_resident_memory_bytes,bytes,1989011269.8182,1987760128.0000,1989070848.0000,274271.0609,1987760128.0000,1989070848.0000,1989070848.0000,1989070848.0000,1989070848.0000,1989070848.0000,1989070848.0000,1989070848.0000,1989070848.0000,,,,,Resident memory size in bytes.
+127.0.0.1:8416,gauge,process_start_time_seconds,seconds,1790001082.5100,1790001082.5100,1790001082.5100,0.0000,1790001082.5100,1790001082.5100,1790001082.5100,1790001082.5100,1790001082.5100,1790001082.5100,1790001082.5100,1790001082.5100,1790001082.5100,,,,,Start time of the process since unix epoch in seconds.
+127.0.0.1:8416,gauge,process_virtual_memory_bytes,bytes,54098350601.3091,54098345984.0000,54098362368.0000,7404.6535,54098345984.0000,54098345984.0000,54098345984.0000,54098345984.0000,54098345984.0000,54098362368.0000,54098362368.0000,54098362368.0000,54098362368.0000,,,,,Virtual memory size in bytes.
+127.0.0.1:8416,gauge,vllm:kv_cache_usage_perc,ratio,0.2047,0.0000,0.2236,0.0382,0.0000,0.1880,0.1957,0.1992,0.2097,0.2236,0.2236,0.2236,0.2236,0,qwen,,,KV-cache usage. 1 means 100 percent usage.
+127.0.0.1:8416,gauge,vllm:num_requests_running,requests,14.6455,0.0000,16.0000,2.7314,0.0000,13.4500,14.0000,14.2500,15.0000,16.0000,16.0000,16.0000,16.0000,0,qwen,,,Number of requests in model execution batches.
+127.0.0.1:8416,gauge,vllm:num_requests_waiting,requests,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0,qwen,,,Number of requests waiting to be processed.
+127.0.0.1:8416,gauge,vllm:engine_sleep_state,,1.0000,1.0000,1.0000,0.0000,1.0000,1.0000,1.0000,1.0000,1.0000,1.0000,1.0000,1.0000,1.0000,0,qwen,,awake,Engine sleep state; awake = 0 means engine is sleeping; awake = 1 means engine is awake; weights_offloaded = 1 means sleep level 1; discard_all = 1 means sleep level 2.
+127.0.0.1:8416,gauge,vllm:engine_sleep_state,,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0,qwen,,discard_all,Engine sleep state; awake = 0 means engine is sleeping; awake = 1 means engine is awake; weights_offloaded = 1 means sleep level 1; discard_all = 1 means sleep level 2.
+127.0.0.1:8416,gauge,vllm:engine_sleep_state,,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0,qwen,,weights_offloaded,Engine sleep state; awake = 0 means engine is sleeping; awake = 1 means engine is awake; weights_offloaded = 1 means sleep level 1; discard_all = 1 means sleep level 2.
+127.0.0.1:8416,gauge,vllm:num_requests_waiting_by_reason,requests,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0,qwen,capacity,,"Number of waiting requests by reason. Reason labels: 'capacity' = waiting for scheduling capacity; 'deferred' = deferred by transient constraints (LoRA budget, KV transfer, blocked status). Sum of all reasons equals vllm:num_requests_waiting."
+127.0.0.1:8416,gauge,vllm:num_requests_waiting_by_reason,requests,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0,qwen,deferred,,"Number of waiting requests by reason. Reason labels: 'capacity' = waiting for scheduling capacity; 'deferred' = deferred by transient constraints (LoRA budget, KV transfer, blocked status). Sum of all reasons equals vllm:num_requests_waiting."
+
+Endpoint,Type,Metric,Unit,total,rate,rate_avg,rate_min,rate_max,rate_std,engine,finished_reason,mode,model_name,outcome,position,request_type,source,generation,handler,method,status,Description
+127.0.0.1:8416,counter,process_cpu_seconds,seconds,3.2500,0.0907,,,,,,,,,,,,,,,,,Total user and system CPU time spent in seconds.
+127.0.0.1:8416,counter,http_requests,requests,320.0000,8.9265,,,,,,,,,,,,,,/v1/chat/completions,POST,2xx,"Total number of requests by method, status and handler."
+127.0.0.1:8416,counter,python_gc_collections,,60.0000,1.6737,,,,,,,,,,,,,0,,,,Number of times this generation was collected
+127.0.0.1:8416,counter,python_gc_collections,,5.0000,0.1395,,,,,,,,,,,,,1,,,,Number of times this generation was collected
+127.0.0.1:8416,counter,python_gc_collections,,0.0000,0.0000,,,,,,,,,,,,,2,,,,Number of times this generation was collected
+127.0.0.1:8416,counter,python_gc_objects_collected,,7553.0000,210.6931,,,,,,,,,,,,,0,,,,Objects collected during gc
+127.0.0.1:8416,counter,python_gc_objects_collected,,981.0000,27.3653,,,,,,,,,,,,,1,,,,Objects collected during gc
+127.0.0.1:8416,counter,python_gc_objects_collected,,0.0000,0.0000,,,,,,,,,,,,,2,,,,Objects collected during gc
+127.0.0.1:8416,counter,python_gc_objects_uncollectable,,0.0000,0.0000,,,,,,,,,,,,,0,,,,Uncollectable objects found during GC
+127.0.0.1:8416,counter,python_gc_objects_uncollectable,,0.0000,0.0000,,,,,,,,,,,,,1,,,,Uncollectable objects found during GC
+127.0.0.1:8416,counter,python_gc_objects_uncollectable,,0.0000,0.0000,,,,,,,,,,,,,2,,,,Uncollectable objects found during GC
+127.0.0.1:8416,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,non_streaming,qwen,no_tool_call,,chat_completions,,,,,,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8416,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,non_streaming,qwen,no_tool_call,,other,,,,,,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8416,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,non_streaming,qwen,no_tool_call,,responses,,,,,,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8416,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,non_streaming,qwen,tool_call,,chat_completions,,,,,,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8416,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,non_streaming,qwen,tool_call,,other,,,,,,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8416,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,non_streaming,qwen,tool_call,,responses,,,,,,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8416,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,streaming,qwen,no_tool_call,,chat_completions,,,,,,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8416,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,streaming,qwen,no_tool_call,,other,,,,,,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8416,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,streaming,qwen,no_tool_call,,responses,,,,,,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8416,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,streaming,qwen,tool_call,,chat_completions,,,,,,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8416,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,streaming,qwen,tool_call,,other,,,,,,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8416,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,streaming,qwen,tool_call,,responses,,,,,,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8416,counter,vllm:estimated_flops_per_gpu,,0.0000,0.0000,,,,,0,,,qwen,,,,,,,,,Estimated number of floating point operations per GPU (for Model Flops Utilization calculations).
+127.0.0.1:8416,counter,vllm:estimated_read_bytes_per_gpu,,0.0000,0.0000,,,,,0,,,qwen,,,,,,,,,Estimated number of bytes read from memory per GPU (for Model Flops Utilization calculations).
+127.0.0.1:8416,counter,vllm:estimated_write_bytes_per_gpu,,0.0000,0.0000,,,,,0,,,qwen,,,,,,,,,Estimated number of bytes written to memory per GPU (for Model Flops Utilization calculations).
+127.0.0.1:8416,counter,vllm:external_prefix_cache_hits,,0.0000,0.0000,,,,,0,,,qwen,,,,,,,,,"External prefix cache hits from KV connector cross-instance cache sharing, in terms of number of cached tokens."
+127.0.0.1:8416,counter,vllm:external_prefix_cache_queries,,0.0000,0.0000,,,,,0,,,qwen,,,,,,,,,"External prefix cache queries from KV connector cross-instance cache sharing, in terms of number of queried tokens."
+127.0.0.1:8416,counter,vllm:generation_tokens,tokens,81920.0000,2285.1824,,,,,0,,,qwen,,,,,,,,,Number of generation tokens processed.
+127.0.0.1:8416,counter,vllm:mm_cache_hits,,0.0000,0.0000,,,,,0,,,qwen,,,,,,,,,"Multi-modal cache hits, in terms of number of cached items."
+127.0.0.1:8416,counter,vllm:mm_cache_queries,,0.0000,0.0000,,,,,0,,,qwen,,,,,,,,,"Multi-modal cache queries, in terms of number of queried items."
+127.0.0.1:8416,counter,vllm:num_preemptions,,0.0000,0.0000,,,,,0,,,qwen,,,,,,,,,Cumulative number of preemption from the engine.
+127.0.0.1:8416,counter,vllm:prefix_cache_hits,,0.0000,0.0000,,,,,0,,,qwen,,,,,,,,,"Prefix cache hits, in terms of number of cached tokens."
+127.0.0.1:8416,counter,vllm:prefix_cache_queries,,22606.0000,630.6010,,,,,0,,,qwen,,,,,,,,,"Prefix cache queries, in terms of number of queried tokens."
+127.0.0.1:8416,counter,vllm:prompt_tokens,tokens,22606.0000,630.6010,,,,,0,,,qwen,,,,,,,,,Number of prefill tokens processed.
+127.0.0.1:8416,counter,vllm:prompt_tokens_cached,,0.0000,0.0000,,,,,0,,,qwen,,,,,,,,,Number of cached prompt tokens (local + external).
+127.0.0.1:8416,counter,vllm:spec_decode_num_accepted_tokens,tokens,67552.0000,1884.3828,,,,,0,,,qwen,,,,,,,,,Number of accepted tokens.
+127.0.0.1:8416,counter,vllm:spec_decode_num_draft_tokens,tokens,229710.0000,6407.8278,,,,,0,,,qwen,,,,,,,,,Number of draft tokens.
+127.0.0.1:8416,counter,vllm:spec_decode_num_drafts,,15314.0000,427.1885,,,,,0,,,qwen,,,,,,,,,Number of spec decoding drafts.
+127.0.0.1:8416,counter,vllm:prompt_tokens_by_source,,0.0000,0.0000,,,,,0,,,qwen,,,,external_kv_transfer,,,,,Number of prompt tokens by source.
+127.0.0.1:8416,counter,vllm:prompt_tokens_by_source,,0.0000,0.0000,,,,,0,,,qwen,,,,local_cache_hit,,,,,Number of prompt tokens by source.
+127.0.0.1:8416,counter,vllm:prompt_tokens_by_source,,22606.0000,630.6010,,,,,0,,,qwen,,,,local_compute,,,,,Number of prompt tokens by source.
+127.0.0.1:8416,counter,vllm:spec_decode_num_accepted_tokens_per_pos,,11879.0000,331.3682,,,,,0,,,qwen,,0,,,,,,,Accepted tokens per draft position.
+127.0.0.1:8416,counter,vllm:spec_decode_num_accepted_tokens_per_pos,,9042.0000,252.2292,,,,,0,,,qwen,,1,,,,,,,Accepted tokens per draft position.
+127.0.0.1:8416,counter,vllm:spec_decode_num_accepted_tokens_per_pos,,2302.0000,64.2150,,,,,0,,,qwen,,10,,,,,,,Accepted tokens per draft position.
+127.0.0.1:8416,counter,vllm:spec_decode_num_accepted_tokens_per_pos,,2019.0000,56.3206,,,,,0,,,qwen,,11,,,,,,,Accepted tokens per draft position.
+127.0.0.1:8416,counter,vllm:spec_decode_num_accepted_tokens_per_pos,,1765.0000,49.2352,,,,,0,,,qwen,,12,,,,,,,Accepted tokens per draft position.
+127.0.0.1:8416,counter,vllm:spec_decode_num_accepted_tokens_per_pos,,1542.0000,43.0145,,,,,0,,,qwen,,13,,,,,,,Accepted tokens per draft position.
+127.0.0.1:8416,counter,vllm:spec_decode_num_accepted_tokens_per_pos,,1326.0000,36.9892,,,,,0,,,qwen,,14,,,,,,,Accepted tokens per draft position.
+127.0.0.1:8416,counter,vllm:spec_decode_num_accepted_tokens_per_pos,,7488.0000,208.8800,,,,,0,,,qwen,,2,,,,,,,Accepted tokens per draft position.
+127.0.0.1:8416,counter,vllm:spec_decode_num_accepted_tokens_per_pos,,6426.0000,179.2552,,,,,0,,,qwen,,3,,,,,,,Accepted tokens per draft position.
+127.0.0.1:8416,counter,vllm:spec_decode_num_accepted_tokens_per_pos,,5599.0000,156.1857,,,,,0,,,qwen,,4,,,,,,,Accepted tokens per draft position.
+127.0.0.1:8416,counter,vllm:spec_decode_num_accepted_tokens_per_pos,,4837.0000,134.9295,,,,,0,,,qwen,,5,,,,,,,Accepted tokens per draft position.
+127.0.0.1:8416,counter,vllm:spec_decode_num_accepted_tokens_per_pos,,4102.0000,114.4265,,,,,0,,,qwen,,6,,,,,,,Accepted tokens per draft position.
+127.0.0.1:8416,counter,vllm:spec_decode_num_accepted_tokens_per_pos,,3525.0000,98.3309,,,,,0,,,qwen,,7,,,,,,,Accepted tokens per draft position.
+127.0.0.1:8416,counter,vllm:spec_decode_num_accepted_tokens_per_pos,,3049.0000,85.0527,,,,,0,,,qwen,,8,,,,,,,Accepted tokens per draft position.
+127.0.0.1:8416,counter,vllm:spec_decode_num_accepted_tokens_per_pos,,2651.0000,73.9504,,,,,0,,,qwen,,9,,,,,,,Accepted tokens per draft position.
+127.0.0.1:8416,counter,vllm:request_success,requests,0.0000,0.0000,,,,,0,abort,,qwen,,,,,,,,,Count of successfully processed requests.
+127.0.0.1:8416,counter,vllm:request_success,requests,0.0000,0.0000,,,,,0,error,,qwen,,,,,,,,,Count of successfully processed requests.
+127.0.0.1:8416,counter,vllm:request_success,requests,320.0000,8.9265,,,,,0,length,,qwen,,,,,,,,,Count of successfully processed requests.
+127.0.0.1:8416,counter,vllm:request_success,requests,0.0000,0.0000,,,,,0,repetition,,qwen,,,,,,,,,Count of successfully processed requests.
+127.0.0.1:8416,counter,vllm:request_success,requests,0.0000,0.0000,,,,,0,stop,,qwen,,,,,,,,,Count of successfully processed requests.
+
+Endpoint,Type,Metric,Unit,count,count_rate,sum,sum_rate,avg,p1_estimate,p5_estimate,p10_estimate,p25_estimate,p50_estimate,p75_estimate,p90_estimate,p95_estimate,p99_estimate,engine,model_name,handler,method,Description,buckets
+127.0.0.1:8416,histogram,http_request_duration_highr_seconds,seconds,320,8.9265,567.5270,15.8313,1.7735,0.9616,1.0637,1.1561,1.3843,1.6638,2.2452,2.5000,2.7014,3.0268,,,,,Latency with many buckets but no API specific labels. Made for more accurate percentile calculations.,0.01=0;0.025=0;0.05=0;0.075=0;0.1=0;0.25=0;0.5=0;0.75=1;1.0=4;1.5=109;2.0=232;2.5=287;3.0=314;3.5=319;4.0=320;4.5=320;5.0=320;7.5=320;10.0=320;30.0=320;60.0=320;+Inf=320
+127.0.0.1:8416,histogram,http_request_duration_seconds,seconds,320,8.9265,567.5270,15.8313,1.7735,0.9494,1.0597,1.1393,1.3783,1.7765,2.1747,2.4137,2.4933,2.5570,,,/v1/chat/completions,POST,Latency with only few buckets by handler. Made to be only used if aggregation by handler is important.,0.1=0;0.5=0;1.0=4;+Inf=320
+127.0.0.1:8416,histogram,vllm:e2e_request_latency_seconds,seconds,320,8.9265,566.5943,15.8053,1.7706,0.9007,1.0492,1.1414,1.3727,1.6511,2.2217,2.5000,2.7523,3.3215,0,qwen,,,Histogram of e2e request latency in seconds.,0.3=0;0.5=0;0.8=2;1.0=5;1.5=109;2.0=233;2.5=287;5.0=320;10.0=320;15.0=320;20.0=320;30.0=320;40.0=320;50.0=320;60.0=320;120.0=320;240.0=320;480.0=320;960.0=320;1920.0=320;7680.0=320;+Inf=320
+127.0.0.1:8416,histogram,vllm:inter_token_latency_seconds,seconds,15314,427.1885,525.7343,14.6655,0.0343,0.0103,0.0145,0.0197,0.0268,0.0273,0.0278,0.0655,0.0710,0.0750,0,qwen,,,Histogram of inter-token latency in seconds.,0.01=149;0.025=2344;0.05=11724;0.075=15255;0.1=15285;0.15=15314;0.2=15314;0.3=15314;0.4=15314;0.5=15314;0.75=15314;1.0=15314;2.5=15314;5.0=15314;7.5=15314;10.0=15314;20.0=15314;40.0=15314;80.0=15314;+Inf=15314
+127.0.0.1:8416,histogram,vllm:iteration_tokens_total,tokens,1056,29.4574,104526.0000,2915.7834,98.9830,4.6539,32.6643,43.9176,64.0000,81.1287,107.3806,193.5488,226.4854,288.8341,0,qwen,,,Histogram of number of tokens per engine_step.,1.0=3;8.0=18;16.0=27;32.0=45;64.0=195;128.0=838;256.0=1043;512.0=1055;1024.0=1055;2048.0=1056;4096.0=1056;8192.0=1056;16384.0=1056;+Inf=1056
+127.0.0.1:8416,histogram,vllm:request_decode_time_seconds,seconds,320,8.9265,525.7343,14.6655,1.6429,0.8549,0.9938,1.0383,1.2318,1.5078,1.9537,2.3820,2.5000,3.5608,0,qwen,,,Histogram of time spent in DECODE phase for request.,0.3=0;0.5=0;0.8=3;1.0=21;1.5=157;2.0=247;2.5=300;5.0=320;10.0=320;15.0=320;20.0=320;30.0=320;40.0=320;50.0=320;60.0=320;120.0=320;240.0=320;480.0=320;960.0=320;1920.0=320;7680.0=320;+Inf=320
+127.0.0.1:8416,histogram,vllm:request_generation_tokens,tokens,320,8.9265,81920.0000,2285.1824,256.0000,200.0000,200.0000,200.0000,200.0000,241.2734,316.0391,360.8984,375.8516,387.8141,0,qwen,,,Number of generation tokens processed.,1.0=0;2.0=0;5.0=0;10.0=0;20.0=0;50.0=0;100.0=0;200.0=0;500.0=320;1000.0=320;2000.0=320;5000.0=320;10000.0=320;20000.0=320;+Inf=320
+127.0.0.1:8416,histogram,vllm:request_inference_time_seconds,seconds,320,8.9265,556.3166,15.5186,1.7385,0.8728,1.0364,1.1172,1.3356,1.6059,2.1922,2.4227,2.7100,3.3175,0,qwen,,,Histogram of time spent in RUNNING phase for request.,0.3=0;0.5=0;0.8=2;1.0=6;1.5=121;2.0=234;2.5=288;5.0=320;10.0=320;15.0=320;20.0=320;30.0=320;40.0=320;50.0=320;60.0=320;120.0=320;240.0=320;480.0=320;960.0=320;1920.0=320;7680.0=320;+Inf=320
+127.0.0.1:8416,histogram,vllm:request_max_num_generation_tokens,tokens,320,8.9265,81920.0000,2285.1824,256.0000,200.0000,200.0000,200.0000,200.0000,241.2734,316.0391,360.8984,375.8516,387.8141,0,qwen,,,Histogram of maximum number of requested generation tokens.,1.0=0;2.0=0;5.0=0;10.0=0;20.0=0;50.0=0;100.0=0;200.0=0;500.0=320;1000.0=320;2000.0=320;5000.0=320;10000.0=320;20000.0=320;+Inf=320
+127.0.0.1:8416,histogram,vllm:request_num_preemptions,,320,8.9265,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0,qwen,,,Histogram of the number of times a request was preempted.,1.0=320;2.0=320;3.0=320;4.0=320;5.0=320;10.0=320;20.0=320;+Inf=320
+127.0.0.1:8416,histogram,vllm:request_params_max_tokens,tokens,320,8.9265,81920.0000,2285.1824,256.0000,200.0000,200.0000,200.0000,200.0000,241.2734,316.0391,360.8984,375.8516,387.8141,0,qwen,,,Histogram of the max_tokens request parameter.,1.0=0;2.0=0;5.0=0;10.0=0;20.0=0;50.0=0;100.0=0;200.0=0;500.0=320;1000.0=320;2000.0=320;5000.0=320;10000.0=320;20000.0=320;+Inf=320
+127.0.0.1:8416,histogram,vllm:request_params_n,,320,8.9265,320.0000,8.9265,1.0000,0.4115,0.4514,0.5013,0.6508,0.9000,1.0000,1.0000,1.0000,1.0000,0,qwen,,,Histogram of the n request parameter.,1.0=320;2.0=320;5.0=320;10.0=320;20.0=320;+Inf=320
+127.0.0.1:8416,histogram,vllm:request_prefill_kv_computed_tokens,tokens,320,8.9265,22606.0000,630.6010,70.6437,34.7143,40.3705,46.4502,52.4995,67.0734,86.6937,100.0000,102.4519,139.9813,0,qwen,,,Histogram of new KV tokens computed during prefill (excluding cached tokens).,1.0=0;2.0=0;5.0=0;10.0=0;20.0=0;50.0=59;100.0=286;200.0=320;500.0=320;1000.0=320;2000.0=320;5000.0=320;10000.0=320;20000.0=320;+Inf=320
+127.0.0.1:8416,histogram,vllm:request_prefill_time_seconds,seconds,320,8.9265,30.5824,0.8531,0.0956,0.0299,0.0311,0.0327,0.0478,0.0931,0.1384,0.1655,0.1746,0.1818,0,qwen,,,Histogram of time spent in PREFILL phase for request.,0.3=320;0.5=320;0.8=320;1.0=320;1.5=320;2.0=320;2.5=320;5.0=320;10.0=320;15.0=320;20.0=320;30.0=320;40.0=320;50.0=320;60.0=320;120.0=320;240.0=320;480.0=320;960.0=320;1920.0=320;7680.0=320;+Inf=320
+127.0.0.1:8416,histogram,vllm:request_prompt_tokens,tokens,320,8.9265,22606.0000,630.6010,70.6437,34.7143,40.3705,46.4502,52.4995,67.0734,86.6937,100.0000,102.4519,139.9813,0,qwen,,,Number of prefill tokens processed.,1.0=0;2.0=0;5.0=0;10.0=0;20.0=0;50.0=59;100.0=286;200.0=320;500.0=320;1000.0=320;2000.0=320;5000.0=320;10000.0=320;20000.0=320;+Inf=320
+127.0.0.1:8416,histogram,vllm:request_queue_time_seconds,seconds,320,8.9265,0.0030,0.0001,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0,qwen,,,Histogram of time spent in WAITING phase for request.,0.3=320;0.5=320;0.8=320;1.0=320;1.5=320;2.0=320;2.5=320;5.0=320;10.0=320;15.0=320;20.0=320;30.0=320;40.0=320;50.0=320;60.0=320;120.0=320;240.0=320;480.0=320;960.0=320;1920.0=320;7680.0=320;+Inf=320
+127.0.0.1:8416,histogram,vllm:request_time_per_output_token_seconds,seconds,320,8.9265,2.0617,0.0575,0.0064,0.0027,0.0030,0.0034,0.0045,0.0063,0.0081,0.0092,0.0100,0.0152,0,qwen,,,Histogram of time_per_output_token_seconds per request.,0.01=302;0.025=320;0.05=320;0.075=320;0.1=320;0.15=320;0.2=320;0.3=320;0.4=320;0.5=320;0.75=320;1.0=320;2.5=320;5.0=320;7.5=320;10.0=320;20.0=320;40.0=320;80.0=320;+Inf=320
+127.0.0.1:8416,histogram,vllm:time_to_first_token_seconds,seconds,320,8.9265,40.9107,1.1412,0.1278,0.1000,0.1000,0.1000,0.1077,0.1218,0.1480,0.1638,0.1691,0.1733,0,qwen,,,Histogram of time to first token in seconds.,0.001=0;0.005=0;0.01=0;0.02=0;0.04=0;0.06=0;0.08=0;0.1=2;0.25=320;0.5=320;0.75=320;1.0=320;2.5=320;5.0=320;7.5=320;10.0=320;20.0=320;40.0=320;80.0=320;160.0=320;640.0=320;2560.0=320;+Inf=320
+
+Endpoint,Metric,Key,Value,Description
+127.0.0.1:8416,python_info,implementation,CPython,Python platform information
+127.0.0.1:8416,python_info,major,3,Python platform information
+127.0.0.1:8416,python_info,minor,12,Python platform information
+127.0.0.1:8416,python_info,patchlevel,13,Python platform information
+127.0.0.1:8416,python_info,version,3.12.13,Python platform information
+127.0.0.1:8416,vllm:cache_config_info,_block_size_resolved,True,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,block_size,592,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,cache_dtype,auto,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,effective_attention_block_size,592,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,enable_mamba_shared_prefix_checkpoint,False,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,enable_prefix_caching,True,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,engine,0,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,gpu_memory_utilization,0.92,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,is_attention_free,False,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,kv_cache_dtype_skip_layers,[],Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,kv_cache_layout,None,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,kv_cache_max_concurrency,26.07783882783883,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,kv_cache_memory_bytes,None,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,kv_cache_size_tokens,854518,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,kv_offloading_backend,native,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,kv_offloading_size,None,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,kv_sharing_fast_prefill,False,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,mamba_block_size,592,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,mamba_cache_dtype,auto,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,mamba_cache_mode,align,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,mamba_page_size_padded,None,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,mamba_ssm_cache_dtype,float32,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,num_cpu_blocks,None,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,num_gpu_blocks,28477,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,num_gpu_blocks_override,None,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,prefix_cache_retention_interval,0,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,prefix_caching_hash_algo,sha256,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,prefix_match_unit,None,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,replayssm_buffer_len,16,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,skip_page_size_padded,None,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,sliding_window,None,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,swa_bounded_replay,True,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,use_kda_recoverssm,False,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,use_replayssm,False,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,user_specified_block_size,False,Information of the LLMEngine CacheConfig
+127.0.0.1:8416,vllm:cache_config_info,user_specified_mamba_block_size,False,Information of the LLMEngine CacheConfig

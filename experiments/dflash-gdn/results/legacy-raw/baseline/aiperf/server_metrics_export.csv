@@ -1,0 +1,48 @@
+# AIPerf Server Metrics Export (CSV)
+# aiperf_version: 0.12.0
+# schema_version: 1.0
+# benchmark_id: fab3ff40c374
+# Note: Same benchmark_id and version appear in JSON and Parquet exports
+#
+Endpoint,Type,Metric,Unit,avg,min,max,std,p1,p5,p10,p25,p50,p75,p90,p95,p99,Description
+127.0.0.1:8000,gauge,process_max_fds,,524288.0000,524288.0000,524288.0000,0.0000,524288.0000,524288.0000,524288.0000,524288.0000,524288.0000,524288.0000,524288.0000,524288.0000,524288.0000,Maximum number of open file descriptors.
+127.0.0.1:8000,gauge,process_open_fds,,76.0000,76.0000,76.0000,0.0000,76.0000,76.0000,76.0000,76.0000,76.0000,76.0000,76.0000,76.0000,76.0000,Number of open file descriptors.
+127.0.0.1:8000,gauge,process_resident_memory_bytes,bytes,1926352896.0000,1926352896.0000,1926352896.0000,0.0000,1926352896.0000,1926352896.0000,1926352896.0000,1926352896.0000,1926352896.0000,1926352896.0000,1926352896.0000,1926352896.0000,1926352896.0000,Resident memory size in bytes.
+127.0.0.1:8000,gauge,process_start_time_seconds,seconds,1789731266.0900,1789731266.0900,1789731266.0900,0.0000,1789731266.0900,1789731266.0900,1789731266.0900,1789731266.0900,1789731266.0900,1789731266.0900,1789731266.0900,1789731266.0900,1789731266.0900,Start time of the process since unix epoch in seconds.
+127.0.0.1:8000,gauge,process_virtual_memory_bytes,bytes,54093477623.3479,54093316096.0000,54094364672.0000,377523.1228,54093316096.0000,54093316096.0000,54093316096.0000,54093316096.0000,54093316096.0000,54093316096.0000,54094364672.0000,54094364672.0000,54094364672.0000,Virtual memory size in bytes.
+
+Endpoint,Type,Metric,Unit,total,rate,rate_avg,rate_min,rate_max,rate_std,generation,handler,method,status,mode,model_name,outcome,request_type,Description
+127.0.0.1:8000,counter,process_cpu_seconds,seconds,7.6900,0.0461,,,,,,,,,,,,,Total user and system CPU time spent in seconds.
+127.0.0.1:8000,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,,,non_streaming,qwen,no_tool_call,chat_completions,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8000,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,,,non_streaming,qwen,no_tool_call,other,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8000,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,,,non_streaming,qwen,no_tool_call,responses,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8000,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,,,non_streaming,qwen,tool_call,chat_completions,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8000,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,,,non_streaming,qwen,tool_call,other,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8000,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,,,non_streaming,qwen,tool_call,responses,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8000,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,,,streaming,qwen,no_tool_call,chat_completions,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8000,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,,,streaming,qwen,no_tool_call,other,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8000,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,,,streaming,qwen,no_tool_call,responses,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8000,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,,,streaming,qwen,tool_call,chat_completions,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8000,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,,,streaming,qwen,tool_call,other,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8000,counter,vllm:tool_call_parser_invocations,,0.0000,0.0000,,,,,,,,,streaming,qwen,tool_call,responses,Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.
+127.0.0.1:8000,counter,http_requests,requests,200.0000,1.1997,,,,,,/v1/chat/completions,POST,2xx,,,,,"Total number of requests by method, status and handler."
+127.0.0.1:8000,counter,python_gc_collections,,25.0000,0.1500,,,,,0,,,,,,,,Number of times this generation was collected
+127.0.0.1:8000,counter,python_gc_collections,,3.0000,0.0180,,,,,1,,,,,,,,Number of times this generation was collected
+127.0.0.1:8000,counter,python_gc_collections,,0.0000,0.0000,,,,,2,,,,,,,,Number of times this generation was collected
+127.0.0.1:8000,counter,python_gc_objects_collected,,5117.0000,30.6934,,,,,0,,,,,,,,Objects collected during gc
+127.0.0.1:8000,counter,python_gc_objects_collected,,651.0000,3.9049,,,,,1,,,,,,,,Objects collected during gc
+127.0.0.1:8000,counter,python_gc_objects_collected,,0.0000,0.0000,,,,,2,,,,,,,,Objects collected during gc
+127.0.0.1:8000,counter,python_gc_objects_uncollectable,,0.0000,0.0000,,,,,0,,,,,,,,Uncollectable objects found during GC
+127.0.0.1:8000,counter,python_gc_objects_uncollectable,,0.0000,0.0000,,,,,1,,,,,,,,Uncollectable objects found during GC
+127.0.0.1:8000,counter,python_gc_objects_uncollectable,,0.0000,0.0000,,,,,2,,,,,,,,Uncollectable objects found during GC
+
+Endpoint,Type,Metric,Unit,count,count_rate,sum,sum_rate,avg,p1_estimate,p5_estimate,p10_estimate,p25_estimate,p50_estimate,p75_estimate,p90_estimate,p95_estimate,p99_estimate,handler,method,Description,buckets
+127.0.0.1:8000,histogram,http_request_duration_highr_seconds,seconds,200,1.1997,166.1938,0.9969,0.8310,0.7851,0.7854,0.7858,0.7962,0.8290,0.8619,0.8816,0.8881,0.8934,,,Latency with many buckets but no API specific labels. Made for more accurate percentile calculations.,0.01=0;0.025=0;0.05=0;0.075=0;0.1=0;0.25=0;0.5=0;0.75=0;1.0=200;1.5=200;2.0=200;2.5=200;3.0=200;3.5=200;4.0=200;4.5=200;5.0=200;7.5=200;10.0=200;30.0=200;60.0=200;+Inf=200
+127.0.0.1:8000,histogram,http_request_duration_seconds,seconds,200,1.1997,166.1938,0.9969,0.8310,0.7089,0.7192,0.7320,0.7703,0.8342,0.8982,0.9215,0.9219,0.9222,/v1/chat/completions,POST,Latency with only few buckets by handler. Made to be only used if aggregation by handler is important.,0.1=0;0.5=0;1.0=200;+Inf=200
+
+Endpoint,Metric,Key,Value,Description
+127.0.0.1:8000,python_info,implementation,CPython,Python platform information
+127.0.0.1:8000,python_info,major,3,Python platform information
+127.0.0.1:8000,python_info,minor,12,Python platform information
+127.0.0.1:8000,python_info,patchlevel,13,Python platform information
+127.0.0.1:8000,python_info,version,3.12.13,Python platform information

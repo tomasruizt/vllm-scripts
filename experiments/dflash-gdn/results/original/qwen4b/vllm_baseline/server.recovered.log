@@ -1,0 +1,46 @@
+RECOVERED PARTIAL SERVER LOG: captured terminal output from the original benchmark server session. Output limits may have truncated sections. This is not a complete original server log.
+
+--- Captured terminal output at 2026-09-18T11:39:35.736Z ---
+Reserved 1 GPU(s): [6] for command execution (timeout: 0h 45m 0s)
+
+--- Captured terminal output at 2026-09-18T11:40:10.369Z ---
+Warning: truncated output (original token count: 3088)
+Total output lines: 52
+
+/home/USER/code/vllm-49730/vllm/entrypoints/openai/api_server.py:24: DeprecationWarning: `vllm.entrypoints.openai.api_server` is deprecated and will likely beunsupported in a future version. Use the corresponding function from `vllm.entrypoints.launchers` instead.
+  warnings.warn(
+/home/USER/code/vllm-49730/vllm/entrypoints/openai/api_server.py:51: DeprecationWarning: The `python -m vllm.entrypoints.openai.api_server` command is deprecated and may be removed in a future release. Please use `vllm server` instead.
+  warnings.warn(
+(APIServer pid=26119) INFO 09-18 11:39:41 [api_utils.py:347] 
+(APIServer pid=26119) INFO 09-18 11:39:41 [api_utils.py:347]        █     █     █▄   ▄█
+(APIServer pid=26119) INFO 09-18 11:39:41 [api_utils.py:347]  ▄▄ ▄█ █     █  …2688 tokens truncated…attention page size is >= mamba page size.
+(EngineCore pid=27068) INFO 09-18 11:40:02 [interface.py:942] Padding mamba page size by 0.76% to ensure that mamba page size and attention page size are exactly equal.
+(EngineCore pid=27068) INFO 09-18 11:40:02 [utils.py:320] Using LBNHC KV cache layout.
+(EngineCore pid=27068) INFO 09-18 11:40:04 [caching.py:342] reconstructed serializable fn from standalone compile artifacts. num_artifacts=12 num_submods=33
+(EngineCore pid=27068) INFO 09-18 11:40:04 [decorators.py:309] Directly load AOT compilation from path /home/USER/.cache/vllm/torch_compile_cache/torch_aot_compile/8ee506116866b0610a91588c04d2b861674fd71497772ac493ec871e9c6b0e4b/rank_0_0/model
+(EngineCore pid=27068) INFO 09-18 11:40:04 [monitor.py:53] torch.compile took 0.38 s in total
+
+--- Captured terminal output at 2026-09-18T11:40:32.752Z ---
+Warning: truncated output (original token count: 2393)
+Total output lines: 64
+
+(EngineCore pid=27068) INFO 09-18 11:40:10 [monitor.py:81] Initial profiling/warmup run took 6.39 s
+(EngineCore pid=27068) Capturing CUDA graphs (PIECEWISE):   0%|          | 0/8 [00:00<?, ?it/s]Capturing CUDA graphs (PIECEWISE):  25%|██▌       | 2/8 [00:00<00:00, 16.23it/s]Capturing CUDA graphs (PIECEWISE):  62%|██████▎   | 5/8 [00:00<00:00, 21.15it/s]Capturing CUDA graphs (PIECEWISE): 100%|██████████| 8/8 [00:00<00:00, 23.92it/s]Capturing CUDA graphs (PIECEWISE): 100%|██████████| 8/8 [00:00<00:00, 22.62it/s]
+(EngineCore pid=270…2093 tokens truncated…APIServer pid=26119) INFO 09-18 11:40:27 [launcher.py:69] Route: /v1/messages/count_tokens, Methods: POST
+(APIServer pid=26119) INFO 09-18 11:40:27 [launcher.py:69] Route: /generative_scoring, Methods: POST
+(APIServer pid=26119) INFO 09-18 11:40:27 [launcher.py:69] Route: /scale_elastic_ep, Methods: POST
+(APIServer pid=26119) INFO 09-18 11:40:27 [launcher.py:69] Route: /is_scaling_elastic_ep, Methods: POST
+(APIServer pid=26119) INFO:     Started server process [26119]
+(APIServer pid=26119) INFO:     Waiting for application startup.
+(APIServer pid=26119) INFO:     Application startup complete.
+
+--- Captured terminal output at 2026-09-18T11:44:20.243Z ---
+Warning: truncated output (original token count: 7031)
+Total output lines: 263
+
+(APIServer pid=26119) INFO:     127.0.0.1:47626 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+(APIServer pid=26119) INFO 09-18 11:40:57 [loggers.py:323] Engine 000: Avg prompt throughput: 8.6 tokens/s, Avg generation throughput: 20.3 tokens/s, Running: 1 reqs, Waiting: 0 reqs, GPU KV cache usage: 0.1%, Prefix cache hit rate: 0.0%
+(APIServer pid=26119) INFO:     127.0.0.1:47626 - "POST /v1/chat/com…6831 tokens truncated…19) INFO:     Waiting for application shutdown.
+(APIServer pid=26119) INFO:     Application shutdown complete.
+/home/USER/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

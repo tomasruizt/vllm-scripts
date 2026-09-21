@@ -1,0 +1,16 @@
+{
+  "engine": "vllm",
+  "mode": "dflash",
+  "itl_p50_ms": 9.214785,
+  "tpot_p50_ms": 1.4672137647058823,
+  "output_tokens_per_second": 578.4451186389134,
+  "acceptance_length": 6.0504266873545385,
+  "acceptance_length_method": "1 + accepted draft tokens / draft iterations (measured phase)",
+  "timing_seconds": {
+    "server_startup": 114.047558,
+    "benchmark_wall_clock": 34.472959,
+    "warmup": 6.05,
+    "measured_requests": 13.27
+  },
+  "timing_method": "Startup/benchmark wall times approximated from log and metrics file creation timestamps; phase durations from AIPerf."
+}

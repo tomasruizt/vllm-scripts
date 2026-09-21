@@ -1,0 +1,21 @@
+{
+  "engine": "vllm",
+  "mode": "dflash",
+  "itl_p50_ms": 8.741222,
+  "tpot_p50_ms": 1.531574350980392,
+  "output_tokens_per_second": 565.569864935266,
+  "acceptance_length": 5.652278177458034,
+  "acceptance_length_method": "1 + accepted draft tokens / draft iterations (measured phase)",
+  "timing_seconds": {
+    "server_startup": 46.018685965798795,
+    "benchmark_wall_clock": 66.06752512976527,
+    "warmup": 5.21,
+    "measured_requests": 45.26
+  },
+  "versions": {
+    "vllm": "0.1.dev21510+gb6e7c1f1f.precompiled",
+    "torch": "2.13.0+cu130",
+    "flashinfer-python": "0.6.18.post1",
+    "aiperf": "0.12.0"
+  }
+}

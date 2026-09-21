@@ -1,0 +1,21 @@
+{
+  "engine": "vllm",
+  "mode": "baseline",
+  "itl_p50_ms": 3.1808395,
+  "tpot_p50_ms": 3.150349125490196,
+  "output_tokens_per_second": 301.5912033874047,
+  "acceptance_length": null,
+  "acceptance_length_method": null,
+  "timing_seconds": {
+    "server_startup": 50.01964166853577,
+    "benchmark_wall_clock": 109.31405311170965,
+    "warmup": 8.78,
+    "measured_requests": 84.88
+  },
+  "versions": {
+    "vllm": "0.1.dev21510+gb6e7c1f1f.precompiled",
+    "torch": "2.13.0+cu130",
+    "flashinfer-python": "0.6.18.post1",
+    "aiperf": "0.12.0"
+  }
+}

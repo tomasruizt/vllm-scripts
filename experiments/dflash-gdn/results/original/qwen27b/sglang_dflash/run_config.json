@@ -1,0 +1,80 @@
+{
+  "models": [
+    {
+      "repo": "Qwen/Qwen3.5-27B",
+      "revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+      "path": "/home/USER/.cache/huggingface/hub/models--Qwen--Qwen3.5-27B/snapshots/fc05daec18b0a78c049392ed2e771dde82bdf654"
+    },
+    {
+      "repo": "z-lab/Qwen3.5-27B-DFlash",
+      "revision": "25ee0025ff950496a634e100b75c2db4515e9824",
+      "path": "/home/USER/.cache/huggingface/hub/models--z-lab--Qwen3.5-27B-DFlash/snapshots/25ee0025ff950496a634e100b75c2db4515e9824"
+    }
+  ],
+  "server_command": [
+    "/home/USER/.venv/bin/python",
+    "-m",
+    "sglang.launch_server",
+    "--model-path",
+    "/home/USER/.cache/huggingface/hub/models--Qwen--Qwen3.5-27B/snapshots/fc05daec18b0a78c049392ed2e771dde82bdf654",
+    "--served-model-name",
+    "qwen",
+    "--port",
+    "8103",
+    "--tp-size",
+    "1",
+    "--dtype",
+    "bfloat16",
+    "--quantization",
+    "fp8",
+    "--context-length",
+    "32768",
+    "--max-running-requests",
+    "8",
+    "--cuda-graph-max-bs-decode",
+    "8",
+    "--mem-fraction-static",
+    "0.8",
+    "--enable-metrics",
+    "--speculative-algorithm",
+    "DFLASH",
+    "--speculative-draft-model-path",
+    "/home/USER/.cache/huggingface/hub/models--z-lab--Qwen3.5-27B-DFlash/snapshots/25ee0025ff950496a634e100b75c2db4515e9824",
+    "--speculative-num-draft-tokens",
+    "16"
+  ],
+  "cuda_visible_devices": "4",
+  "input_sha256": "3f2de8929b42d4eb06896f2ffd41b3a77f11d15573ae13eaa2ef7398a112993f",
+  "versions": {
+    "vllm": "0.1.dev21510+gb6e7c1f1f.precompiled",
+    "sglang": "0.5.17",
+    "torch": "2.11.0+cu130",
+    "flashinfer-python": "0.6.18.post1",
+    "aiperf": "0.12.0"
+  },
+  "benchmark_command": [
+    "/home/USER/.venv/bin/aiperf",
+    "profile",
+    "--model",
+    "qwen",
+    "--tokenizer",
+    "/home/USER/.cache/huggingface/hub/models--Qwen--Qwen3.5-27B/snapshots/fc05daec18b0a78c049392ed2e771dde82bdf654",
+    "--url",
+    "http://127.0.0.1:8103",
+    "--request-count",
+    "200",
+    "--warmup-request-count",
+    "20",
+    "--input-file",
+    "/home/USER/code/vllm-49730/issue_49730/baseline_metrics/aiperf/inputs.json",
+    "--custom-dataset-type",
+    "inputs-json",
+    "--concurrency",
+    "1",
+    "--endpoint-type",
+    "chat",
+    "--streaming",
+    "--output-artifact-dir",
+    "/home/USER/code/vllm-49730/issue_49730/qwen27b/sglang_dflash/aiperf"
+  ]
+}

@@ -1,0 +1,550 @@
+{
+  "data": {
+    "benchmark_id": "fab3ff40c374",
+    "end_ns": 1789731533838098749,
+    "endpoint_summaries": {
+      "127.0.0.1:8000": {
+        "endpoint_url": "http://127.0.0.1:8000/metrics",
+        "info": {
+          "avg_fetch_latency_ms": 1.7136129085487077,
+          "avg_update_interval_ms": 334.74796377710845,
+          "duration_seconds": 166.704485961,
+          "first_fetch_ns": 1789731367136153550,
+          "first_update_ns": 1789731367136153550,
+          "last_fetch_ns": 1789731533845448472,
+          "last_update_ns": 1789731533840639511,
+          "median_update_interval_ms": 333.4143545,
+          "total_fetches": 503,
+          "unique_updates": 499
+        },
+        "metrics": {
+          "http_request_duration_highr_seconds": {
+            "description": "Latency with many buckets but no API specific labels. Made for more accurate percentile calculations.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 200,
+                  "0.01": 0,
+                  "0.025": 0,
+                  "0.05": 0,
+                  "0.075": 0,
+                  "0.1": 0,
+                  "0.25": 0,
+                  "0.5": 0,
+                  "0.75": 0,
+                  "1.0": 200,
+                  "1.5": 200,
+                  "10.0": 200,
+                  "2.0": 200,
+                  "2.5": 200,
+                  "3.0": 200,
+                  "3.5": 200,
+                  "30.0": 200,
+                  "4.0": 200,
+                  "4.5": 200,
+                  "5.0": 200,
+                  "60.0": 200,
+                  "7.5": 200
+                },
+                "stats": {
+                  "avg": 0.8309687989391387,
+                  "count": 200,
+                  "count_rate": 1.199665288235619,
+                  "p10_estimate": 0.7857612329221372,
+                  "p1_estimate": 0.7851347206573507,
+                  "p25_estimate": 0.7961960694996841,
+                  "p50_estimate": 0.8290301313463134,
+                  "p5_estimate": 0.7854131705528115,
+                  "p75_estimate": 0.8618641931929427,
+                  "p90_estimate": 0.8815646303009202,
+                  "p95_estimate": 0.8881314426702461,
+                  "p99_estimate": 0.8933848925657069,
+                  "sum": 166.19375978782773,
+                  "sum_rate": 0.9968844236941278
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "http_request_duration_seconds": {
+            "description": "Latency with only few buckets by handler. Made to be only used if aggregation by handler is important.",
+            "series": [
+              {
+                "buckets": {
+                  "+Inf": 200,
+                  "0.1": 0,
+                  "0.5": 0,
+                  "1.0": 200
+                },
+                "labels": {
+                  "handler": "/v1/chat/completions",
+                  "method": "POST"
+                },
+                "stats": {
+                  "avg": 0.8309687989391387,
+                  "count": 200,
+                  "count_rate": 1.199665288235619,
+                  "p10_estimate": 0.7319618038996628,
+                  "p1_estimate": 0.7089477916348763,
+                  "p25_estimate": 0.7703184910076404,
+                  "p50_estimate": 0.8342463028542697,
+                  "p5_estimate": 0.719176241530337,
+                  "p75_estimate": 0.898174114700899,
+                  "p90_estimate": 0.9215464023393072,
+                  "p95_estimate": 0.921894464708633,
+                  "p99_estimate": 0.9221729146040938,
+                  "sum": 166.19375978782773,
+                  "sum_rate": 0.9968844236941278
+                }
+              }
+            ],
+            "type": "histogram"
+          },
+          "http_requests": {
+            "description": "Total number of requests by method, status and handler.",
+            "series": [
+              {
+                "labels": {
+                  "handler": "/v1/chat/completions",
+                  "method": "POST",
+                  "status": "2xx"
+                },
+                "stats": {
+                  "rate": 1.199665288235619,
+                  "total": 200.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "process_cpu_seconds": {
+            "description": "Total user and system CPU time spent in seconds.",
+            "series": [
+              {
+                "stats": {
+                  "rate": 0.046127130332659534,
+                  "total": 7.689999999999998
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "process_max_fds": {
+            "description": "Maximum number of open file descriptors.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 524288.0,
+                  "max": 524288.0,
+                  "min": 524288.0,
+                  "p1": 524288.0,
+                  "p10": 524288.0,
+                  "p25": 524288.0,
+                  "p5": 524288.0,
+                  "p50": 524288.0,
+                  "p75": 524288.0,
+                  "p90": 524288.0,
+                  "p95": 524288.0,
+                  "p99": 524288.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "process_open_fds": {
+            "description": "Number of open file descriptors.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 76.0,
+                  "max": 76.0,
+                  "min": 76.0,
+                  "p1": 76.0,
+                  "p10": 76.0,
+                  "p25": 76.0,
+                  "p5": 76.0,
+                  "p50": 76.0,
+                  "p75": 76.0,
+                  "p90": 76.0,
+                  "p95": 76.0,
+                  "p99": 76.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "process_resident_memory_bytes": {
+            "description": "Resident memory size in bytes.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 1926352896.0,
+                  "max": 1926352896.0,
+                  "min": 1926352896.0,
+                  "p1": 1926352896.0,
+                  "p10": 1926352896.0,
+                  "p25": 1926352896.0,
+                  "p5": 1926352896.0,
+                  "p50": 1926352896.0,
+                  "p75": 1926352896.0,
+                  "p90": 1926352896.0,
+                  "p95": 1926352896.0,
+                  "p99": 1926352896.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "process_start_time_seconds": {
+            "description": "Start time of the process since unix epoch in seconds.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 1789731266.09,
+                  "max": 1789731266.09,
+                  "min": 1789731266.09,
+                  "p1": 1789731266.09,
+                  "p10": 1789731266.09,
+                  "p25": 1789731266.09,
+                  "p5": 1789731266.09,
+                  "p50": 1789731266.09,
+                  "p75": 1789731266.09,
+                  "p90": 1789731266.09,
+                  "p95": 1789731266.09,
+                  "p99": 1789731266.09,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "process_virtual_memory_bytes": {
+            "description": "Virtual memory size in bytes.",
+            "series": [
+              {
+                "stats": {
+                  "avg": 54093477623.347916,
+                  "max": 54094364672.0,
+                  "min": 54093316096.0,
+                  "p1": 54093316096.0,
+                  "p10": 54093316096.0,
+                  "p25": 54093316096.0,
+                  "p5": 54093316096.0,
+                  "p50": 54093316096.0,
+                  "p75": 54093316096.0,
+                  "p90": 54094364672.0,
+                  "p95": 54094364672.0,
+                  "p99": 54094364672.0,
+                  "std": 377523.1227547819
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "python_gc_collections": {
+            "description": "Number of times this generation was collected",
+            "series": [
+              {
+                "labels": {
+                  "generation": "0"
+                },
+                "stats": {
+                  "rate": 0.14995816102945236,
+                  "total": 25.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "1"
+                },
+                "stats": {
+                  "rate": 0.017994979323534284,
+                  "total": 3.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "2"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "python_gc_objects_collected": {
+            "description": "Objects collected during gc",
+            "series": [
+              {
+                "labels": {
+                  "generation": "0"
+                },
+                "stats": {
+                  "rate": 30.693436399508307,
+                  "total": 5117.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "1"
+                },
+                "stats": {
+                  "rate": 3.9049105132069393,
+                  "total": 651.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "2"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "python_gc_objects_uncollectable": {
+            "description": "Uncollectable objects found during GC",
+            "series": [
+              {
+                "labels": {
+                  "generation": "0"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "1"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "generation": "2"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          },
+          "python_info": {
+            "description": "Python platform information",
+            "series": [
+              {
+                "labels": {
+                  "implementation": "CPython",
+                  "major": "3",
+                  "minor": "12",
+                  "patchlevel": "13",
+                  "version": "3.12.13"
+                },
+                "stats": {
+                  "avg": 1.0,
+                  "max": 1.0,
+                  "min": 1.0,
+                  "p1": 1.0,
+                  "p10": 1.0,
+                  "p25": 1.0,
+                  "p5": 1.0,
+                  "p50": 1.0,
+                  "p75": 1.0,
+                  "p90": 1.0,
+                  "p95": 1.0,
+                  "p99": 1.0,
+                  "std": 0.0
+                }
+              }
+            ],
+            "type": "gauge"
+          },
+          "vllm:tool_call_parser_invocations": {
+            "description": "Total number of ToolParser invocations. Non-streaming increments once per choice; streaming increments once per delta.",
+            "series": [
+              {
+                "labels": {
+                  "mode": "streaming",
+                  "model_name": "qwen",
+                  "outcome": "tool_call",
+                  "request_type": "chat_completions"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "mode": "streaming",
+                  "model_name": "qwen",
+                  "outcome": "tool_call",
+                  "request_type": "responses"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "mode": "streaming",
+                  "model_name": "qwen",
+                  "outcome": "tool_call",
+                  "request_type": "other"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "mode": "streaming",
+                  "model_name": "qwen",
+                  "outcome": "no_tool_call",
+                  "request_type": "chat_completions"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "mode": "streaming",
+                  "model_name": "qwen",
+                  "outcome": "no_tool_call",
+                  "request_type": "responses"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "mode": "streaming",
+                  "model_name": "qwen",
+                  "outcome": "no_tool_call",
+                  "request_type": "other"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "mode": "non_streaming",
+                  "model_name": "qwen",
+                  "outcome": "tool_call",
+                  "request_type": "chat_completions"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "mode": "non_streaming",
+                  "model_name": "qwen",
+                  "outcome": "tool_call",
+                  "request_type": "responses"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "mode": "non_streaming",
+                  "model_name": "qwen",
+                  "outcome": "tool_call",
+                  "request_type": "other"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "mode": "non_streaming",
+                  "model_name": "qwen",
+                  "outcome": "no_tool_call",
+                  "request_type": "chat_completions"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "mode": "non_streaming",
+                  "model_name": "qwen",
+                  "outcome": "no_tool_call",
+                  "request_type": "responses"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              },
+              {
+                "labels": {
+                  "mode": "non_streaming",
+                  "model_name": "qwen",
+                  "outcome": "no_tool_call",
+                  "request_type": "other"
+                },
+                "stats": {
+                  "rate": 0.0,
+                  "total": 0.0
+                }
+              }
+            ],
+            "type": "counter"
+          }
+        }
+      }
+    },
+    "endpoints_configured": [
+      "http://127.0.0.1:8000/metrics"
+    ],
+    "endpoints_successful": [
+      "http://127.0.0.1:8000/metrics"
+    ],
+    "error_summary": [],
+    "start_ns": 1789731367130348499,
+    "warmup_end_ns": 1789731367132281090
+  },
+  "phase": {
+    "end_ns": 1789731533838080405,
+    "phase_index": 1,
+    "phase_kind": "profiling",
+    "phase_name": "profiling",
+    "profiling_index": 0,
+    "start_ns": 1789731367130366314,
+    "was_cancelled": false
+  },
+  "schema_version": 1,
+  "warnings": []
+}

@@ -1,0 +1,68 @@
+{
+  "vllm_original": {
+    "kernel": {
+      "count": 2078,
+      "duration_ms": 7.128169
+    },
+    "graph_trace": {
+      "count": 42,
+      "duration_ms": 24.709362
+    },
+    "memcpy": {
+      "count": 931,
+      "duration_ms": 0.929534
+    },
+    "memset": {
+      "count": 5,
+      "duration_ms": 0.004128
+    },
+    "gpu_span_ms": 101.253287,
+    "gpu_busy_union_ms": 32.733305,
+    "gpu_gaps_ms": 68.519982,
+    "one_byte_h2d_copies": 96
+  },
+  "vllm_triton": {
+    "kernel": {
+      "count": 1358,
+      "duration_ms": 6.221412
+    },
+    "graph_trace": {
+      "count": 42,
+      "duration_ms": 24.680402
+    },
+    "memcpy": {
+      "count": 931,
+      "duration_ms": 0.905109
+    },
+    "memset": {
+      "count": 5,
+      "duration_ms": 0.004288
+    },
+    "gpu_span_ms": 99.520318,
+    "gpu_busy_union_ms": 31.775724,
+    "gpu_gaps_ms": 67.744594,
+    "one_byte_h2d_copies": 96
+  },
+  "sglang": {
+    "kernel": {
+      "count": 840,
+      "duration_ms": 3.077289
+    },
+    "graph_trace": {
+      "count": 41,
+      "duration_ms": 24.409338
+    },
+    "memcpy": {
+      "count": 143,
+      "duration_ms": 0.189149
+    },
+    "memset": {
+      "count": 6,
+      "duration_ms": 0.005888
+    },
+    "gpu_span_ms": 60.145308,
+    "gpu_busy_union_ms": 27.604673,
+    "gpu_gaps_ms": 32.540635,
+    "one_byte_h2d_copies": 1
+  }
+}
