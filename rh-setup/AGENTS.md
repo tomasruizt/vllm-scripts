@@ -1,4 +1,5 @@
 * Be concise in your answers
+* Keep markdown reports / summaries VERY concise and to the point.
 * Configure Codex in `~/.codex/config.toml` with `approval_policy = "on-request"` and `approvals_reviewer = "auto_review"` to route eligible command approvals to an automatic reviewer.
 * Latex doesn't render well in the terminal. Use an alternative.
 * Use the python env in ~/.venv/bin/python. Use `uv` to install python 3.12.
