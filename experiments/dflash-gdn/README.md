@@ -2,6 +2,14 @@
 
 Portable handoff for [vLLM #49730](https://github.com/vllm-project/vllm/issues/49730). Start with [RESULTS.md](RESULTS.md); exact source/model revisions are in [revisions.json](revisions.json).
 
+The [published B200 comparison](https://tomasruizt.github.io/reports/b200-dflash/) covers 4B, 27B, and 35B-A3B at c=1,2,4,8,16,32, with baseline/DFlash for both engines and vLLM + DFlash PR 52297, for both K=7/8 and K=15/16.
+
+- Versions: vLLM 0.30.0, SGLang 0.5.20, and PR 52297 merged onto vLLM 0.30.0; BF16 Mamba convolution and SSM states.
+- Source control keeps scripts, investigation notes, and small environment/validation manifests. Raw B200 runs, generated HTML/plots, and `dist/` bundles are ignored locally; the published report and linked evidence live in `tomasruizt.github.io` under `reports/b200-dflash/` and `docs/reports/b200-dflash/`.
+- With the recorded environments installed, run the matrix using `bash scripts/run_b200_matrix.sh "$PWD/results/b200-rerun" 7 7 8500` (output directory, vLLM proposal count, parallel jobs, starting port). Each job reserves a GPU through canhazgpu; use proposal count `15` for the larger block.
+- From this directory, regenerate the combined report with `~/.venv/bin/python scripts/combine_b200_results.py --block8 results/b200-block8-20260922 --block16 results/b200-latest-20260922 --output results/RESULTS.html`.
+- Package it with `~/.venv/bin/python scripts/package_b200_report.py --output dist/b200-report-new`; the output directory must be new. Rendering requires the local result exports, which are not included in a fresh clone.
+
 ## What we learned
 
 - Repeated GDN metadata preparation contributes to the vLLM/SGLang gap. Larger attention groups reduce overhead but waste cache capacity; [group-size findings](notes/GROUP_SIZE_FINDINGS.md).

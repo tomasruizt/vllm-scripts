@@ -1,0 +1,36 @@
+{
+  "vllm_version": "0.30.0",
+  "num_speculative_tokens": 7,
+  "batch_sizes": [
+    1,
+    32
+  ],
+  "max_output_tokens": 64,
+  "capture": "Generation after warmup, separate from timed benchmarks",
+  "models": [
+    {
+      "model": "4B",
+      "fused_cuda_launches": 816,
+      "kernels": {
+        "void (anonymous namespace)::gdn_decode_post_conv_mtp_kernel<__nv_bfloat16, 2, false>(__nv_bfloat16 const*, __nv_bfloat16 const*, __nv_bfloat16 const*, float const*, void const*, int const*, int const*, int const*, __nv_bfloat16*, __nv_bfloat16 const*, void const*, __nv_bfloat16*, int, int, int, int, bool, float, float, (anonymous namespace)::GdnDecodeStrides)": 816
+      },
+      "trace": "4B/rank0.1790074168944832278.pt.trace.json.gz"
+    },
+    {
+      "model": "27B",
+      "fused_cuda_launches": 1392,
+      "kernels": {
+        "void (anonymous namespace)::gdn_decode_post_conv_mtp_kernel<__nv_bfloat16, 3, false>(__nv_bfloat16 const*, __nv_bfloat16 const*, __nv_bfloat16 const*, float const*, void const*, int const*, int const*, int const*, __nv_bfloat16*, __nv_bfloat16 const*, void const*, __nv_bfloat16*, int, int, int, int, bool, float, float, (anonymous namespace)::GdnDecodeStrides)": 1392
+      },
+      "trace": "27B/rank0.1790074233986455071.pt.trace.json.gz"
+    },
+    {
+      "model": "35B-A3B",
+      "fused_cuda_launches": 1110,
+      "kernels": {
+        "void (anonymous namespace)::gdn_decode_post_conv_mtp_kernel<__nv_bfloat16, 2, false>(__nv_bfloat16 const*, __nv_bfloat16 const*, __nv_bfloat16 const*, float const*, void const*, int const*, int const*, int const*, __nv_bfloat16*, __nv_bfloat16 const*, void const*, __nv_bfloat16*, int, int, int, int, bool, float, float, (anonymous namespace)::GdnDecodeStrides)": 1110
+      },
+      "trace": "35B-A3B/dp0_pp0_tp0_dcp0_ep0_rank0.1790074321864881245.pt.trace.json.gz"
+    }
+  ]
+}

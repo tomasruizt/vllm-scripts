@@ -4,3 +4,19 @@ __pycache__/
 .deps/
 *.nsys-rep
 results/new/
+
+# Generated B200 benchmarks and report bundles remain local; published copies
+# live in tomasruizt.github.io/reports/b200-dflash/.
+/dist/
+/results/RESULTS.html
+/results/b200*/*
+
+# Keep experiment provenance and authored investigation notes reviewable.
+!/results/b200*/environment.json
+!/results/b200*/experiment.json
+!/results/b200*/validation.json
+!/results/b200*/FUSED_GDN_PATH.md
+!/results/b200*/SGLANG_VERIFICATION.md
+!/results/b200*/kernel-probes/
+/results/b200*/kernel-probes/*
+!/results/b200*/kernel-probes/summary.json

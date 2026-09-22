@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
-"""Run single-GPU Qwen3.5 comparisons (4B and concurrency one by default)."""
+"""Run single-GPU Qwen dense/MoE comparisons (4B and concurrency one by default)."""
 
 import argparse
 import importlib.metadata
@@ -18,24 +18,40 @@ TARGET = ("Qwen/Qwen3.5-4B", "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a")
 DRAFT = ("z-lab/Qwen3.5-4B-DFlash", "9a1996ccf887b79ab3af4fcbf8c1d1f4b5658bcf")
 TARGET_27B = ("Qwen/Qwen3.5-27B", "fc05daec18b0a78c049392ed2e771dde82bdf654")
 DRAFT_27B = ("z-lab/Qwen3.5-27B-DFlash", "25ee0025ff950496a634e100b75c2db4515e9824")
+TARGET_MOE = ("Qwen/Qwen3.6-35B-A3B", "995ad96eacd98c81ed38be0c5b274b04031597b0")
+DRAFT_MOE = ("z-lab/Qwen3.6-35B-A3B-DFlash", "f181eece646affea2c38b2765f1aaa01a9734ccd")
 
 
 def main():
+    os.environ["PATH"] = str(Path(sys.executable).parent) + os.pathsep + os.environ["PATH"]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("engine", choices=("vllm", "sglang"))
     parser.add_argument("mode", choices=("baseline", "dflash"))
-    parser.add_argument("--model-size", choices=("4B", "27B"), default="4B")
+    parser.add_argument("--model-size", choices=("4B", "27B", "35B-A3B"), default="4B")
+    parser.add_argument("--num-speculative-tokens", type=int, default=15)
     parser.add_argument("--port", type=int, default=8100)
     parser.add_argument("--request-count", type=int, default=200)
     parser.add_argument("--warmup-request-count", type=int, default=20)
     parser.add_argument("--concurrency", type=int, default=1)
     parser.add_argument("--concurrencies", type=int, nargs="+")
     parser.add_argument("--sglang-max-running-requests", type=int, default=32)
+    parser.add_argument("--gpu-memory-utilization", type=float)
+    parser.add_argument("--max-num-seqs", type=int, default=128)
+    parser.add_argument("--prefill-chunk-size", type=int, default=2048)
+    parser.add_argument(
+        "--cudagraph-capture-sizes",
+        type=int,
+        nargs="+",
+        default=[1, 2, 4, 8, 16, 32, 64, 128],
+    )
     parser.add_argument("--attn-group-size", type=int)
+    parser.add_argument("--draft-attention-backend")
     parser.add_argument("--vllm-dir", type=Path)
     parser.add_argument("--output", type=Path, default=HERE.parent / "results" / "new")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
+    if args.num_speculative_tokens < 1:
+        parser.error("--num-speculative-tokens must be positive")
     if args.vllm_dir:
         if args.engine != "vllm" or not (args.vllm_dir / "vllm").is_dir():
             parser.error("--vllm-dir must point to a vLLM checkout")
@@ -49,9 +65,11 @@ def main():
         parser.error("--concurrency must be a positive integer")
     if args.concurrencies and any(c <= 0 for c in args.concurrencies):
         parser.error("--concurrencies must be positive integers")
-    target_model, draft_model = (
-        (TARGET_27B, DRAFT_27B) if args.model_size == "27B" else (TARGET, DRAFT)
-    )
+    target_model, draft_model = {
+        "4B": (TARGET, DRAFT),
+        "27B": (TARGET_27B, DRAFT_27B),
+        "35B-A3B": (TARGET_MOE, DRAFT_MOE),
+    }[args.model_size]
     if args.attn_group_size is not None and (
         args.engine != "vllm" or args.attn_group_size <= 0
     ):
@@ -86,6 +104,17 @@ def main():
         "requested_output_tokens": 256,
         "attn_group_size": args.attn_group_size,
         "prefix_caching": False,
+        "mamba_conv_dtype": "bfloat16",
+        "mamba_ssm_dtype": "bfloat16",
+        "gpu_hardware": subprocess.check_output(
+            [
+                "nvidia-smi",
+                "--query-gpu=index,uuid,name,memory.total,driver_version",
+                "--format=csv",
+            ],
+            text=True,
+        ).strip(),
+        "cuda_visible_devices": os.environ["CUDA_VISIBLE_DEVICES"],
         "vllm_source_commit": subprocess.check_output(
             ["git", "-C", checkout, "rev-parse", "HEAD"], text=True
         ).strip()
@@ -95,6 +124,8 @@ def main():
     env = os.environ.copy()
     if args.engine == "vllm":
         env["VLLM_USE_V2_MODEL_RUNNER"] = "1"
+    else:
+        env["SGLANG_MAMBA_CONV_DTYPE"] = "bfloat16"
     with (output / "server.log").open("w") as log:
         startup_start = time.monotonic()
         server = subprocess.Popen(
@@ -197,13 +228,19 @@ def server_command(args, target, draft):
             "1",
             "--dtype",
             "bfloat16",
+            "--mamba-cache-dtype",
+            "bfloat16",
+            "--mamba-ssm-cache-dtype",
+            "bfloat16",
             "--quantization",
             "fp8",
             "--language-model-only",
             "--max-model-len",
             "32768",
             "--max-num-seqs",
-            "128",
+            str(args.max_num_seqs),
+            "--max-num-batched-tokens",
+            str(args.prefill_chunk_size),
             "--no-enable-prefix-caching",
             "--reasoning-parser",
             "qwen3",
@@ -212,27 +249,23 @@ def server_command(args, target, draft):
             "qwen3_coder",
             "--trust-remote-code",
             "--cudagraph-capture-sizes",
-            "1",
-            "2",
-            "4",
-            "8",
-            "16",
-            "32",
-            "64",
-            "128",
+            *map(str, args.cudagraph_capture_sizes),
         ]
+        if args.gpu_memory_utilization is not None:
+            command += ["--gpu-memory-utilization", str(args.gpu_memory_utilization)]
         if args.attn_group_size is not None:
             command += ["--attn-group-size", str(args.attn_group_size)]
         if args.mode == "dflash":
+            speculative_config = {
+                "method": "dflash",
+                "model": draft,
+                "num_speculative_tokens": args.num_speculative_tokens,
+            }
+            if args.draft_attention_backend:
+                speculative_config["attention_backend"] = args.draft_attention_backend
             command += [
                 "--speculative-config",
-                json.dumps(
-                    {
-                        "method": "dflash",
-                        "model": draft,
-                        "num_speculative_tokens": 15,
-                    }
-                ),
+                json.dumps(speculative_config),
             ]
     else:
         command = [
@@ -254,17 +287,21 @@ def server_command(args, target, draft):
             "--context-length",
             "32768",
             "--mem-fraction-static",
-            "0.95",
+            str(args.gpu_memory_utilization or 0.95),
             "--mamba-ssm-dtype",
             "bfloat16",
             "--disable-radix-cache",
             "--max-running-requests",
             str(args.sglang_max_running_requests),
             "--chunked-prefill-size",
-            "2048",
+            str(args.prefill_chunk_size),
             "--enable-metrics",
             "--trust-remote-code",
         ]
+        if args.model_size == "35B-A3B":
+            # Release-default TRTLLM MoE requires static input scales absent
+            # from this checkpoint's online FP8 quantization path.
+            command += ["--moe-runner-backend", "triton"]
         if args.mode == "dflash":
             command += [
                 "--speculative-algorithm",
@@ -272,7 +309,7 @@ def server_command(args, target, draft):
                 "--speculative-draft-model-path",
                 draft,
                 "--speculative-num-draft-tokens",
-                "16",
+                str(args.num_speculative_tokens + 1),
             ]
     return command + common
 
