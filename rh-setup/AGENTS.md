@@ -9,6 +9,7 @@
 * to use GPUs, reserve them over canhazgpu (https://github.com/russellb/canhazgpu).
 * when writing md files, dont break lines unless there is a good reason, since e.g. on Github your lines will be wrapped. Let the IDE / website take care of rendering, so you don't have to. I suggest only breaking lines after a dot, or similar.
 * You dont need to explain metrics like ITL, TPOT, etc. When writing summaries, assume a technical audience that is familiar with the domain.
+* Use pandas when possible to analyze data, rather than writing custom code. Create aggregate data for analyis in to standardized formats (often long formats) and file formats like csv, parquet, etc. so data analysis can be expressed simply, rather than looping over many input files, extracting data, etc.
 
 custom commands:
 * vllm-install: install from precompiled wheels
