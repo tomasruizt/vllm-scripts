@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>B200 benchmark results — DFlash block __BLOCK_SIZE__</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; color: #111827; background: #f5f7fa; }
+    body { max-width: 1120px; margin: 0 auto; padding: 40px 24px; color: #111827; }
+    h1 { font-size: 32px; margin-bottom: 8px; letter-spacing: -.8px; }
+    h2 { font-size: 20px; margin: 28px 0 12px; }
+    .subtitle, .metric-note, footer { color: #263448; }
+    .subtitle { margin-bottom: 26px; }
+    a { color: #225ac6; }
+    .card { background: white; border: 1px solid #dce3ed; border-radius: 12px; padding: 24px; margin: 22px 0; }
+    .metric-tabs { display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid #dce3ed; padding-bottom: 12px; }
+    .metric-tabs label { cursor: pointer; padding: 10px 18px; border: 1px solid transparent; border-radius: 7px; font: inherit; font-weight: 600; background: #eef2f7; color: #1e293b; }
+    .metric-choice { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); }
+    .tab-panel { display: none; }
+    .model-tabs label { min-width: 76px; text-align: center; font-size: 18px; }
+    __TAB_STYLES__
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    th, td { padding: 12px 14px; text-align: right; border-bottom: 1px solid #e7ecf3; white-space: nowrap; }
+    thead th { font-size: 13px; color: #1e293b; background: #f5f7fa; }
+    th:first-child { text-align: left; }
+    tbody tr:hover { background: #f1f6ff; }
+    summary { cursor: pointer; font-weight: 650; }
+    li { margin: 10px 0; line-height: 1.5; overflow-wrap: anywhere; }
+    figure { margin: 24px 0; background: white; border-radius: 12px; overflow: hidden; }
+    figure svg { display: block; width: 100%; height: auto; }
+    figcaption { padding: 12px 20px 18px; font-size: 14px; }
+    footer { font-size: 13px; line-height: 1.6; }
+    @media (max-width: 600px) { body { padding: 20px 12px; } .card { padding: 14px; } th, td { padding: 10px; } }
+    @media print { body { max-width: none; background: white; } .metric-tabs { display: none; } .tab-panel { display: block !important; } }
+  </style>
+</head>
+<body>
+  <h1>B200 benchmark results · DFlash block __BLOCK_SIZE__</h1>
+  <p class="subtitle">B200 model comparison · vLLM 0.30.0 · SGLang 0.5.20 · PR 52297 · __COMPLETED__/__EXPECTED__ points</p>
+  <main>
+    <div class="card" role="group" aria-label="Model size">
+      __CONTROLS__
+      <div class="metric-tabs model-tabs">__TABS__</div>
+      <div class="panels">__PANELS__</div>
+    </div>
+    <details class="card">
+      <summary>Configuration and provenance</summary>
+      <ul>__NOTES__</ul>
+    </details>
+  </main>
+  <footer>
+    <a href="RESULTS.md">Markdown report</a> · <a href="environment.json">Environment</a> · <a href="validation.json">Validation</a><br>
+    ITL uses streamed-chunk latency; TPOT uses AIPerf inter_token_latency. Single runs; no uncertainty estimates.
+  </footer>
+</body>
+</html>

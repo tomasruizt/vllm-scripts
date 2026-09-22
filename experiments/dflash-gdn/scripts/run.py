@@ -1,0 +1,399 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+"""Run single-GPU Qwen dense/MoE comparisons (4B and concurrency one by default)."""
+
+import argparse
+import importlib.metadata
+import json
+import os
+import signal
+import subprocess
+import sys
+import time
+import urllib.request
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+TARGET = ("Qwen/Qwen3.5-4B", "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a")
+DRAFT = ("z-lab/Qwen3.5-4B-DFlash", "9a1996ccf887b79ab3af4fcbf8c1d1f4b5658bcf")
+TARGET_27B = ("Qwen/Qwen3.5-27B", "fc05daec18b0a78c049392ed2e771dde82bdf654")
+DRAFT_27B = ("z-lab/Qwen3.5-27B-DFlash", "25ee0025ff950496a634e100b75c2db4515e9824")
+TARGET_MOE = ("Qwen/Qwen3.6-35B-A3B", "995ad96eacd98c81ed38be0c5b274b04031597b0")
+DRAFT_MOE = ("z-lab/Qwen3.6-35B-A3B-DFlash", "f181eece646affea2c38b2765f1aaa01a9734ccd")
+
+
+def main():
+    os.environ["PATH"] = str(Path(sys.executable).parent) + os.pathsep + os.environ["PATH"]
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("engine", choices=("vllm", "sglang"))
+    parser.add_argument("mode", choices=("baseline", "dflash"))
+    parser.add_argument("--model-size", choices=("4B", "27B", "35B-A3B"), default="4B")
+    parser.add_argument("--num-speculative-tokens", type=int, default=15)
+    parser.add_argument("--port", type=int, default=8100)
+    parser.add_argument("--request-count", type=int, default=200)
+    parser.add_argument("--warmup-request-count", type=int, default=20)
+    parser.add_argument("--concurrency", type=int, default=1)
+    parser.add_argument("--concurrencies", type=int, nargs="+")
+    parser.add_argument("--sglang-max-running-requests", type=int, default=32)
+    parser.add_argument("--gpu-memory-utilization", type=float)
+    parser.add_argument("--max-num-seqs", type=int, default=128)
+    parser.add_argument("--prefill-chunk-size", type=int, default=2048)
+    parser.add_argument(
+        "--cudagraph-capture-sizes",
+        type=int,
+        nargs="+",
+        default=[1, 2, 4, 8, 16, 32, 64, 128],
+    )
+    parser.add_argument("--attn-group-size", type=int)
+    parser.add_argument("--draft-attention-backend")
+    parser.add_argument("--vllm-dir", type=Path)
+    parser.add_argument("--output", type=Path, default=HERE.parent / "results" / "new")
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args()
+    if args.num_speculative_tokens < 1:
+        parser.error("--num-speculative-tokens must be positive")
+    if args.vllm_dir:
+        if args.engine != "vllm" or not (args.vllm_dir / "vllm").is_dir():
+            parser.error("--vllm-dir must point to a vLLM checkout")
+        checkout = str(args.vllm_dir.resolve())
+        os.environ["PYTHONPATH"] = os.pathsep.join(
+            filter(None, [checkout, os.environ.get("PYTHONPATH")])
+        )
+    else:
+        checkout = None
+    if args.concurrency <= 0:
+        parser.error("--concurrency must be a positive integer")
+    if args.concurrencies and any(c <= 0 for c in args.concurrencies):
+        parser.error("--concurrencies must be positive integers")
+    target_model, draft_model = {
+        "4B": (TARGET, DRAFT),
+        "27B": (TARGET_27B, DRAFT_27B),
+        "35B-A3B": (TARGET_MOE, DRAFT_MOE),
+    }[args.model_size]
+    if args.attn_group_size is not None and (
+        args.engine != "vllm" or args.attn_group_size <= 0
+    ):
+        parser.error("--attn-group-size requires vllm and a positive integer")
+    if args.dry_run:
+        print(json.dumps(server_command(args, target_model[0], draft_model[0])))
+        return
+    if not os.environ.get("CUDA_VISIBLE_DEVICES"):
+        parser.error("Reserve a GPU using run.sh (canhazgpu) first")
+    output = args.output.resolve() / f"{args.engine}_{args.mode}"
+    output.mkdir(parents=True, exist_ok=False)
+    target = download_model(target_model)
+    draft = download_model(draft_model) if args.mode == "dflash" else draft_model[0]
+    command = server_command(args, target, draft)
+    base = f"http://127.0.0.1:{args.port}"
+    # Refuse to accidentally benchmark an existing server on this port.
+    import socket
+
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", args.port))
+    config = {
+        "engine": args.engine,
+        "mode": args.mode,
+        "models": {"target": target_model, "draft": draft_model},
+        "public_dataset": "spec_al_gsm8k",
+        "versions": versions(args.engine),
+        "server_command": command,
+        "vllm_runner": "V2" if args.engine == "vllm" else None,
+        "concurrency": args.concurrency,
+        "warmup_requests": args.warmup_request_count,
+        "measured_requests": args.request_count,
+        "requested_output_tokens": 256,
+        "attn_group_size": args.attn_group_size,
+        "prefix_caching": False,
+        "mamba_conv_dtype": "bfloat16",
+        "mamba_ssm_dtype": "bfloat16",
+        "gpu_hardware": subprocess.check_output(
+            [
+                "nvidia-smi",
+                "--query-gpu=index,uuid,name,memory.total,driver_version",
+                "--format=csv",
+            ],
+            text=True,
+        ).strip(),
+        "cuda_visible_devices": os.environ["CUDA_VISIBLE_DEVICES"],
+        "vllm_source_commit": subprocess.check_output(
+            ["git", "-C", checkout, "rev-parse", "HEAD"], text=True
+        ).strip()
+        if checkout
+        else None,
+    }
+    env = os.environ.copy()
+    if args.engine == "vllm":
+        env["VLLM_USE_V2_MODEL_RUNNER"] = "1"
+    else:
+        env["SGLANG_MAMBA_CONV_DTYPE"] = "bfloat16"
+    with (output / "server.log").open("w") as log:
+        startup_start = time.monotonic()
+        server = subprocess.Popen(
+            command, stdout=log, stderr=log, env=env, start_new_session=True
+        )
+        try:
+            wait_ready(server, base)
+            startup_seconds = time.monotonic() - startup_start
+            for concurrency in args.concurrencies or [args.concurrency]:
+                run_output = output
+                if args.concurrencies:
+                    args.concurrency = concurrency
+                    args.request_count = 100 if concurrency == 1 else 20 * concurrency
+                    args.warmup_request_count = (
+                        10 if concurrency == 1 else 2 * concurrency
+                    )
+                    run_output = output / f"c{concurrency}"
+                    run_output.mkdir(exist_ok=False)
+                run_benchmark(args, target, base, run_output, config, startup_seconds)
+        finally:
+            stop(server)
+
+
+def run_benchmark(args, target, base, output, config, startup_seconds):
+    config = dict(
+        config,
+        concurrency=args.concurrency,
+        measured_requests=args.request_count,
+        warmup_requests=args.warmup_request_count,
+    )
+    snapshot(base, output, "before", args.engine)
+    bench = [
+        str(Path(sys.executable).parent / "aiperf"),
+        "profile",
+        "--model",
+        "qwen",
+        "--tokenizer",
+        target,
+        "--url",
+        base,
+        "--request-count",
+        str(args.request_count),
+        "--warmup-request-count",
+        str(args.warmup_request_count),
+        "--public-dataset",
+        "spec_al_gsm8k",
+        "--extra-inputs",
+        "max_completion_tokens:256",
+        "--concurrency",
+        str(args.concurrency),
+        "--endpoint-type",
+        "chat",
+        "--streaming",
+        "--output-artifact-dir",
+        str(output / "aiperf"),
+    ]
+    config["benchmark_command"] = bench
+    write_json(output / "run_config.json", config)
+    print(f"Running {args.engine} {args.mode}; logs: {output}", flush=True)
+    with (output / "benchmark.log").open("w") as bench_log:
+        benchmark_start = time.monotonic()
+        subprocess.run(bench, stdout=bench_log, stderr=bench_log, check=True)
+        benchmark_seconds = time.monotonic() - benchmark_start
+    snapshot(base, output, "after", args.engine)
+    summary = summarize(output, args.engine, args.mode, args.request_count)
+    summary["timing_seconds"] = {
+        "server_startup": startup_seconds,
+        "benchmark_wall_clock": benchmark_seconds,
+    }
+    write_json(output / "summary.json", summary)
+    print(json.dumps(summary, indent=2))
+
+
+def download_model(model):
+    # The Hub CLI works in either environment without importing vLLM into SGLang.
+    command = [
+        str(Path(sys.executable).parent / "hf"),
+        "download",
+        model[0],
+        "--revision",
+        model[1],
+        "--quiet",
+    ]
+    return subprocess.check_output(command, text=True).strip()
+
+
+def server_command(args, target, draft):
+    common = ["--host", "127.0.0.1", "--port", str(args.port)]
+    if args.engine == "vllm":
+        command = [
+            sys.executable,
+            "-m",
+            "vllm.entrypoints.openai.api_server",
+            "--disable-uvicorn-access-log",
+            "--model",
+            target,
+            "--served-model-name",
+            "qwen",
+            "--tensor-parallel-size",
+            "1",
+            "--dtype",
+            "bfloat16",
+            "--mamba-cache-dtype",
+            "bfloat16",
+            "--mamba-ssm-cache-dtype",
+            "bfloat16",
+            "--quantization",
+            "fp8",
+            "--language-model-only",
+            "--max-model-len",
+            "32768",
+            "--max-num-seqs",
+            str(args.max_num_seqs),
+            "--max-num-batched-tokens",
+            str(args.prefill_chunk_size),
+            "--no-enable-prefix-caching",
+            "--reasoning-parser",
+            "qwen3",
+            "--enable-auto-tool-choice",
+            "--tool-call-parser",
+            "qwen3_coder",
+            "--trust-remote-code",
+            "--cudagraph-capture-sizes",
+            *map(str, args.cudagraph_capture_sizes),
+        ]
+        if args.gpu_memory_utilization is not None:
+            command += ["--gpu-memory-utilization", str(args.gpu_memory_utilization)]
+        if args.attn_group_size is not None:
+            command += ["--attn-group-size", str(args.attn_group_size)]
+        if args.mode == "dflash":
+            speculative_config = {
+                "method": "dflash",
+                "model": draft,
+                "num_speculative_tokens": args.num_speculative_tokens,
+            }
+            if args.draft_attention_backend:
+                speculative_config["attention_backend"] = args.draft_attention_backend
+            command += [
+                "--speculative-config",
+                json.dumps(speculative_config),
+            ]
+    else:
+        command = [
+            sys.executable,
+            "-m",
+            "sglang.launch_server",
+            "--log-level-http",
+            "warning",
+            "--model-path",
+            target,
+            "--served-model-name",
+            "qwen",
+            "--tp-size",
+            "1",
+            "--dtype",
+            "bfloat16",
+            "--quantization",
+            "fp8",
+            "--context-length",
+            "32768",
+            "--mem-fraction-static",
+            str(args.gpu_memory_utilization or 0.95),
+            "--mamba-ssm-dtype",
+            "bfloat16",
+            "--disable-radix-cache",
+            "--max-running-requests",
+            str(args.sglang_max_running_requests),
+            "--chunked-prefill-size",
+            str(args.prefill_chunk_size),
+            "--enable-metrics",
+            "--trust-remote-code",
+        ]
+        if args.model_size == "35B-A3B":
+            # Release-default TRTLLM MoE requires static input scales absent
+            # from this checkpoint's online FP8 quantization path.
+            command += ["--moe-runner-backend", "triton"]
+        if args.mode == "dflash":
+            command += [
+                "--speculative-algorithm",
+                "DFLASH",
+                "--speculative-draft-model-path",
+                draft,
+                "--speculative-num-draft-tokens",
+                str(args.num_speculative_tokens + 1),
+            ]
+    return command + common
+
+
+def summarize(output, engine, mode, request_count=200):
+    report = json.loads((output / "aiperf/profile_export_aiperf.json").read_text())
+    if report["request_count"]["avg"] != request_count:
+        raise RuntimeError(
+            f"Expected {request_count} successful measured requests; inspect logs"
+        )
+    metrics = json.loads((output / "aiperf/server_metrics_export.json").read_text())[
+        "metrics"
+    ]
+    al = None
+    al_method = None
+    if mode == "dflash":
+        if engine == "vllm":
+            drafts = metric_stat(metrics, "vllm:spec_decode_num_drafts", "total")
+            accepted = metric_stat(
+                metrics, "vllm:spec_decode_num_accepted_tokens", "total"
+            )
+            al = 1 + accepted / drafts
+            al_method = "1 + accepted draft tokens / draft iterations (measured phase)"
+        else:
+            al = metric_stat(metrics, "sglang:spec_accept_length", "avg")
+            al_method = "Mean sampled AL gauge (measured phase); different weighting"
+    return {
+        "engine": engine,
+        "mode": mode,
+        "itl_p50_ms": report["inter_chunk_latency"]["p50"],
+        "tpot_p50_ms": report["inter_token_latency"]["p50"],
+        "output_tokens_per_second": report["output_token_throughput"]["avg"],
+        "acceptance_length": al,
+        "acceptance_length_method": al_method,
+    }
+
+
+def metric_stat(metrics, name, stat):
+    return sum(s["stats"][stat] for s in metrics[name]["series"])
+
+
+def versions(engine):
+    result = {}
+    for name in (engine, "torch", "flashinfer-python", "aiperf"):
+        result[name] = importlib.metadata.version(name)
+    return result
+
+
+def wait_ready(server, base):
+    deadline = time.monotonic() + 1800
+    while time.monotonic() < deadline:
+        if server.poll() is not None:
+            raise RuntimeError("Server exited during startup; inspect server.log")
+        try:
+            with urllib.request.urlopen(base + "/health", timeout=2):
+                return
+        except OSError:
+            time.sleep(2)
+    raise TimeoutError("Server startup exceeded 30 minutes")
+
+
+def snapshot(base, output, phase, engine):
+    with urllib.request.urlopen(base + "/metrics", timeout=30) as response:
+        (output / f"metrics_{phase}.prom").write_bytes(response.read())
+    if engine == "sglang":
+        with urllib.request.urlopen(base + "/get_server_info", timeout=30) as response:
+            (output / f"server_info_{phase}.json").write_bytes(response.read())
+
+
+def stop(server):
+    try:
+        os.killpg(server.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    try:
+        server.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+        os.killpg(server.pid, signal.SIGKILL)
+        server.wait()
+
+
+def write_json(path, value):
+    path.write_text(json.dumps(value, indent=2) + "\n")
+
+
+if __name__ == "__main__":
+    main()
