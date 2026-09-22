@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""Read-only GPU availability across configured SSH hosts."""
+import argparse
+import concurrent.futures
+import csv
+import datetime
+import fnmatch
+import io
+import json
+import pathlib
+import re
+import subprocess
+import sys
+import time
+
+CONFIG = pathlib.Path.home() / '.config/find-gpus/hosts.json'
+REMOTE = r'''export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
+export LC_ALL=C
+printf '\n__GPU_FREE_STATUS__\n'
+canhazgpu status --json
+printf '\n__GPU_FREE_STATUS_RC__%s\n' "$?"
+printf '\n__GPU_FREE_METRICS__\n'
+nvidia-smi --query-gpu=index,uuid,name,utilization.gpu,memory.used --format=csv,noheader,nounits
+printf '\n__GPU_FREE_METRICS_RC__%s\n' "$?"
+printf '\n__GPU_FREE_PROCESSES__\n'
+nvidia-smi --query-compute-apps=gpu_uuid,pid --format=csv,noheader,nounits
+printf '\n__GPU_FREE_PROCESSES_RC__%s\n' "$?"
+'''
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, epilog='Free = unreserved, no compute processes, 0% utilization, and memory below threshold. Snapshot only; reserve before use. New SSH host keys are accepted; changed keys are rejected.')
+    parser.add_argument('--config', type=pathlib.Path, default=CONFIG)
+    parser.add_argument('--region', help='filter region prefix, e.g. eu, us, unknown')
+    parser.add_argument('--prefer', default='eu,us-east,us-west,unknown', help='comma-separated region priority')
+    parser.add_argument('--host', default='*', help='SSH alias glob filter')
+    parser.add_argument('--available', action='store_true', help='only hosts with verified free GPUs')
+    parser.add_argument('--json', action='store_true', help='machine-readable report')
+    parser.add_argument('--timeout', type=float, default=25, help='total timeout per host (seconds)')
+    parser.add_argument('--jobs', type=int, default=32, help='parallel SSH checks (default: 32)')
+    parser.add_argument('--memory-threshold', type=int, default=256, help='maximum idle memory MiB (default 256)')
+    args = parser.parse_args()
+    if args.timeout <= 0 or args.jobs < 1 or args.memory_threshold < 0:
+        parser.error('timeout/jobs must be positive and memory threshold nonnegative')
+    try:
+        hosts = json.loads(args.config.expanduser().read_text())
+        hosts = [h for h in hosts if fnmatch.fnmatch(h['host'], args.host)
+                 and (not args.region or h['region'] == args.region or h['region'].startswith(args.region + '-'))]
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        parser.error(str(exc))
+    if not hosts:
+        parser.error('no matching hosts')
+    timestamp = datetime.datetime.now().astimezone().isoformat(timespec='seconds')
+    progress = not args.json and sys.stderr.isatty()
+    started = time.monotonic()
+    results = []
+    if progress:
+        show_progress(0, len(hosts), started)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        futures = [pool.submit(probe, host, args) for host in hosts]
+        for future in concurrent.futures.as_completed(futures):
+            results.append(future.result())
+            if progress:
+                show_progress(len(results), len(hosts), started)
+    results.sort(key=lambda h: sort_key(h, [s.strip() for s in args.prefer.split(',')]))
+    shown = [r for r in results if r.get('free')] if args.available else results
+    if args.json:
+        print(json.dumps(dict(checked_at=timestamp, hosts=shown, failed_hosts=[r['host'] for r in results if 'error' in r]), indent=2))
+    else:
+        print(f'GPU availability — {timestamp}')
+        table = [['REGION', 'HOST', 'GPU', 'FREE', 'RESERVED', 'UNRES/BUSY', 'UNKNOWN', 'FREE IDS / ERROR']]
+        for r in shown:
+            if 'error' in r:
+                cells = ['?', '?', '?', '?', r['error']]
+            else:
+                cells = [f"{len(r['free'])}/{r['total']}", str(len(r['reserved'])), str(len(r['unreserved_busy'])), str(len(r['unknown'])), ','.join(map(str, r['free'])) or '-']
+            table.append([r['region'], r['host'], r['gpu']] + cells)
+        widths = [max(len(row[i]) for row in table) for i in range(len(table[0]))]
+        for row in table:
+            print('  '.join(cell.ljust(width) for cell, width in zip(row, widths)).rstrip())
+        if not shown:
+            print('No verified free GPUs found.')
+        failures = sum('error' in r for r in results)
+        print(f'\nFree requires no reservation/process, 0% utilization, and ≤{args.memory_threshold} MiB used. Reserve before use.')
+        if failures:
+            print(f'{failures} hosts could not be verified (including unsupported accelerators).')
+    return 1 if all('error' in r for r in results) else 0
+
+
+def show_progress(done, total, started):
+    elapsed = time.monotonic() - started
+    filled = 20 * done // total
+    bar = '#' * filled + '-' * (20 - filled)
+    eta = f'{elapsed / done * (total - done):.0f}s' if done else '?'
+    print(
+        f'\rChecking GPUs {done / total:3.0%}|{bar}| {done}/{total} hosts '
+        f'[{elapsed:.0f}s elapsed, ETA {eta}]\033[K',
+        end='\n' if done == total else '', file=sys.stderr, flush=True,
+    )
+
+
+def sort_key(row, order):
+    rank = next((i for i, region in enumerate(order)
+                 if row['region'] == region or row['region'].startswith(region + '-')), len(order))
+    return rank, -len(row.get('free', [])), row['region'], row['host']
+
+
+def probe(host, args):
+    result = {key: host[key] for key in ('host', 'region', 'gpu')}
+    if host['gpu'].startswith('GAUDI'):
+        result['error'] = 'Gaudi: NVIDIA checks unsupported; inspect with hl-smi'
+        return result
+    command = ['ssh', '-T', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8',
+               '-o', 'ConnectionAttempts=1', '-o', 'ServerAliveInterval=5',
+               '-o', 'ServerAliveCountMax=2', '-o', 'StrictHostKeyChecking=accept-new',
+               host['host'], 'sh -s']
+    try:
+        proc = subprocess.run(command, input=REMOTE, text=True, capture_output=True, timeout=args.timeout)
+        if proc.returncode:
+            lines = proc.stderr.strip().splitlines()
+            raise ValueError(lines[-1] if lines else 'SSH failed')
+        result.update(classify(proc.stdout, args.memory_threshold))
+    except subprocess.TimeoutExpired:
+        result['error'] = f'timed out after {args.timeout:g}s; check VPN/connectivity'
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        result['error'] = str(exc)
+    return result
+
+
+def classify(output, memory_threshold):
+    status = json.loads(section(output, 'STATUS'))
+    if not isinstance(status, list) or not status:
+        raise ValueError('empty or unsupported canhazgpu JSON')
+    states = {int(g['gpu_id']): str(g['status']).upper() for g in status}
+    if len(states) != len(status):
+        raise ValueError('duplicate GPU IDs in reservation status')
+    metrics = list(csv.reader(io.StringIO(section(output, 'METRICS')), skipinitialspace=True))
+    processes = list(csv.reader(io.StringIO(section(output, 'PROCESSES')), skipinitialspace=True))
+    if any(len(p) != 2 or not p[1].strip().isdigit() for p in processes):
+        raise ValueError('unrecognized process data')
+    busy_uuids = {p[0].strip() for p in processes}
+    ids = set()
+    result = dict(free=[], reserved=[], unreserved_busy=[], unknown=[], total=len(metrics))
+    for row in metrics:
+        if len(row) != 5:
+            raise ValueError('unrecognized GPU metrics')
+        idx, uuid, model, util, memory = [s.strip() for s in row]
+        idx = int(idx)
+        if idx in ids:
+            raise ValueError('duplicate GPU metrics')
+        ids.add(idx)
+        state = states.get(idx, 'UNKNOWN')
+        if state in ('IN_USE', 'RESERVED'):
+            result['reserved'].append(idx)
+        elif state == 'UNRESERVED':
+            result['unreserved_busy'].append(idx)
+        elif state in ('AVAILABLE', 'FREE'):
+            try:
+                utilization, used = float(util), float(memory)
+                if not (0 <= utilization <= 100 and used >= 0):
+                    raise ValueError('invalid metrics')
+            except ValueError:
+                result['unknown'].append(idx)
+                continue
+            busy = uuid in busy_uuids or utilization > 0 or used > memory_threshold
+            result['unreserved_busy' if busy else 'free'].append(idx)
+        else:
+            result['unknown'].append(idx)
+    if not ids or ids != set(states):
+        raise ValueError('GPU IDs differ between reservation status and nvidia-smi')
+    return result
+
+
+def section(output, name):
+    match = re.search(r'__GPU_FREE_' + name + r'__\n(.*?)\n__GPU_FREE_' + name + r'_RC__(\d+)', output, re.S)
+    if not match or match[2] != '0':
+        raise ValueError(name.lower() + ' query failed')
+    return match[1].strip()
+
+
+if __name__ == '__main__':
+    sys.exit(main())
