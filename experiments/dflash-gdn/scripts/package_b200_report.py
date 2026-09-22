@@ -9,11 +9,14 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 from zipfile import ZIP_DEFLATED, ZipFile
 
+from sanitize_artifacts import clean
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results", type=Path, default=Path(__file__).resolve().parents[1] / "results")
     parser.add_argument("--output", type=Path, default=Path(__file__).resolve().parents[1] / "dist/b200-report")
+    parser.add_argument("--sanitize", action="store_true", help="Redact machine paths and private metadata in copied text artifacts")
     args = parser.parse_args()
     source = args.results.resolve()
     output = args.output.resolve()
@@ -29,7 +32,10 @@ def main():
     for path in sorted(files):
         destination = output / path.relative_to(source)
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(path, destination)
+        if args.sanitize and path.suffix != ".png":
+            destination.write_text(clean(path.read_text()))
+        else:
+            shutil.copy2(path, destination)
     shutil.copy2(output / "RESULTS.html", output / "index.html")
     (output / ".nojekyll").touch()
     (output / "README.md").write_text(

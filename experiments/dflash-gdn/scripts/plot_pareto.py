@@ -11,6 +11,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.ticker import StrMethodFormatter
 
+from render_b200_results import aggregate_metrics, block_size
+
 SERIES = {
     "vllm_baseline": ("vLLM baseline", "#2563eb", "^", "--"),
     "vllm_dflash": ("vLLM + DFlash", "#2563eb", "o", "-"),
@@ -24,10 +26,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", type=Path)
     parser.add_argument("--model", choices=("4B", "27B", "35B-A3B"), default="4B")
+    parser.add_argument("--repeats", type=Path)
     args = parser.parse_args()
     manifest = args.root / "experiment.json"
     proposals = json.loads(manifest.read_text())["num_speculative_tokens"] if manifest.exists() else 15
-    rows = read_points(args.root, args.model)
+    rows = read_points(args.root, args.model, args.repeats)
     frontier = pareto_points(rows)
     out = args.root / "plots"
     out.mkdir(exist_ok=True)
@@ -42,11 +45,14 @@ def main():
 
     for variant, (label, color, marker, linestyle) in SERIES.items():
         points = [r for r in rows if r["variant"] == variant]
-        ax.plot(
+        ax.errorbar(
             [r["interactivity_tokens_s"] for r in points],
             [r["throughput_tokens_s"] for r in points],
             color=color, marker=marker, linestyle=linestyle,
             linewidth=2.2, markersize=6.5, label=label,
+            xerr=[r["interactivity_std"] for r in points] if args.repeats else None,
+            yerr=[r["throughput_std"] for r in points] if args.repeats else None,
+            elinewidth=1, capsize=3, alpha=0.9,
         )
         for point in points:
             if variant.endswith("baseline") and point["concurrency"] in (2, 4):
@@ -61,7 +67,7 @@ def main():
                 (point["interactivity_tokens_s"], point["throughput_tokens_s"]),
                 xytext=offset, textcoords="offset points", fontsize=9, color=color,
             )
-    ax.set_xlabel("Interactivity from TPOT p99 (tok/s/user)  → better", labelpad=12)
+    ax.set_xlabel("Interactivity from TPOT p90 (tok/s/user)  → better", labelpad=12)
     ax.set_ylabel("Aggregate throughput (tok/s)  ↑ better", labelpad=12)
     ax.xaxis.set_major_formatter(StrMethodFormatter("{x:,.0f}"))
     ax.yaxis.set_major_formatter(StrMethodFormatter("{x:,.0f}"))
@@ -71,7 +77,9 @@ def main():
     ax.spines[["top", "right"]].set_visible(False)
     ax.legend(frameon=False, loc="upper right")
     fig.text(0.12, 0.075, "Markers: c=1, 2, 4, 8, 16, 32. Dashed curves show the baselines.", fontsize=9, color="#263448")
-    fig.text(0.12, 0.04, "Interactivity = 1,000 / TPOT p99 (ms). Single runs; connecting lines are visual guides.", fontsize=9, color="#263448")
+    note = ("n=3; means ±1 sample SD. Interactivity averages per-run 1,000 / TPOT p90 (ms)."
+            if args.repeats else "Interactivity = 1,000 / TPOT p90 (ms). Single runs; connecting lines are visual guides.")
+    fig.text(0.12, 0.04, note, fontsize=9, color="#263448")
     for extension in ("png", "svg", "pdf"):
         fig.savefig(stem.with_suffix(f".{extension}"), dpi=200, facecolor="white")
     plt.close(fig)
@@ -83,7 +91,19 @@ def main():
     print("Pareto points:", [(r["configuration"], r["concurrency"]) for r in frontier])
 
 
-def read_points(root, model):
+def read_points(root, model, repeats=None):
+    if repeats:
+        frame = aggregate_metrics(repeats).loc[(block_size(root), model)].reset_index()
+        means = frame.pivot(index=["variant", "concurrency"], columns="metric", values="mean")
+        deviations = frame.pivot(index=["variant", "concurrency"], columns="metric", values="std")
+        points = means[["output_token_throughput", "inter_token_latency", "interactivity"]].rename(columns={
+            "output_token_throughput": "throughput_tokens_s", "inter_token_latency": "tpot_p90_ms", "interactivity": "interactivity_tokens_s"})
+        points["throughput_std"] = deviations.output_token_throughput
+        points["interactivity_std"] = deviations.interactivity
+        points["n"] = 3
+        points = points.reset_index()
+        points["configuration"] = points.variant.map({key: value[0] for key, value in SERIES.items()})
+        return points.to_dict("records")
     rows = []
     for variant, (label, _, _, _) in SERIES.items():
         engine_mode = "vllm_dflash" if variant == "pr2_dflash" else variant
@@ -91,14 +111,14 @@ def read_points(root, model):
             path = root / model / variant / engine_mode / f"c{concurrency}" / "aiperf/profile_export_aiperf.json"
             report = json.loads(path.read_text())
             assert report["inter_token_latency"]["unit"] == "ms"
-            tpot = report["inter_token_latency"]["p99"]
+            tpot = report["inter_token_latency"]["p90"]
             rows.append({
                 "variant": variant,
                 "configuration": label,
                 "concurrency": concurrency,
                 "latency_p50_ms": report["request_latency"]["p50"],
                 "throughput_tokens_s": report["output_token_throughput"]["avg"],
-                "tpot_p99_ms": tpot,
+                "tpot_p90_ms": tpot,
                 "interactivity_tokens_s": 1000 / tpot,
             })
     return rows

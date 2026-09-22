@@ -17,6 +17,7 @@ def main():
     parser.add_argument("--block8", type=Path, required=True)
     parser.add_argument("--block16", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--repeats", type=Path)
     args = parser.parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
     controls, tabs, panels, styles = [], [], [], []
@@ -34,7 +35,8 @@ def main():
         (args.block8, 7, "K=7/8"), (args.block16, 15, "K=15/16")
     ]):
         subprocess.run([sys.executable, str(Path(__file__).with_name("render_b200_results.py")),
-                        str(root), "--num-speculative-tokens", str(proposals)], check=True)
+                        str(root), "--num-speculative-tokens", str(proposals),
+                        *(["--repeats", str(args.repeats)] if args.repeats else [])], check=True)
         source = (root / "RESULTS.html").read_text()
         key = f"draft-{proposals}"
         source = namespace_ids(source, key)
@@ -61,7 +63,8 @@ def main():
         '<meta name="viewport" content="width=device-width, initial-scale=1">',
         '<title>B200 benchmarks — draft-length comparison</title><style>',
         *styles, '</style></head><body><h1>B200 benchmark results</h1>',
-        '<p class="subtitle">vLLM 0.30.0 · SGLang 0.5.20 · PR 52297 · 180/180 points</p>',
+        '<p class="subtitle">vLLM 0.30.0 · SGLang 0.5.20 · PR 52297 · '
+        + ('n=3 · 540/540 points' if args.repeats else '180/180 points') + '</p>',
         '<p>vLLM counts only proposed tokens; SGLang counts the full block, including one conditioning token. Thus vLLM K=7 equals SGLang K=8, and vLLM K=15 equals SGLang K=16.</p>',
         '<main role="group" aria-label="Benchmark configuration">', *controls, *model_controls,
         '<div class="metric-tabs" role="group" aria-label="Draft length">', *tabs, '</div>',

@@ -3,8 +3,12 @@
 import argparse
 import html
 import json
+import os
 import re
+from functools import lru_cache
 from pathlib import Path
+
+import pandas as pd
 
 VARIANTS = {
     "vllm_baseline": "vLLM",
@@ -19,25 +23,27 @@ METRICS = (
     ("output_token_throughput", "avg", "output tok/s", "tok/s"),
     ("inter_chunk_latency", "p99", "ITL p99 (ms)", "ITL p99"),
     ("time_to_first_token", "p99", "TTFT p99 (ms)", "TTFT p99"),
-    ("inter_token_latency", "p99", "TPOT p99 (ms)", "TPOT p99"),
+    ("inter_token_latency", "p90", "TPOT p90 (ms)", "TPOT p90"),
     ("acceptance_length", "avg", "Acceptance length (including bonus)", "Acceptance length"),
 )
 CAPACITY_METRICS = ("Reported cache tokens", "128K seq equivalents (est.)", "Configured request limit")
 CAPACITY_NOTE = "128K = 131,072 tokens. Sequence equivalents = reported cache tokens / 131,072, not measured concurrency. These allocations come from servers configured for 32,768-token contexts and 32 request slots; reconfiguring for 128K may change capacity. No long-context measurements were run."
-LOG_NOTE = "Each table's Logs row links to Server logs and Bench logs, metric JSON exports, and configurations by concurrency. Bench also documents the source fields and formulas. Share the HTML, benchmark-logs.html, and model directories together."
+LOG_NOTE = "Each table's Logs link opens server and benchmark logs, metric exports, and configurations for every repetition."
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", type=Path)
     parser.add_argument("--num-speculative-tokens", type=int)
+    parser.add_argument("--repeats", type=Path, help="Completed campaign containing report_metrics.csv and capacity_metrics.csv")
     args = parser.parse_args()
     if args.num_speculative_tokens is None:
         manifest = args.root / "experiment.json"
         args.num_speculative_tokens = json.loads(manifest.read_text())["num_speculative_tokens"] if manifest.exists() else 15
     models = [model for model in MODELS if (args.root / model).exists()]
-    render_benchmark_logs(args.root, models)
-    expected = len(models) * len(VARIANTS) * len(CONCURRENCIES)
+    render_benchmark_logs(args.root, models, args.repeats)
+    repetitions = 3 if args.repeats else 1
+    expected = len(models) * len(VARIANTS) * len(CONCURRENCIES) * repetitions
     lines = [
         f"# B200 release comparison — DFlash block {args.num_speculative_tokens + 1}",
         "",
@@ -60,7 +66,9 @@ def main():
         "- **Workload:** GSM8K, up to 256 output tokens, EOS and model sampling defaults enabled. Dense-model checkpoints match the pinned H100 experiments; all target/draft revisions are recorded per run.",
         "- **Requests/warmups:** 100/10 at c=1, otherwise 20c/2c. Each variant reuses one server across ascending concurrency levels.",
         "- **Execution:** variants run concurrently on separate reserved GPUs on a shared host, using up to seven benchmark GPUs.",
-        "- **Scope:** single runs without uncertainty estimates; reported separately from the historical H100 tables.",
+        ("- **Scope:** n=3 independently restarted runs per configuration; tables show means. Latencies average per-run percentiles: TPOT p90, ITL and TTFT p99, not pooled percentiles. Plot coordinates average each run's throughput and 1,000 / TPOT p90 separately; error bars show ±1 sample SD."
+         if args.repeats else "- **Scope:** single runs without uncertainty estimates; reported separately from the historical H100 tables."),
+        *(["- **Concurrency caveat:** C=1 measures GSM8K prompt indices 10–109, whereas C=2 measures 4–43 (zero-based), because request and warmup counts differ. These curves retain the measured workloads; n=3 does not correct the prompt-mix confound. Small request counts limit p99 reliability."] if args.repeats else []),
         "",
     ]
     overview = list(lines)
@@ -70,7 +78,7 @@ def main():
     completed = 0
     for model in models:
         runs = {
-            (variant, c): read_run(args.root, model, variant, c)
+            (variant, c): read_run(args.root, model, variant, c, args.repeats)
             for variant in VARIANTS
             for c in CONCURRENCIES
         }
@@ -78,7 +86,7 @@ def main():
         headings = list(VARIANTS.values())
         logs_row = "| Logs | " + " | ".join(log_links(args.root, model, variant, markdown=True)
                                              for variant in VARIANTS) + " |"
-        completed += sum(run is not None for run in runs.values())
+        completed += sum(run is not None for run in runs.values()) * repetitions
         for metric, stat, title, _ in METRICS:
             lines += [
                 f"## {model} {title}",
@@ -90,8 +98,7 @@ def main():
                 values = []
                 for variant in VARIANTS:
                     run = runs[variant, c]
-                    value = run.get(metric, {}).get(stat) if run else None
-                    values.append("—" if value is None else f"{value:,.2f}")
+                    values.append(format_metric(run, metric, stat))
                 lines.append(f"| {c} | " + " | ".join(values) + " |")
             lines += [logs_row, ""]
         lines += [
@@ -99,7 +106,7 @@ def main():
             "| Metric | " + " | ".join(headings) + " |",
             "| --- | " + " | ".join("---:" for _ in VARIANTS) + " |",
         ]
-        for row in read_capacity(args.root, model):
+        for row in read_capacity(args.root, model, args.repeats):
             lines.append("| " + " | ".join(row) + " |")
         lines += [logs_row, "", CAPACITY_NOTE, ""]
     lines += [
@@ -117,15 +124,15 @@ def main():
             "",
             f"![{model} throughput versus interactivity]({plot_path})",
             "",
-            "Interactivity = 1,000 / TPOT p99 (ms). Dashed curves show the baselines.",
+            ("Coordinates: mean throughput and mean per-run 1,000 / TPOT p90 (ms); error bars: ±1 sample SD, n=3. Dashed curves show the baselines." if args.repeats else "Interactivity = 1,000 / TPOT p90 (ms). Dashed curves show the baselines."),
             "",
         ]
     (args.root / "RESULTS.md").write_text("\n".join(lines))
-    render_html(args.root, all_runs, overview, completed, expected, args.num_speculative_tokens + 1)
+    render_html(args.root, all_runs, overview, completed, expected, args.num_speculative_tokens + 1, args.repeats)
     print(f"Completed {completed}/{expected} points; wrote {args.root / 'RESULTS.md'}")
 
 
-def render_html(root, all_runs, overview, completed, expected, block_size):
+def render_html(root, all_runs, overview, completed, expected, block_size, repeats=None):
     controls, tabs, panels, tab_styles = [], [], [], []
     for index, model in enumerate(all_runs):
         runs = all_runs[model]
@@ -134,7 +141,7 @@ def render_html(root, all_runs, overview, completed, expected, block_size):
         controls.append(control)
         tabs.append(tab)
         tab_styles.extend(styles)
-        panel, metric_styles = render_model_panel(root, model, runs)
+        panel, metric_styles = render_model_panel(root, model, runs, repeats)
         panels.append(panel)
         tab_styles.extend(metric_styles)
     notes = "\n".join(
@@ -148,12 +155,13 @@ def render_html(root, all_runs, overview, completed, expected, block_size):
         "__NOTES__": notes, "__COMPLETED__": str(completed),
         "__EXPECTED__": str(expected),
         "__BLOCK_SIZE__": str(block_size),
+        "__STATISTICS_NOTE__": ("n=3 · Tables show means; latency tables average per-run percentiles (TPOT p90; ITL and TTFT p99)." if repeats else "Single runs; no uncertainty estimates."),
     }.items():
         template = template.replace(key, value)
     (root / "RESULTS.html").write_text(template)
 
 
-def render_model_panel(root, model, runs):
+def render_model_panel(root, model, runs, repeats=None):
     model_key = f"model-{model.lower()}"
     headings = [html.escape(label) for label in VARIANTS.values()]
     logs_row = ('<tfoot><tr><th scope="row">Logs</th>'
@@ -167,9 +175,9 @@ def render_model_panel(root, model, runs):
         tabs.append(tab)
         styles.extend(tab_styles)
         source_note = {
-            "inter_chunk_latency": "Source: Metrics JSON → inter_chunk_latency.p99 (not printed in the console). Measured between streamed chunks, which may contain multiple tokens. Follow Bench for the export.",
-            "inter_token_latency": "Source: Metrics JSON → inter_token_latency.p99, called Inter Token Latency in the AIPerf console. Follow Bench for the export.",
-            "acceptance_length": "Source: Server metrics JSON. vLLM/PR: 1 + accepted draft tokens / draft iterations; SGLang: sampled spec_accept_length gauge average. Includes the bonus token; aggregation differs between engines. Follow Bench for exports and formulas.",
+            "inter_chunk_latency": "Source: Metrics JSON → inter_chunk_latency.p99 (not printed in the console). Measured between streamed chunks, which may contain multiple tokens. Follow Logs for the export.",
+            "inter_token_latency": "Source: Metrics JSON → inter_token_latency.p90, called Inter Token Latency in the AIPerf console. Follow Logs for the export.",
+            "acceptance_length": "Source: Server metrics JSON. vLLM/PR: 1 + accepted draft tokens / draft iterations; SGLang: sampled spec_accept_length gauge average. Includes the bonus token; aggregation differs between engines. Follow Logs for exports and formulas.",
         }.get(metric, "")
         parts = [
             f'<section class="tab-panel" id="panel-{key}" aria-labelledby="label-{key}">',
@@ -185,8 +193,7 @@ def render_model_panel(root, model, runs):
             parts.append(f'<tr><th scope="row">{c}</th>')
             for variant in VARIANTS:
                 run = runs[variant, c]
-                value = run.get(metric, {}).get(stat) if run else None
-                cell = "—" if value is None else f"{value:,.2f}"
+                cell = format_metric(run, metric, stat)
                 parts.append(f'<td>{cell}</td>')
             parts.append("</tr>")
         parts.append(f"</tbody>{logs_row}</table></div></section>")
@@ -204,7 +211,7 @@ def render_model_panel(root, model, runs):
         *[f'<th scope="col">{heading}</th>' for heading in headings],
         '</tr></thead><tbody>',
     ]
-    for row in read_capacity(root, model):
+    for row in read_capacity(root, model, repeats):
         parts.append('<tr><th scope="row">' + html.escape(row[0]) + '</th>'
                      + ''.join(f'<td>{html.escape(value)}</td>' for value in row[1:]) + '</tr>')
     parts.append(f'</tbody>{logs_row}</table></div></section>')
@@ -232,7 +239,6 @@ def render_model_panel(root, model, runs):
         f'<section class="tab-panel" id="panel-{model_key}" aria-labelledby="label-{model_key}">',
         f'<h2>{MODELS[model]}</h2>',
         plot,
-        f'<p class="metric-note">{html.escape(LOG_NOTE)}</p>',
         f'<div class="metric-group" role="group" aria-label="{model} benchmark metric">',
         *controls, '<div class="metric-tabs">', *tabs, '</div>',
         '<div class="panels">', *panels, '</div></div>', '</section>',
@@ -257,7 +263,7 @@ def tab_control(key, label, group, selected):
     return control, tab, styles
 
 
-def render_benchmark_logs(root, models):
+def render_benchmark_logs(root, models, repeats=None):
     parts = [
         '<!doctype html><html lang="en"><head><meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1">',
@@ -268,8 +274,8 @@ def render_benchmark_logs(root, models):
         '<li><b>Output tok/s:</b> Metrics JSON → <code>output_token_throughput.avg</code>.</li>',
         '<li><b>ITL p99:</b> Metrics JSON → <code>inter_chunk_latency.p99</code> (ms). This is the gap between streamed content chunks, which can contain multiple tokens. It is not printed in the benchmark console table.</li>',
         '<li><b>TTFT p99:</b> Metrics JSON → <code>time_to_first_token.p99</code> (ms).</li>',
-        '<li><b>TPOT p99:</b> Metrics JSON → <code>inter_token_latency.p99</code> (ms). The console calls this “Inter Token Latency”; the report labels it TPOT.</li>',
-        '<li><b>Pareto plot:</b> x = <code>1000 / inter_token_latency.p99</code>; y = <code>output_token_throughput.avg</code>.</li>',
+        '<li><b>TPOT p90:</b> Metrics JSON → <code>inter_token_latency.p90</code> (ms). The console calls this “Inter Token Latency”; the report labels it TPOT.</li>',
+        '<li><b>Pareto plot:</b> x = <code>1000 / inter_token_latency.p90</code>; y = <code>output_token_throughput.avg</code>.</li>',
         '<li><b>vLLM / PR 52297 AL:</b> Server metrics JSON → <code>1 + sum(metrics["vllm:spec_decode_num_accepted_tokens"].series[*].stats.total) / sum(metrics["vllm:spec_decode_num_drafts"].series[*].stats.total)</code>.</li>',
         '<li><b>SGLang AL:</b> Server metrics JSON → <code>sum(metrics["sglang:spec_accept_length"].series[*].stats.avg)</code> (one series for these TP1 runs). Both AL values include the bonus token; the SGLang sampled gauge average has different weighting from the vLLM counter ratio. Summary JSON records AL and its method; baselines have no AL.</li>',
         '<li><b>Cache capacity:</b> Server log → vLLM <code>GPU KV cache size</code> or SGLang <code>max_total_num_tokens</code>. Divide by <code>131072</code> for 128K sequence equivalents. Config JSON → <code>server_command</code> records the configured request limit.</li>',
@@ -278,30 +284,37 @@ def render_benchmark_logs(root, models):
     for model in models:
         for variant, label in VARIANTS.items():
             parts += [f'<section id="{model}-{variant}"><h2>{html.escape(MODELS[model])} · {html.escape(label)}</h2><ul>']
-            for c in CONCURRENCIES:
-                engine_mode = "vllm_dflash" if variant == "pr2_dflash" else variant
-                run = Path(model) / variant / engine_mode / f"c{c}"
-                links = [log_link(root, model, variant, "Log", c)]
-                for filename, title in (
-                    ("aiperf/profile_export_aiperf.json", "Metrics JSON"),
-                    ("aiperf/server_metrics_export.json", "Server metrics JSON"),
-                    ("summary.json", "Summary JSON"),
-                    ("run_config.json", "Config JSON"),
-                ):
-                    path = run / filename
-                    if (root / path).is_file():
-                        links.append(f'<a href="{html.escape(path.as_posix(), quote=True)}">{title}</a>')
-                parts.append(f'<li>Concurrency {c}: ' + ' · '.join(links) + '</li>')
+            for source_index, source_root in enumerate(repetition_roots(root, repeats), 1):
+                if repeats:
+                    parts.append(f'<li><b>Repetition {source_index}</b></li>')
+                    mode = "vllm_dflash" if variant == "pr2_dflash" else variant
+                    server = Path(os.path.relpath(source_root / model / variant / mode / "server.log", root))
+                    parts.append(f'<li><a href="{html.escape(server.as_posix(), quote=True)}">Server log</a></li>')
+                for c in CONCURRENCIES:
+                    engine_mode = "vllm_dflash" if variant == "pr2_dflash" else variant
+                    run = Path(os.path.relpath(source_root / model / variant / engine_mode / f"c{c}", root))
+                    links = [f'<a href="{html.escape((run / "benchmark.log").as_posix(), quote=True)}">Log</a>']
+                    for filename, title in (
+                        ("aiperf/profile_export_aiperf.json", "Metrics JSON"),
+                        ("aiperf/server_metrics_export.json", "Server metrics JSON"),
+                        ("summary.json", "Summary JSON"),
+                        ("run_config.json", "Config JSON"),
+                    ):
+                        path = run / filename
+                        if (root / path).is_file():
+                            links.append(f'<a href="{html.escape(path.as_posix(), quote=True)}">{title}</a>')
+                    parts.append(f'<li>Concurrency {c}: ' + ' · '.join(links) + '</li>')
             parts.append('</ul></section>')
     parts.append('</body></html>')
+    if repeats:
+        prefix = Path(os.path.relpath(repeats, root)).as_posix()
+        parts.insert(-1, f'<p>Aggregates use all three repetitions. Tables: means of per-run statistics. Plots: mean(1000 / TPOT p90) and mean(throughput), with sample SD on both axes. <a href="{prefix}/report_metrics.csv">Long-format source measurements</a> · <a href="{prefix}/report_comparison.csv">Aggregate statistics</a> · <a href="{prefix}/capacity_metrics.csv">Capacity measurements</a></p>')
     (root / "benchmark-logs.html").write_text('\n'.join(parts))
 
 
 def log_links(root, model, variant, *, markdown=False):
-    server = log_link(root, model, variant, "Server", markdown=markdown)
     path = f"benchmark-logs.html#{model}-{variant}"
-    benchmarks = f"[Bench]({path})" if markdown else f'<a href="{path}">Bench</a>'
-    return f"{server} · {benchmarks}"
+    return f"[Logs]({path})" if markdown else f'<a href="{path}">Logs</a>'
 
 
 def log_link(root, model, variant, label, concurrency=None, *, markdown=False):
@@ -317,7 +330,11 @@ def log_link(root, model, variant, label, concurrency=None, *, markdown=False):
     return f'<a href="{html.escape(path.as_posix(), quote=True)}" title="{html.escape(title, quote=True)}">{html.escape(label)}</a>'
 
 
-def read_run(root, model, variant, concurrency):
+def read_run(root, model, variant, concurrency, repeats=None):
+    if repeats:
+        frame = aggregate_metrics(repeats).loc[(block_size(root), model, variant, concurrency)]
+        return {metric: {stat: frame.loc[metric, "mean"], "std": frame.loc[metric, "std"]}
+                for metric, stat, *_ in METRICS if metric in frame.index}
     engine_mode = "vllm_dflash" if variant == "pr2_dflash" else variant
     path = root / model / variant / engine_mode / f"c{concurrency}"
     if not (path / "summary.json").exists():
@@ -328,7 +345,11 @@ def read_run(root, model, variant, concurrency):
     return run
 
 
-def read_capacity(root, model):
+def read_capacity(root, model, repeats=None):
+    if repeats:
+        frame = aggregate_capacity(repeats).loc[(block_size(root), model)]
+        return [(metric, *(f'{frame.loc[(variant, metric), "mean"]:,.2f}'
+                           for variant in VARIANTS)) for metric in CAPACITY_METRICS]
     rows = []
     for variant, label in VARIANTS.items():
         engine_mode = "vllm_dflash" if variant == "pr2_dflash" else variant
@@ -347,6 +368,49 @@ def read_capacity(root, model):
                      f"{tokens / 131072:.2f}" if tokens is not None else "—", limit))
     return [(metric, *(row[index + 1] for row in rows))
             for index, metric in enumerate(CAPACITY_METRICS)]
+
+
+def format_metric(run, metric, stat):
+    data = run.get(metric, {}) if run else {}
+    value = data.get(stat)
+    if value is None:
+        return "—"
+    return f"{value:,.2f}"
+
+
+def repetition_roots(root, repeats):
+    return [root, *(repeats / f"rep{i}-block{block_size(root)}" for i in (2, 3))] if repeats else [root]
+
+
+def block_size(root):
+    manifest = root / "experiment.json"
+    return json.loads(manifest.read_text())["num_speculative_tokens"] + 1 if manifest.exists() else 16
+
+
+@lru_cache
+def aggregate_metrics(repeats):
+    frame = pd.read_csv(repeats / "report_metrics.csv")
+    frame = frame.loc[
+        (~frame.metric.isin(["inter_token_latency", "interactivity"]))
+        | (frame.metric.eq("inter_token_latency") & frame.statistic.eq("p90"))
+        | (frame.metric.eq("interactivity") & frame.statistic.eq("derived_p90"))
+    ]
+    keys = ["block", "model", "variant", "concurrency", "metric"]
+    if frame.duplicated(keys + ["repetition"]).any():
+        raise ValueError("Duplicate benchmark measurements")
+    result = frame.groupby(keys).value.agg(["mean", "std", "count"])
+    if not result["count"].eq(3).all() or not set(frame.repetition) == {1, 2, 3}:
+        raise ValueError("Expected three complete repetitions for every metric")
+    return result
+
+
+@lru_cache
+def aggregate_capacity(repeats):
+    frame = pd.read_csv(repeats / "capacity_metrics.csv")
+    result = frame.groupby(["block", "model", "variant", "metric"]).value.agg(["mean", "std", "count"])
+    if not result["count"].eq(3).all():
+        raise ValueError("Expected three capacity measurements per configuration")
+    return result
 
 
 if __name__ == "__main__":
