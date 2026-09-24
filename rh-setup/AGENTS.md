@@ -11,6 +11,7 @@
 * You dont need to explain metrics like ITL, TPOT, etc. When writing summaries, assume a technical audience that is familiar with the domain.
 * When available, use hf models from `RedHatAI`, e.g. speculators.
 * If you are benchmarking a model with multiple runs, try to spin up the vllm server only once, since starting the server is what takes often most time.
+* Pass `--disable-uvicorn-access-log` in general to reduce the log verbosity.
 
 custom commands:
 * vllm-install: install from precompiled wheels
