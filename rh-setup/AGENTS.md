@@ -9,6 +9,7 @@
 * to use GPUs, reserve them over canhazgpu (https://github.com/russellb/canhazgpu).
 * when writing md files, dont break lines unless there is a good reason, since e.g. on Github your lines will be wrapped. Let the IDE / website take care of rendering, so you don't have to. I suggest only breaking lines after a dot, or similar.
 * You dont need to explain metrics like ITL, TPOT, etc. When writing summaries, assume a technical audience that is familiar with the domain.
+* When available, use hf models from `RedHatAI`, e.g. speculators.
 
 custom commands:
 * vllm-install: install from precompiled wheels
