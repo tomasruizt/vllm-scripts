@@ -10,6 +10,7 @@
 * when writing md files, dont break lines unless there is a good reason, since e.g. on Github your lines will be wrapped. Let the IDE / website take care of rendering, so you don't have to. I suggest only breaking lines after a dot, or similar.
 * You dont need to explain metrics like ITL, TPOT, etc. When writing summaries, assume a technical audience that is familiar with the domain.
 * When available, use hf models from `RedHatAI`, e.g. speculators.
+* If you are benchmarking a model with multiple runs, try to spin up the vllm server only once, since starting the server is what takes often most time.
 
 custom commands:
 * vllm-install: install from precompiled wheels
