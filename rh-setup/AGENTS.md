@@ -14,6 +14,7 @@
 * Pass `--disable-uvicorn-access-log` in general to reduce the log verbosity.
 * Use the gh cli when possible
 * When making code changes, try to reduce the git diff, so reviews are easier for humans.
+* In general, its better to use `chg run` rather than manual GPU reservations, unless strictly necessary.
 
 custom commands:
 * vllm-install: install from precompiled wheels
