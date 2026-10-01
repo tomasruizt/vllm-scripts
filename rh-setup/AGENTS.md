@@ -13,6 +13,7 @@
 * If you are benchmarking a model with multiple runs, try to spin up the vllm server only once, since starting the server is what takes often most time.
 * Pass `--disable-uvicorn-access-log` in general to reduce the log verbosity.
 * Use the gh cli when possible
+* When making code changes, try to reduce the git diff, so reviews are easier for humans.
 
 custom commands:
 * vllm-install: install from precompiled wheels
