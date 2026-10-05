@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GLM-5.3 · DEP4 · adaptive verification</title>
+<style>@@THEME@@
+#throughput-table:checked~.metric-tabs label[for="throughput-table"],#accuracy-table:checked~.metric-tabs label[for="accuracy-table"]{background:#235cca;color:white}
+#throughput-table:checked~.panels #throughput-panel,#accuracy-table:checked~.panels #accuracy-panel{display:block}
+#throughput-table:focus-visible~.metric-tabs label[for="throughput-table"],#accuracy-table:focus-visible~.metric-tabs label[for="accuracy-table"]{outline:3px solid #e4ad31;outline-offset:3px}
+</style></head><body>
+<h1>GLM-5.3: throughput versus interactivity</h1>
+<p class="subtitle">NVFP4 · 4× B300 · TP1 / DP4 / EP4 · vLLM main 58b329845 · GSM8K</p>
+<section class="card"><figure aria-label="Throughput versus interactivity">@@PARETO_MEAN@@<figcaption>Interactivity uses mean request TPOT. One run per point; labels show total client concurrency.</figcaption></figure></section>
+<section class="card"><h2>Results</h2>
+<input class="metric-choice" type="radio" name="table" id="throughput-table" checked aria-controls="throughput-panel">
+<input class="metric-choice" type="radio" name="table" id="accuracy-table" aria-controls="accuracy-panel">
+<div class="metric-tabs"><label for="throughput-table">Throughput (output tokens/sec)</label><label for="accuracy-table">Accuracy / AL</label></div>
+<div class="panels">
+<section class="tab-panel" id="throughput-panel"><div class="table-scroll"><table><thead><tr><th>Bsz</th><th>No speculation</th><th>DSpark, AV off</th><th>DSpark + AV</th></tr></thead><tbody>@@THROUGHPUT_TABLE@@</tbody></table></div></section>
+<section class="tab-panel" id="accuracy-panel"><div class="table-scroll"><table><thead><tr><th>Method</th><th>Bsz</th><th>GSM8K accuracy</th><th>AL</th></tr></thead><tbody>@@ACCURACY_TABLE@@</tbody></table></div></section>
+</div></section>
+</body></html>
