@@ -11,7 +11,7 @@
 * You dont need to explain metrics like ITL, TPOT, etc. When writing summaries, assume a technical audience that is familiar with the domain.
 * When available, use hf models from `RedHatAI`, e.g. speculators.
 * Before downloading a hf model, check if the system has a mount where all users can share the model weights, and set it as a download location. Sometimes that path is not writeable, so check first.
-* If you are benchmarking a model with multiple runs, try to spin up the vllm server only once, since starting the server is what takes often most time.
+* If you are benchmarking a model with multiple runs, try to spin up the vllm server only once, since starting the server is what takes often most time. However, in these cases we most usually want to disable prefix-caching, because otherwise the second and later runs would be artificially faster.
 * Pass `--disable-uvicorn-access-log` in general to reduce the log verbosity.
 * Use the gh cli when possible
 * When making code changes, try to reduce the git diff, so reviews are easier for humans.
