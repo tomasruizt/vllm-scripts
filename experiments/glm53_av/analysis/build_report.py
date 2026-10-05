@@ -11,6 +11,8 @@ import shutil
 import sys
 from pathlib import Path
 
+from build_logs import build_logs
+
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/glm53-matplotlib")
 
 import matplotlib
@@ -58,6 +60,8 @@ def main():
         json.dumps(rows, indent=2, allow_nan=False) + "\n"
     )
     write_csv(rows, HERE / "results.csv")
+    if (HERE / "logs").is_dir():
+        build_logs(HERE)
     shutil.copy2(CODE / "README.md", HERE / "README.md")
     render_report(rows)
     manifest = {
@@ -66,7 +70,7 @@ def main():
         if p.is_file()
     }
     (HERE / "data-sha256.json").write_text(json.dumps(manifest, indent=2) + "\n")
-    print(f"Built {len(rows)}/12 measured points: {HERE / 'index.html'}")
+    print(f"Built {len(rows)} measured points: {HERE / 'index.html'}")
     for row in rows:
         print(
             f"{row['mode']:8} c{row['concurrency']:3}: {row['throughput']:8.1f} tok/s, "

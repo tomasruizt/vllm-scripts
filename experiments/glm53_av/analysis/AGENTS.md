@@ -5,6 +5,7 @@ Read `../../../reporting/AGENTS.md` first.
 ## Files and layout
 
 - `build_report.py`: reads archived evaluations and Prometheus snapshots, creates plots and tables, then renders HTML.
+- `build_logs.py`: archives complete server sessions, renders the log index, and exports checksums and a downloadable archive. The normal report build refreshes these outputs when `report/logs/` exists.
 - `template.html`: title, one throughput/interactivity chart, and two results tables in tabs: throughput and accuracy/AL. Keep this minimal layout.
 - `../../../reporting/b200-theme.css`: the original B200 theme. Do not approximate it or replace it with custom gray/black overrides.
 - `sources.json`: optional local mapping of methods to run directories; ignored because paths depend on the machine.
@@ -24,10 +25,12 @@ Add `--sources experiments/glm53_av/analysis/sources.json` only when importing c
 
 The output's `data/` copies are enough to rebuild after `/tmp` is gone. Each run's `provenance.json` records its command and revisions; `data-sha256.json` checks the archived inputs. Keep these files locally, outside Git.
 
+Import server logs separately with `build_logs.py --sources <session-map.json>`; see README.md for the mapping and publish commands. Preserve every session's server and client logs, including supplementary runs. Check relative links, archive checksums, and the deployed files. The website ignores `.log` files by default, so explicitly force-add the report's log files there. Never force-add raw inputs or generated reports in `vllm-scripts`.
+
 ## Data and display rules
 
 - Bsz means total client concurrency across all four DP ranks.
-- Throughput table: rows 8, 64, 128, 256; columns no speculation, DSpark AV off, DSpark + AV. Show output tok/s to one decimal.
+- Throughput table: rows are measured batch sizes in ascending order; columns no speculation, DSpark AV off, DSpark + AV. Show output tok/s to one decimal.
 - Accuracy/AL table: group by method, then bsz. Show accuracy to two decimals with `%`, AL to three decimals, and `N/A` for the baseline.
 - These tables must match `experiments/glm53_av/glm-5.3-ep-dp-av.md`. Compare rendered cells, not only numeric arrays.
 - Main chart uses `1 / mean per-request TPOT`, from summed Prometheus counter deltas. Validate 1,319 observations per point. The B200 reference uses p90; do not silently substitute that metric.
