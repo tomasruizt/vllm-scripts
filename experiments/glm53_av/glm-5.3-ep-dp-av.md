@@ -1,6 +1,6 @@
 # GLM-5.3: DEP4 and adaptive verification
 
-Tested October 2, 2026, on unmodified [vLLM main at 58b329845][commit].
+Tested October 2 and 5, 2026, on unmodified [vLLM main at 58b329845][commit].
 
 vLLM supports DP + EP + adaptive verification (AV). We tested full GLM-5.3 NVFP4 on four B300s with no speculation, DSpark, and DSpark + AV. DFlash2 is another available speculator, but we have not tested it locally. The research did not find a published AV-on/off comparison for full GLM-5.3.
 
@@ -11,6 +11,8 @@ vLLM supports DP + EP + adaptive verification (AV). We tested full GLM-5.3 NVFP4
 | Bsz | No speculation | DSpark, AV off | DSpark + AV |
 | ---: | ---: | ---: | ---: |
 | 8 | 430.3 | 1,121.2 | 1,116.1 |
+| 16 | 747.2 | 1,890.5 | 1,857.7 |
+| 32 | 1,239.4 | 3,230.0 | 3,166.2 |
 | 64 | 2,082.3 | 5,074.7 | 4,536.0 |
 | 128 | 2,087.4 | 7,682.0 | 7,764.5 |
 | 256 | 2,742.4 | 7,836.0 | 11,279.5 |
@@ -20,14 +22,20 @@ vLLM supports DP + EP + adaptive verification (AV). We tested full GLM-5.3 NVFP4
 | Method | Bsz | GSM8K accuracy | AL |
 | --- | ---: | ---: | ---: |
 | No speculation | 8 | 91.58% | N/A |
+| No speculation | 16 | 91.58% | N/A |
+| No speculation | 32 | 91.74% | N/A |
 | No speculation | 64 | 91.36% | N/A |
 | No speculation | 128 | 91.05% | N/A |
 | No speculation | 256 | 90.60% | N/A |
 | DSpark, AV off | 8 | 90.83% | 4.894 |
+| DSpark, AV off | 16 | 90.37% | 4.824 |
+| DSpark, AV off | 32 | 89.69% | 4.900 |
 | DSpark, AV off | 64 | 91.05% | 4.859 |
 | DSpark, AV off | 128 | 92.19% | 4.817 |
 | DSpark, AV off | 256 | 91.13% | 4.930 |
 | DSpark + AV | 8 | 90.67% | 4.691 |
+| DSpark + AV | 16 | 90.90% | 4.647 |
+| DSpark + AV | 32 | 91.13% | 4.619 |
 | DSpark + AV | 64 | 90.83% | 4.633 |
 | DSpark + AV | 128 | 91.21% | 4.276 |
 | DSpark + AV | 256 | 91.43% | 4.290 |
@@ -36,7 +44,7 @@ All methods used the same target and serving settings. Both DSpark methods used 
 
 Each run evaluated all 1,319 GSM8K questions with five-shot completion prompts, temperature 0, seed 42, and a 2,048-token output limit. There were no API errors. Two runs each had one unparseable answer: no speculation at bsz 64 and AV off at bsz 128.
 
-These are single runs after warmup. Each method reused one server for 8→64 and another for 128→256. Prefix caching stayed enabled, so the second run reused the same prompts. A few slow final requests affected throughput, especially with no speculation, AV off at bsz 256, and AV on at bsz 64. We have not isolated the cause or established a quality difference.
+These are single runs after warmup. Each method reused one server per pair: 8→64, 16→32, and 128→256. Prefix caching stayed enabled, so the second run reused the same prompts. A few slow final requests affected throughput, especially with no speculation, AV off at bsz 256, and AV on at bsz 64. We have not isolated the cause or established a quality difference.
 
 AL is `1 + accepted_tokens / draft_steps`, summed across ranks with warmup excluded. It measures accepted progress, not verification cost. Draft counters count proposals before AV trims them, so they cannot tell us how much verification AV saved.
 
@@ -131,7 +139,7 @@ Code: `experiments/glm53_av/analysis/`. Shared plotting and styles: `reporting/`
 ~/.venv/bin/python experiments/glm53_av/analysis/build_report.py
 ```
 
-`experiments/glm53_av/report/data/` preserves results, metric snapshots, client logs, run scripts, and launch commands. Original server logs are under `/tmp/glm53-dep4-{baseline,dspark-avoff,av}-20261002` and `/tmp/glm53-dep4-c8-c64-20261002`. Generated reports and input data stay local and are ignored by Git. The AV observability review is alongside these notes in `observability-AV-pr-reviev.md`.
+`experiments/glm53_av/report/data/` preserves results, metric snapshots, client logs, run scripts, and launch commands. Original server logs are under `/tmp/glm53-dep4-{baseline,dspark-avoff,av}-20261002` and `/tmp/glm53-dep4-c8-c64-20261002`; the bsz 16/32 runs are under `experiments/glm53_av/data/c16-c32-20261005/`. Generated reports and input data stay local and are ignored by Git. The AV observability review is alongside these notes in `observability-AV-pr-reviev.md`.
 
 Model cache: `/home/tomasruizt/code/vllm/.cache/huggingface/hub` (436 GiB). The shared `/data/engine/hub_cache` had full GLM-5.3 FP8, but not the matching NVFP4 target or DSpark checkpoint. All benchmark servers stopped and GPU reservations were released.
 

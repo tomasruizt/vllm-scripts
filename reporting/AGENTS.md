@@ -19,6 +19,8 @@ Use Matplotlib's `Agg` backend before importing `reporting.plots`. Existing scri
 
 Keep units and aggregation explicit. Reciprocal mean TPOT, mean reciprocal TPOT, median TPOT, and p90 TPOT are different metrics. Histogram bucket bounds are not repeated-run error bars.
 
+Show repeated-run standard deviations only as error bars in plots, not in report tables. Tables show means without ± SD; keep standard deviations in exported data for plotting.
+
 ## Verify the delivered file
 
 1. Rebuild the actual output directory after every source change. Editing generated HTML alone is not a lasting fix.
