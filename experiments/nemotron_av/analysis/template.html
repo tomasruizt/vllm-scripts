@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nemotron 3.5 Lightning · @@METHOD@@ · B300 · adaptive verification</title>
+<style>@@THEME@@
+@@TAB_CSS@@
+</style></head><body>
+<h1>Nemotron 3.5 Lightning: throughput versus interactivity</h1>
+<p class="subtitle">30B-A3B BF16 · 1× B300 · @@METHOD@@ k=@@K@@ · vLLM @@COMMIT@@ · @@DATE@@</p>
+<p><strong>Target model:</strong> @@TARGET@@ (BF16)<br><strong>Draft model:</strong> @@DRAFT@@ Draft lengths: K=@@K@@; each is measured with AV off and on.</p>
+@@DRAFT_SELECTOR@@
+<footer>
+@@BLOCK_NOTE@@
+<p>Five-shot GSM8K completions · max output 512 tokens · temperature 0 · seed 42 · V2 runner · TRITON_ATTN · max model length 8,192. One server per draft length and AV setting, AV off followed by AV on; warmup at each concurrency. Startup and warmup excluded. Throughput includes prefill and request completion tails; identical question subsets are used in all settings. Prefix caching was enabled, with zero prefix-cache hits recorded across both sweeps.</p>
+<p>These B300 measurements are not a matched reproduction of the B200 benchmark in the PR comment. Three repeats measure within-session variation, not variation across server restarts.</p>
+<p>@@DATA_LINKS@@ · <a href="summary.csv">Summary CSV</a> · @@PLOT_LINKS@@ · <a href="https://github.com/vllm-project/vllm/pull/53036#issuecomment-5790476484">Original B200 comparison</a></p>
+</footer></body></html>
