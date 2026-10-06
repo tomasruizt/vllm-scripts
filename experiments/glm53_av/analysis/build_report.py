@@ -10,6 +10,7 @@ import re
 import shutil
 import sys
 from pathlib import Path
+from statistics import stdev
 
 from build_logs import build_logs
 
@@ -22,7 +23,13 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from reporting.plots import is_pareto, plot_series, save_figure, write_csv
+from reporting.plots import (
+    aggregate_concurrency,
+    is_pareto,
+    plot_series,
+    save_figure,
+    write_csv,
+)
 
 CODE = Path(__file__).resolve().parent
 HERE = CODE.parent / "report"
@@ -31,6 +38,7 @@ STYLES = {
     "baseline": ("No speculation", "#2563eb", "s"),
     "avoff": ("DSpark · AV off", "#d97706", "o"),
     "avon": ("DSpark · AV on", "#08916d", "D"),
+    "reclaim": ("DSpark · AV on + padding reclaim", "#2563eb", "s"),
 }
 TPOT = "vllm:request_time_per_output_token_seconds"
 
@@ -47,7 +55,8 @@ def main():
     HERE.mkdir(parents=True, exist_ok=True)
     if args.sources:
         import_results(json.loads(args.sources.read_text()))
-    rows = load_rows()
+    runs = load_rows()
+    rows = aggregate_rows(runs)
     if not rows:
         raise RuntimeError("No completed evaluations found")
     for metric in ("mean", "p90"):
@@ -60,6 +69,7 @@ def main():
         json.dumps(rows, indent=2, allow_nan=False) + "\n"
     )
     write_csv(rows, HERE / "results.csv")
+    (HERE / "runs.json").write_text(json.dumps(runs, indent=2) + "\n")
     if (HERE / "logs").is_dir():
         build_logs(HERE)
     shutil.copy2(CODE / "README.md", HERE / "README.md")
@@ -92,8 +102,12 @@ def import_results(source_map):
             for run in provenance["runs"]:
                 concurrency = run["concurrency"]
                 destination = HERE / "data" / mode / f"c{concurrency}"
+                if "repeat" in run:
+                    destination /= f"r{run['repeat']}"
                 destination.mkdir(parents=True, exist_ok=True)
                 prefix = f"gsm8k-c{concurrency}"
+                if "repeat" in run:
+                    prefix += f"-r{run['repeat']}"
                 for suffix in (
                     ".json",
                     "-metrics-before.txt",
@@ -103,7 +117,9 @@ def import_results(source_map):
                     shutil.copy2(
                         source / f"{prefix}{suffix}", destination / f"{prefix}{suffix}"
                     )
-                shutil.copy2(source / "run.py", destination / "run.py")
+                for filename in ("run.py", f"{prefix}-cache-reset.json"):
+                    if (source / filename).is_file():
+                        shutil.copy2(source / filename, destination / filename)
                 (destination / "provenance.json").write_text(
                     json.dumps(
                         {
@@ -150,7 +166,9 @@ def quantile(delta, metric, q):
 def load_rows():
     rows = []
     for mode in STYLES:
-        for path in sorted((HERE / "data" / mode).glob("c*/gsm8k-c*.json")):
+        for path in sorted((HERE / "data" / mode).rglob("gsm8k-c*.json")):
+            if path.name.endswith("-cache-reset.json"):
+                continue
             result = json.loads(path.read_text())
             prefix = path.with_suffix("")
             before = snapshot(Path(str(prefix) + "-metrics-before.txt"))
@@ -200,6 +218,31 @@ def load_rows():
     return sorted(rows, key=lambda r: (r["concurrency"], list(STYLES).index(r["mode"])))
 
 
+def aggregate_rows(runs):
+    rows = []
+    for mode in STYLES:
+        points = [r for r in runs if r["mode"] == mode]
+        if not points:
+            continue
+        metrics = [
+            k
+            for k, v in points[0].items()
+            if isinstance(v, (int, float)) and k != "concurrency"
+        ]
+        for row in aggregate_concurrency(points, metrics):
+            repeats = [r for r in points if r["concurrency"] == row["concurrency"]]
+            row.update(mode=mode, label=STYLES[mode][0], num_runs=len(repeats))
+            if "acceptance_length" not in row:
+                row["acceptance_length"] = None
+            for metric in ("throughput", "mean_tpot_ms"):
+                row[metric + "_sd"] = (
+                    stdev(r[metric] for r in repeats) if len(repeats) > 1 else 0
+                )
+            row["interactivity_mean"] = 1000 / row["mean_tpot_ms"]
+            rows.append(row)
+    return rows
+
+
 def figure():
     plt.rcParams.update(
         {
@@ -229,6 +272,8 @@ def plot_frontier(rows, metric):
     key = "interactivity_" + metric
     for mode, (label, color, marker) in STYLES.items():
         points = [r for r in rows if r["mode"] == mode]
+        if not points:
+            continue
         plot_series(
             ax,
             points,
@@ -240,6 +285,18 @@ def plot_frontier(rows, metric):
         )
         for row in points:
             x, y = row[key], row["throughput"]
+            if row["num_runs"] > 1:
+                tpot, sd = row["mean_tpot_ms"], row["mean_tpot_ms_sd"]
+                ax.errorbar(
+                    x,
+                    y,
+                    xerr=[[x - 1000 / (tpot + sd)], [1000 / (tpot - sd) - x]],
+                    yerr=row["throughput_sd"],
+                    color=color,
+                    alpha=0.4,
+                    capsize=3,
+                    linewidth=1,
+                )
             if metric == "p90" and row["interactivity_p90_upper"] is not None:
                 ax.errorbar(
                     x,
@@ -262,13 +319,11 @@ def plot_frontier(rows, metric):
                 linestyle="none",
                 gid=f"point-{metric}-{mode}-{row['concurrency']}",
             )
-            label_below = mode == "avoff"
-            if row["concurrency"] == 64:
-                label_below = not label_below
+            label_offset = {"avoff": -18, "avon": 7, "reclaim": 22}.get(mode, 7)
             ax.annotate(
                 f"c{row['concurrency']}",
                 (x, y),
-                xytext=(6, -14 if label_below else 7),
+                xytext=(6, label_offset),
                 textcoords="offset points",
                 fontsize=9,
                 color="#000000",
@@ -350,6 +405,12 @@ def render_report(rows):
         "baseline": "No speculation",
         "avoff": "DSpark, AV off",
         "avon": "DSpark + AV",
+        "reclaim": "DSpark + AV + padding reclaim",
+    }
+    labels = {
+        mode: label
+        for mode, label in labels.items()
+        if any(row["mode"] == mode for row in rows)
     }
     throughput_table = []
     for concurrency in sorted({row["concurrency"] for row in rows}):
@@ -362,26 +423,33 @@ def render_report(rows):
             "<tr>" + "".join(f"<td>{cell}</td>" for cell in cells) + "</tr>"
         )
     accuracy_table = []
-    for row in sorted(
-        rows, key=lambda r: (list(labels).index(r["mode"]), r["concurrency"])
-    ):
+    al_table = []
+    for concurrency in sorted({row["concurrency"] for row in rows}):
+        points = {row["mode"]: row for row in rows if row["concurrency"] == concurrency}
+        cells = [str(concurrency)]
+        al_cells = [str(concurrency)]
+        for mode in labels:
+            if mode in points:
+                row = points[mode]
+                cells.append(number(row["accuracy_pct"]) + "%")
+                al_cells.append(number(row["acceptance_length"], 3))
+            else:
+                cells.append("N/A")
+                al_cells.append("N/A")
         accuracy_table.append(
-            "<tr>"
-            + "".join(
-                f"<td>{cell}</td>"
-                for cell in (
-                    html.escape(labels[row["mode"]]),
-                    row["concurrency"],
-                    number(row["accuracy_pct"]) + "%",
-                    number(row["acceptance_length"], 3),
-                )
-            )
-            + "</tr>"
+            "<tr>" + "".join(f"<td>{cell}</td>" for cell in cells) + "</tr>"
+        )
+        al_table.append(
+            "<tr>" + "".join(f"<td>{cell}</td>" for cell in al_cells) + "</tr>"
         )
     replacements = {
         "@@THEME@@": (CODE.parents[2] / "reporting/b200-theme.css").read_text(),
         "@@THROUGHPUT_TABLE@@": "\n".join(throughput_table),
+        "@@METHOD_HEADERS@@": "".join(
+            f"<th>{html.escape(label)}</th>" for label in labels.values()
+        ),
         "@@ACCURACY_TABLE@@": "\n".join(accuracy_table),
+        "@@AL_TABLE@@": "\n".join(al_table),
         "@@PARETO_MEAN@@": svg("pareto-mean", rows),
     }
     page = (CODE / "template.html").read_text()

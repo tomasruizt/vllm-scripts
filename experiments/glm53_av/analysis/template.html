@@ -2,21 +2,23 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GLM-5.3 · DEP4 · adaptive verification</title>
 <style>@@THEME@@
-#throughput-table:checked~.metric-tabs label[for="throughput-table"],#accuracy-table:checked~.metric-tabs label[for="accuracy-table"]{background:#235cca;color:white}
-#throughput-table:checked~.panels #throughput-panel,#accuracy-table:checked~.panels #accuracy-panel{display:block}
-#throughput-table:focus-visible~.metric-tabs label[for="throughput-table"],#accuracy-table:focus-visible~.metric-tabs label[for="accuracy-table"]{outline:3px solid #e4ad31;outline-offset:3px}
+#throughput-table:checked~.metric-tabs label[for="throughput-table"],#accuracy-table:checked~.metric-tabs label[for="accuracy-table"],#al-table:checked~.metric-tabs label[for="al-table"]{background:#235cca;color:white}
+#throughput-table:checked~.panels #throughput-panel,#accuracy-table:checked~.panels #accuracy-panel,#al-table:checked~.panels #al-panel{display:block}
+#throughput-table:focus-visible~.metric-tabs label[for="throughput-table"],#accuracy-table:focus-visible~.metric-tabs label[for="accuracy-table"],#al-table:focus-visible~.metric-tabs label[for="al-table"]{outline:3px solid #e4ad31;outline-offset:3px}
 </style></head><body>
 <h1>GLM-5.3: throughput versus interactivity</h1>
 <p class="subtitle">NVFP4 · 4× B300 · TP1 / DP4 / EP4 · vLLM main 58b329845 · GSM8K</p>
-<p>Target: <a href="https://huggingface.co/RedHatAI/GLM-5.3-NVFP4/tree/c8917e4258572c405575855ff53effe58c17a38e">RedHatAI/GLM-5.3-NVFP4</a><br>Draft (both DSpark methods): <a href="https://huggingface.co/RedHatAI/GLM-5.3-speculator.dspark/tree/b374b95663447ea0e935151be4f3d6666e36e6d7">RedHatAI/GLM-5.3-speculator.dspark</a> · 8 draft tokens</p>
-<section class="card"><figure aria-label="Throughput versus interactivity">@@PARETO_MEAN@@<figcaption>Interactivity uses mean request TPOT. One run per point; labels show total client concurrency.</figcaption></figure></section>
+<p>Target: <a href="https://huggingface.co/RedHatAI/GLM-5.3-NVFP4/tree/c8917e4258572c405575855ff53effe58c17a38e">RedHatAI/GLM-5.3-NVFP4</a><br>Draft (all DSpark methods): <a href="https://huggingface.co/RedHatAI/GLM-5.3-speculator.dspark/tree/b374b95663447ea0e935151be4f3d6666e36e6d7">RedHatAI/GLM-5.3-speculator.dspark</a> · 8 draft tokens</p>
+<section class="card"><figure aria-label="Throughput versus interactivity">@@PARETO_MEAN@@<figcaption>Five runs per point; error bars show ±1 standard deviation. Interactivity is 1 / mean request TPOT. Prefix caching enabled and cleared before every run. Labels show total client concurrency. Padding reclaim uses a local patch on the same vLLM commit.</figcaption></figure></section>
 <section class="card"><h2>Results</h2>
 <input class="metric-choice" type="radio" name="table" id="throughput-table" checked aria-controls="throughput-panel">
 <input class="metric-choice" type="radio" name="table" id="accuracy-table" aria-controls="accuracy-panel">
-<div class="metric-tabs"><label for="throughput-table">Throughput (output tokens/sec)</label><label for="accuracy-table">Accuracy / AL</label></div>
+<input class="metric-choice" type="radio" name="table" id="al-table" aria-controls="al-panel">
+<div class="metric-tabs"><label for="throughput-table">Throughput (output tokens/sec)</label><label for="accuracy-table">GSM8K accuracy</label><label for="al-table">AL</label></div>
 <div class="panels">
-<section class="tab-panel" id="throughput-panel"><div class="table-scroll"><table><thead><tr><th>Bsz</th><th>No speculation</th><th>DSpark, AV off</th><th>DSpark + AV</th></tr></thead><tbody>@@THROUGHPUT_TABLE@@</tbody></table></div></section>
-<section class="tab-panel" id="accuracy-panel"><div class="table-scroll"><table><thead><tr><th>Method</th><th>Bsz</th><th>GSM8K accuracy</th><th>AL</th></tr></thead><tbody>@@ACCURACY_TABLE@@</tbody></table></div></section>
+<section class="tab-panel" id="throughput-panel"><div class="table-scroll"><table><thead><tr><th>Bsz</th>@@METHOD_HEADERS@@</tr></thead><tbody>@@THROUGHPUT_TABLE@@</tbody></table></div></section>
+<section class="tab-panel" id="accuracy-panel"><div class="table-scroll"><table><thead><tr><th>Bsz</th>@@METHOD_HEADERS@@</tr></thead><tbody>@@ACCURACY_TABLE@@</tbody></table></div></section>
+<section class="tab-panel" id="al-panel"><div class="table-scroll"><table><thead><tr><th>Bsz</th>@@METHOD_HEADERS@@</tr></thead><tbody>@@AL_TABLE@@</tbody></table></div></section>
 </div></section>
 <p><a href="benchmark-logs.html">Benchmark and server logs</a> · <a href="benchmark-logs.tar.gz" download>Download all logs and raw results</a></p>
 </body></html>
