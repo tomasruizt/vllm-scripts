@@ -28,6 +28,7 @@ from reporting.plots import (
     is_pareto,
     plot_series,
     save_figure,
+    scatter_series,
     write_csv,
 )
 
@@ -64,7 +65,7 @@ def main():
             row[f"pareto_{metric}"] = is_pareto(
                 row, rows, "interactivity_" + metric, "throughput"
             )
-    plot_frontier(rows, "mean")
+    plot_frontier(rows, "mean", runs=runs)
     (HERE / "results.json").write_text(
         json.dumps(rows, indent=2, allow_nan=False) + "\n"
     )
@@ -267,13 +268,24 @@ def save_plot(fig, name):
     save_figure(fig, HERE / "plots" / name)
 
 
-def plot_frontier(rows, metric):
+def plot_frontier(rows, metric, *, runs):
     fig, ax = figure()
     key = "interactivity_" + metric
     for mode, (label, color, marker) in STYLES.items():
         points = [r for r in rows if r["mode"] == mode]
         if not points:
             continue
+        scatter_series(
+            ax,
+            [r for r in runs if r["mode"] == mode],
+            key,
+            "throughput",
+            color=color,
+            marker=marker,
+            s=24,
+            alpha=0.7,
+            gid=f"runs-{metric}-{mode}",
+        )
         plot_series(
             ax,
             points,
@@ -285,18 +297,6 @@ def plot_frontier(rows, metric):
         )
         for row in points:
             x, y = row[key], row["throughput"]
-            if row["num_runs"] > 1:
-                tpot, sd = row["mean_tpot_ms"], row["mean_tpot_ms_sd"]
-                ax.errorbar(
-                    x,
-                    y,
-                    xerr=[[x - 1000 / (tpot + sd)], [1000 / (tpot - sd) - x]],
-                    yerr=row["throughput_sd"],
-                    color=color,
-                    alpha=0.4,
-                    capsize=3,
-                    linewidth=1,
-                )
             if metric == "p90" and row["interactivity_p90_upper"] is not None:
                 ax.errorbar(
                     x,
@@ -338,10 +338,10 @@ def plot_frontier(rows, metric):
     )
     xmax = max(
         max(r[key], r["interactivity_p90_upper"] or 0) if metric == "p90" else r[key]
-        for r in rows
+        for r in rows + runs
     )
     ax.set_xlim(0, xmax * 1.18)
-    ax.set_ylim(0, max(r["throughput"] for r in rows) * 1.14)
+    ax.set_ylim(0, max(r["throughput"] for r in rows + runs) * 1.14)
     fig.legend(
         *ax.get_legend_handles_labels(),
         loc="outside lower center",
@@ -384,12 +384,15 @@ def svg(name, rows):
     for row in rows:
         for metric in ("mean", "p90"):
             identifier = f"point-{metric}-{row['mode']}-{row['concurrency']}"
+            if f'<g id="{identifier}">' not in text:
+                continue
             title = (
                 f"{row['label']} · concurrency {row['concurrency']} · "
                 f"{row['throughput']:,.1f} tok/s · "
-                f"{row['interactivity_' + metric]:.1f} tok/s/user · "
-                f"accuracy {row['accuracy_pct']:.2f}%"
+                f"{row['interactivity_' + metric]:.1f} tok/s/user"
             )
+            if row.get("accuracy_pct") is not None:
+                title += f" · accuracy {row['accuracy_pct']:.2f}%"
             text = text.replace(
                 f'<g id="{identifier}">',
                 f'<g id="{identifier}"><title>{html.escape(title)}</title>',
@@ -397,7 +400,9 @@ def svg(name, rows):
     return text
 
 
-def render_report(rows):
+def render_report(rows, *, metadata=None):
+    metadata = metadata or {}
+
     def number(value, digits=2):
         return "N/A" if value is None else f"{value:,.{digits}f}"
 
@@ -431,7 +436,10 @@ def render_report(rows):
         for mode in labels:
             if mode in points:
                 row = points[mode]
-                cells.append(number(row["accuracy_pct"]) + "%")
+                if metadata.get("secondary_metric") == "mean_tpot_ms":
+                    cells.append(number(row["mean_tpot_ms"], 3))
+                else:
+                    cells.append(number(row["accuracy_pct"]) + "%")
                 al_cells.append(number(row["acceptance_length"], 3))
             else:
                 cells.append("N/A")
@@ -443,6 +451,13 @@ def render_report(rows):
             "<tr>" + "".join(f"<td>{cell}</td>" for cell in al_cells) + "</tr>"
         )
     replacements = {
+        "@@TITLE@@": "GLM-5.3 · DEP4 · adaptive verification",
+        "@@HEADING@@": "GLM-5.3: throughput versus interactivity",
+        "@@SUBTITLE@@": "NVFP4 · 4× B300 · TP1 / DP4 / EP4 · vLLM main 58b329845 · GSM8K",
+        "@@MODELS@@": 'Target: <a href="https://huggingface.co/RedHatAI/GLM-5.3-NVFP4/tree/c8917e4258572c405575855ff53effe58c17a38e">RedHatAI/GLM-5.3-NVFP4</a><br>Draft (all DSpark methods): <a href="https://huggingface.co/RedHatAI/GLM-5.3-speculator.dspark/tree/b374b95663447ea0e935151be4f3d6666e36e6d7">RedHatAI/GLM-5.3-speculator.dspark</a> · 8 draft tokens',
+        "@@NOTE@@": "",
+        "@@CAPTION@@": "Small points show the five individual runs at each concurrency (opacity 0.7); curves connect the means. Interactivity is 1 / mean request TPOT. Prefix caching enabled and cleared before every run. Labels show total client concurrency. Padding reclaim uses a local patch on the same vLLM commit.",
+        "@@SECONDARY_LABEL@@": "GSM8K accuracy",
         "@@THEME@@": (CODE.parents[2] / "reporting/b200-theme.css").read_text(),
         "@@THROUGHPUT_TABLE@@": "\n".join(throughput_table),
         "@@METHOD_HEADERS@@": "".join(
@@ -452,6 +467,7 @@ def render_report(rows):
         "@@AL_TABLE@@": "\n".join(al_table),
         "@@PARETO_MEAN@@": svg("pareto-mean", rows),
     }
+    replacements.update(metadata.get("replacements", {}))
     page = (CODE / "template.html").read_text()
     for old, new in replacements.items():
         page = page.replace(old, new)

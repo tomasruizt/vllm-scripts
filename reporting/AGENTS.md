@@ -12,6 +12,7 @@
 Use Matplotlib's `Agg` backend before importing `reporting.plots`. Existing scripts add the repository root to `sys.path` so they run directly without installation.
 
 - `plot_series(ax, points, x, y, **style)` plots rows in their supplied order. Sort by concurrency first when that is the intended sequence.
+- `scatter_series(ax, points, x, y, **style)` shows individual observations without averaging them.
 - `aggregate_concurrency(rows, metrics)` averages repeated runs. Call it separately for each method; it does not group by method itself.
 - `save_figure(fig, stem)` writes PNG and SVG and closes the figure.
 - `write_csv(rows, path)` uses the first row's keys as columns.
@@ -19,7 +20,7 @@ Use Matplotlib's `Agg` backend before importing `reporting.plots`. Existing scri
 
 Keep units and aggregation explicit. Reciprocal mean TPOT, mean reciprocal TPOT, median TPOT, and p90 TPOT are different metrics. Histogram bucket bounds are not repeated-run error bars.
 
-Show repeated-run standard deviations only as error bars in plots, not in report tables. Tables show means without ± SD; keep standard deviations in exported data for plotting.
+For the DEP4 reports, show individual runs in the method's color at alpha 0.7 instead of SD error bars. Keep the curves connecting means. Use each run's reciprocal mean TPOT for its x coordinate, and set axis limits to include every observation. Tables show means without ± SD; keep standard deviations in exported data.
 
 ## Verify the delivered file
 

@@ -27,6 +27,11 @@ def plot_series(ax, points, x, y, **style):
     return ax.plot([row[x] for row in points], [row[y] for row in points], **style)
 
 
+def scatter_series(ax, points, x, y, **style):
+    """Plot individual observations without aggregating them."""
+    return ax.scatter([row[x] for row in points], [row[y] for row in points], **style)
+
+
 def is_pareto(point, rows, x, y):
     """Return whether a measured point is non-dominated when maximizing x and y."""
     return not any(

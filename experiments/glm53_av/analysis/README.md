@@ -31,3 +31,5 @@ git add -f -- ':(glob)reports/glm-5.3-dep4/logs/**/*.log' ':(glob)docs/reports/g
 ```
 
 Before publishing, check all relative links and archive checksums. After deployment, fetch the public files and compare them with `logs/sha256.json`; a successful Git push alone does not verify that the logs are available. Keep generated files and local source mappings ignored in `vllm-scripts`.
+
+To add DeepSeek as a model tab in the current repeated-run report, use [the DeepSeek generator](../../deepseek_v4_av/README.md). It requires an explicit `--glm-report` path and reuses the existing GLM template and renderer. Run it again after rebuilding GLM alone, which renders a standalone GLM page.
