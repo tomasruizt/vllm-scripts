@@ -13,7 +13,7 @@
 * Before downloading a hf model, check if the system has a mount where all users can share the model weights, and set it as a download location. Sometimes that path is not writeable, so check first.
 * If you are benchmarking a model with multiple runs, try to spin up the vllm server only once, since starting the server is what takes often most time. However, in these cases we most usually want to disable prefix-caching, because otherwise the second and later runs would be artificially faster.
 * Pass `--disable-uvicorn-access-log` in general to reduce the log verbosity.
-* Use the gh cli when possible
+* Use the github cli `gh` when possible
 * When making code changes, try to reduce the git diff, so reviews are easier for humans.
 * In general, its better to use `chg run` rather than manual GPU reservations, unless strictly necessary.
 * When doing sweeps over concurrencies and comparing methods, we need to be mindful of the runtime. In particular, running a workload at c8 is going to be much slower than at c256. We need to size the workload so as to spend ~30s per measurement (independent of batch size). Because we are running this accross K different c levels, and N different n_runs. Perhaps we can randomly subsample the workload for smaller c, and not compare absolute runtimes. We need to be smart about this!!! Think about the design before spending many hours running stuff!
