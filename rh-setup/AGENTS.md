@@ -8,6 +8,7 @@
 * structure code top-down. i.e. top in the file is high-level code/policy, while below is lower-level code that is used by the higher-level code.
 * to use GPUs, reserve them over canhazgpu (https://github.com/russellb/canhazgpu).
 * when writing md files, dont break lines unless there is a good reason, since e.g. on Github your lines will be wrapped. Let the IDE / website take care of rendering, so you don't have to. I suggest only breaking lines after a dot, or similar.
+* in terms of writing stlye, don't use em-dashes, or ";", because I dont use them either. Use commas, dots, parenthesis and colons instead.
 * You dont need to explain metrics like ITL, TPOT, etc. When writing summaries, assume a technical audience that is familiar with the domain.
 * When available, use hf models from `RedHatAI`, e.g. speculators.
 * Before downloading a hf model, check if the system has a mount where all users can share the model weights, and set it as a download location. Sometimes that path is not writeable, so check first.
