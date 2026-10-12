@@ -17,8 +17,10 @@
 * When making code changes, try to reduce the git diff, so reviews are easier for humans.
 * In general, its better to use `chg run` rather than manual GPU reservations, unless strictly necessary.
 * When doing sweeps over concurrencies and comparing methods, we need to be mindful of the runtime. In particular, running a workload at c8 is going to be much slower than at c256. We need to size the workload so as to spend ~30s per measurement (independent of batch size). Because we are running this accross K different c levels, and N different n_runs. Perhaps we can randomly subsample the workload for smaller c, and not compare absolute runtimes. We need to be smart about this!!! Think about the design before spending many hours running stuff!
+* launch workloads on remote machines in asynchronous mode, so your main loop is never blocked, and you can continue to receive instructions and continue to perform other tasks.
 
 custom commands:
 * vllm-install: install from precompiled wheels
 * set-cuda-visible: set CUDA_VISIBLE_DEVICES env var depending on the GPUs reserved using canhazgpu.
 * git aliases
+l
