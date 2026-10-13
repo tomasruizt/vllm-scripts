@@ -14,6 +14,7 @@
 * When available, use hf models from `RedHatAI`, e.g. speculators.
 * Before downloading a hf model, check if the system has a mount where all users can share the model weights, and set it as a download location. Sometimes that path is not writeable, so check first.
 * If you are benchmarking a model with multiple runs, try to spin up the vllm server only once, since starting the server is what takes often most time. However, in these cases we most usually want to disable prefix-caching, because otherwise the second and later runs would be artificially faster.
+* For perf benchmarks prefer to use standard tooling. This includes e.g. `vllm bench sweep serve`, or ai-perf or similar things. These capture important metrics like TPOT, ITL, etc. If you are writing custom code and forget to capture metrics, we are wasting our fucking time.
 * Pass `--disable-uvicorn-access-log` in general to reduce the log verbosity.
 * Use the github cli `gh` when possible
 * When making code changes, try to reduce the git diff, so reviews are easier for humans.
