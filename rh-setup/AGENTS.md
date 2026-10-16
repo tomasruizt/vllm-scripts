@@ -17,7 +17,7 @@
 * For perf benchmarks prefer to use standard tooling. This includes e.g. `vllm bench sweep serve`, or ai-perf or similar things. These capture important metrics like TPOT, ITL, etc. If you are writing custom code and forget to capture metrics, we are wasting our fucking time.
 * When summarizing the results of a benchmark, rather than stating in prose the vllm serve parameter, just provide the vllm serve command including all details. Same for the benchmarking command. Also when summarizing number like total request, output toks, etc, you can use bullet points rather than prose. This structure makes it clear that we are talking about a bunch of metrics/numbers, rather than at context.
 * Often the benchmark summaries is meant to share as comments on github. There is no point in referencing runner files or absolute log paths that will not be available on Github. Please inline all relevant information or abstract it away.
-* When analyzing the results of multiple bench runs, its best to gather all runs in a single long-format parquet file, so we can quickly query the results with SQL / pandas.
+* When analyzing the results of multiple bench runs, its best to gather all runs in a single long-format parquet file, so we can quickly query the results with duckdb cli / SQL.
 * Pass `--disable-uvicorn-access-log` in general to reduce the log verbosity.
 * Use the github cli `gh` when possible
 * When making code changes, try to reduce the git diff, so reviews are easier for humans.
