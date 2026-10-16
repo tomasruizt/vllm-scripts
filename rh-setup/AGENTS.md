@@ -28,6 +28,7 @@
 * Keep your diffs small, the code vertically compact, and indentation small. Use functions to get rid of indentation. Use variables to avoid large multi-line calls that. Try to put the bodies of loops in a function to make it ovious what comes out of the loop. Use pure functions when possible. Staircase-shaped code that is with context managers, loops, list and object creations, etc. should be generally avoided. Use type hints whenever you can.
 * in unit tests dont set monkeypatch.setenv("VLLM_USE_V2_MODEL_RUNNER", "1"), this should be set by the caller
 * Don't poll remote jobs with fixed `sleep` calls. Wait on a condition in a single call instead, e.g. `timeout 600 bash -c "until grep -q DONE run.log; do sleep 5; done"`.
+* On remote machines, only inspect logs with a short `tail -n 20` or `grep`. Never `cat` remote files. To analyze results, copy them locally with the experiment's `make fetch-results` target (create it if missing), and query them locally (e.g. with duckdb).
 
 custom commands:
 * vllm-install: install from precompiled wheels
