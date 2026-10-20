@@ -1,0 +1,22 @@
+diff --git a/vllm/v1/worker/gpu/spec_decode/adaptive_verification.py b/vllm/v1/worker/gpu/spec_decode/adaptive_verification.py
+--- a/vllm/v1/worker/gpu/spec_decode/adaptive_verification.py
++++ b/vllm/v1/worker/gpu/spec_decode/adaptive_verification.py
+@@ -139,4 +139,10 @@ class AdaptiveVerificationManager:
+         self.req_states = req_states
+         self.num_speculative_steps = req_states.num_speculative_steps
++        import os
++
++        self._calibration_budget = int(os.environ.get("VLLM_AV_VERIFY_BUDGET_PER_REQ", "-1"))
++        if self._calibration_budget >= 0:
++            assert self.num_speculative_steps == 7
++            assert self._calibration_budget <= 7
+         device = req_states.device
+         self._copy_stream = torch.cuda.Stream(device)
+@@ -342,5 +348,7 @@ class AdaptiveVerificationManager:
+         }
+         draft_budget = int(np.argmax(num_tokens_to_estimated_accepted_tokens / costs))
++        if self._calibration_budget >= 0 and np.all(num_non_draft_tokens == 1):
++            draft_budget = min(max_draft_budget, num_reqs * self._calibration_budget)
+         self._batch_budget = (
+             num_drafts_per_req,
+             num_non_draft_tokens_per_req,

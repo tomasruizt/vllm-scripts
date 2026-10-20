@@ -1,0 +1,198 @@
+<title>AV and CUDA Graph Coverage</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a single-column report: question, cause, confirmation, generalization, AV-specific findings, next steps. */
+:root {
+  --bg: #f6f7f4; --surface: #ffffff; --fg: #1d2421; --muted: #55605b; --line: #d9ded9;
+  --good: #3f7d6b; --warn: #b5622d;
+  --display: "Fraunces", Georgia, serif; --body: "Source Sans 3", system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141917; --surface: #1c2320; --fg: #e6ebe8; --muted: #a2ada8; --line: #2f3834;
+  --good: #7cc3ad; --warn: #e79a63; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141917; --surface: #1c2320; --fg: #e6ebe8; --muted: #a2ada8; --line: #2f3834;
+  --good: #7cc3ad; --warn: #e79a63; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font: 17px/1.65 var(--body); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 64px; }
+main { max-width: 780px; margin: 0 auto; display: grid; gap: 48px; }
+h1, h2 { font-family: var(--display); font-weight: 600; text-wrap: balance; line-height: 1.2; margin: 0; }
+h1 { font-size: 2.1rem; }
+h2 { font-size: 1.45rem; }
+p { margin: 0; }
+section { display: grid; gap: 14px; min-width: 0; }
+a { color: var(--good); }
+.lede { color: var(--muted); font-size: 1.1rem; }
+.mono { font-family: var(--mono); font-size: .86em; }
+.num { font-family: var(--mono); font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; display: grid; gap: 10px; min-width: 0; }
+.summary { border-left: 4px solid var(--good); }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+td.wrap { white-space: normal; text-align: left; }
+thead th { font-size: .85rem; color: var(--muted); font-weight: 600; }
+.neg { color: var(--warn); font-weight: 600; }
+.pos { color: var(--good); font-weight: 600; }
+ul, ol { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+figure { margin: 0; display: grid; gap: 8px; }
+figure img { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); background: #ffffff; }
+figcaption { color: var(--muted); font-size: .9rem; }
+</style>
+
+<main>
+<header style="display:grid;gap:12px">
+  <h1>What slowed down adaptive verification, and what it revealed</h1>
+  <p class="lede">Qwen3.5-35B-A3B (BF16) with a DFlash drafter (k=7) on B300, SPEED-Bench throughput-1K, vLLM PR #60229. Extended to Qwen3.8-Flash-Next and GLM-5.3-Flash. Steady-state AIPerf harness with validity gates, 3 repeats unless noted.</p>
+</header>
+
+<section class="card summary">
+  <h2>Summary</h2>
+  <ol>
+    <li><strong>The AV slowdown was a symptom of a much larger problem.</strong> Every step that contains a prefill exceeds vLLM's 1,024-token CUDA graph capture limit, so it runs fully eagerly and CPU-bound. With a few extra capture sizes the AV penalty disappears, and throughput rises by 25 to 37% on Qwen3.5, up to 96% on Qwen3.8-Flash-Next and up to 55% on GLM-5.3-Flash.</li>
+    <li><strong>AV's startup cost profile was broken.</strong> Its dummy batches pointed the GDN layers at empty states, so the profile skipped the recurrent work and underpriced every multi-token verify step by up to 2.5×. A fix is in a fork draft PR.</li>
+    <li><strong>Accurate costs help AV at high concurrency, but a well-chosen fixed K is almost as good.</strong> Measured cost tables gave +2 to +10% at c128 and −2 to −4% at c1 to c8. Fixed k=5 nearly matched the best AV at every concurrency. Whether per-request adaptivity beats a simple batch-size-keyed K is now an open empirical question.</li>
+  </ol>
+</section>
+
+<section>
+  <div class="num">1 · Observation</div>
+  <h2>With default settings, AV loses throughput at high concurrency</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>c</th><th>AV off tok/s</th><th>AV on tok/s</th><th>Δ</th><th>AL off / on</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>482</td><td>482</td><td>+0.1%</td><td>2.71 / 2.61</td></tr>
+        <tr><td>8</td><td>1,958</td><td>1,986</td><td>+1.4%</td><td>2.96 / 2.78</td></tr>
+        <tr><td>32</td><td>3,998</td><td>3,951</td><td>−1.2%</td><td>3.02 / 2.69</td></tr>
+        <tr><td>64</td><td>5,513</td><td>5,346</td><td class="neg">−3.0%</td><td>2.89 / 2.55</td></tr>
+        <tr><td>128</td><td>7,504</td><td>7,006</td><td class="neg">−6.6%</td><td>2.94 / 2.34</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Medians of 3 repeats on one B300. A second sweep measured −3.7% at c128, so the size varies between sessions but the direction is consistent. AV's own overhead is not the cause: its kernels cost ~0.15 ms per step (nsys), and an AV-off step with the same shape (128 requests × 3 tokens) takes the same time as an AV step.</p>
+</section>
+
+<section>
+  <div class="num">2 · Cause</div>
+  <h2>Steps with a prefill run eagerly and are CPU-bound</h2>
+  <p>In this closed-loop benchmark the engine alternates between decode-only steps and steps that also prefill new prompts. The two kinds have very different costs:</p>
+  <figure>
+    <img src="plots/step-shapes.png" alt="Scatter of step time per executed step against requests and against tokens in the step, AV off and on. Decode-only steps between 5 and 33 ms, steps with a prefill between 76 and 95 ms.">
+    <figcaption>Every executed step of traced runs at c8 to c128 with default capture sizes (~21K steps). Decode-only steps take 5 to 33 ms, steps with a prefill 76 to 95 ms. Step time is the CPU gap to the next step, so read the bands, not single points.</figcaption>
+  </figure>
+  <p>vLLM captures CUDA graphs only up to <span class="mono">max_cudagraph_capture_size</span>, by default 1,024 tokens on Blackwell. Decode-only steps fit and replay full graphs. A step with a ~1,080-token prompt plus decode tokens does not fit, so it runs fully eagerly, not even with piecewise graphs. Such a step takes ~90 ms of wall time for ~19 ms of GPU work. Its cost barely depends on how many prompts it holds (1, 2 or 3 prompts at c128: 87 to 90 ms), and at c128 these steps take about two thirds of the run.</p>
+  <p>The CPU time is spread over ~1,500 eager kernels at ~60 to 70 µs of CPU each. The driver launch itself is a few µs, the rest is Python and framework work between launches. A py-spy profile puts 55% in Inductor-compiled pieces running without a graph (MoE, linears, norms), 38% in the GDN linear-attention layers (always eager), and 4% in full attention. There is no single hotspot.</p>
+  <p>This explains the AV penalty: AV saves time only by shortening decode-only steps, while the eager prefill steps that dominate the run cost the same with or without it.</p>
+</section>
+
+<section>
+  <div class="num">3 · Confirmation</div>
+  <h2>Graphing the prefill steps removes the penalty</h2>
+  <p>Adding 14 capture sizes from 1,280 to 6,144 tokens lets steps with a prefill run with piecewise graphs. Same harness, nothing else changed:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>c</th><th>AV off tok/s</th><th>AV on tok/s</th><th>Δ</th><th>vs default sizes (off / on)</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>488</td><td>497</td><td class="pos">+1.7%</td><td>+1% / +3%</td></tr>
+        <tr><td>8</td><td>2,234</td><td>2,248</td><td class="pos">+0.6%</td><td>+14% / +13%</td></tr>
+        <tr><td>32</td><td>4,994</td><td>5,072</td><td class="pos">+1.6%</td><td>+25% / +28%</td></tr>
+        <tr><td>64</td><td>7,118</td><td>7,183</td><td class="pos">+0.9%</td><td>+29% / +34%</td></tr>
+        <tr><td>128</td><td>9,330</td><td>9,641</td><td class="pos">+3.3%</td><td>+24% / +38%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The extra sizes cost 2.8 GiB of graph memory (1.9% less KV cache) and ~50 s of startup on this model. Published report with both settings: <a href="https://tomasruizt.github.io/reports/qwen-3.5-dflash-av/">tomasruizt.github.io/reports/qwen-3.5-dflash-av</a>.</p>
+</section>
+
+<section>
+  <div class="num">4 · Generalization</div>
+  <h2>The same gap appears on other hybrid MoE models</h2>
+  <p>We repeated the capture-grid comparison on two newer models with their published B300 recipes, changing only the capture list:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>model, setup</th><th>c8</th><th>c32</th><th>c64</th><th>c128</th><th>c256</th><th>KV cost</th></tr></thead>
+      <tbody>
+        <tr><td>Qwen3.5-35B-A3B, 1 GPU, DFlash k=7</td><td>+14%</td><td>+25%</td><td>+29%</td><td>+24%</td><td></td><td>−1.9%</td></tr>
+        <tr><td>Qwen3.8-Flash-Next FP8, TEP4, MTP3</td><td>+28%</td><td>+51%</td><td>+67%</td><td class="pos">+96%</td><td>+52%</td><td>−0.4%</td></tr>
+        <tr><td>GLM-5.3-Flash FP8, TP4, MTP5</td><td></td><td></td><td>+55%</td><td>+42%</td><td></td><td class="neg">−7.0%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Throughput gain of the extended list (up to 4,096 or 6,144 tokens) over the default, AV off. Qwen3.8 and Qwen3.5 have 3 repeats, GLM 2 to 3.</p>
+  <figure>
+    <img src="plots/qwen38-graph-coverage.png" alt="Bar chart of the share of execution steps using CUDA graphs for Qwen3.8-Flash-Next by concurrency: default list drops from 99.8% at c1 to 49.9% at c256, up to 2K from 100% to 55.2%, up to 4K stays above 92.9%.">
+    <figcaption>Qwen3.8-Flash-Next: share of execution steps that use CUDA graphs. With the default list only 80% of steps are graphed at c128 and 50% at c256.</figcaption>
+  </figure>
+  <p>The grid has to reach the largest mixed step the scheduler produces, roughly one prompt plus <span class="mono">max_num_seqs × (1 + k)</span> decode tokens. At c256 with MTP3, one 1,080-token prompt plus 255 × 4 decode tokens is 2,100 tokens, so a grid up to 2,048 tokens barely helps while one up to 4,096 tokens gives +52%. The memory cost is model-specific: 0.4% of KV cache on Qwen3.8 but 7% on GLM-5.3-Flash, so a new default needs a memory bound. Raised upstream as <a href="https://github.com/vllm-project/vllm/issues/62556">#62556</a>. Related reports: <a href="https://github.com/vllm-project/vllm/issues/56975">#56975</a> (GLM-5.3-Flash on GB200), <a href="https://github.com/vllm-project/vllm/issues/44806">#44806</a> (Qwen3.5-397B), <a href="https://github.com/vllm-project/vllm/issues/60264">#60264</a> (small <span class="mono">max_num_seqs</span>).</p>
+</section>
+
+<section>
+  <div class="num">5 · AV's cost profile</div>
+  <h2>The startup profile skipped GDN recurrent work</h2>
+  <p>AV picks a draft budget per step by maximizing expected accepted tokens per millisecond. The milliseconds come from a cost table profiled at startup with dummy batches. Those dummy batches assigned the GDN layers empty state slots. The GDN decode kernel returns early for an empty source state, so every dummy request with 2 or more query tokens skipped its recurrent computation:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>exact shape (requests × query tokens)</th><th>profiled, empty states</th><th>with valid states</th></tr></thead>
+      <tbody>
+        <tr><td>128 × 1</td><td>7.2 ms</td><td>7.0 ms</td></tr>
+        <tr><td>128 × 2</td><td>4.8 ms</td><td>8.5 ms</td></tr>
+        <tr><td>128 × 8</td><td>8.1 ms</td><td>20.0 ms</td></tr>
+        <tr><td>512 × 2</td><td>10.5 ms</td><td>25.9 ms</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <figure>
+    <img src="results/qwen-gdn-profile-fix-20261019/raw-cost-curves.png" alt="Two panels of raw startup target cost versus scheduled tokens, base versus fixed. Left: base falls from 19.4 ms at 512 tokens to 10.4 ms at 1024, fixed keeps rising to 27 ms. Right: the full profile including the eager tail.">
+    <figcaption>Raw startup cost curve before AV's non-decreasing clamp, original (red) and with the state fix (teal). The original dip past 512 tokens is the bug, not a faster 2-token kernel. The clamp hid it by flattening the curve.</figcaption>
+  </figure>
+  <p>The eager tail above 4,096 tokens had a related problem: oversized dummy queries also hit an early return. Both fixes are in fork draft PR <a href="https://github.com/tomasruizt/vllm/pull/21">tomasruizt/vllm#21</a>, rebased onto the community PRs that profile the tail as mixed batches (<a href="https://github.com/vllm-project/vllm/pull/54065">#54065</a>, <a href="https://github.com/vllm-project/vllm/pull/54077">#54077</a>). Every AV result above used the broken table.</p>
+</section>
+
+<section>
+  <div class="num">6 · Does the cost table matter?</div>
+  <h2>Measured costs help at high concurrency, a fixed K is almost as good</h2>
+  <p>With extended capture sizes, we replaced AV's startup table with costs measured from real serving steps, keeping its acceptance estimates and confidence ranking unchanged:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>cost table</th><th>c1</th><th>c8</th><th>c128</th></tr></thead>
+      <tbody>
+        <tr><td>fitted from fixed-K runs (drafter k varies)</td><td class="neg">−2.2%</td><td class="neg">−3.7%</td><td class="pos">+10.5%</td></tr>
+        <tr><td>fitted with drafter k=7 held fixed</td><td class="neg">−2.7%</td><td class="neg">−3.8%</td><td class="pos">+7.1%</td></tr>
+        <tr><td>direct measured lookup, no fitting</td><td class="pos">+3.1%</td><td>−0.2%</td><td class="pos">+2.2%</td></tr>
+        <tr><td>direct lookup, c256 on 2 GPUs</td><td></td><td></td><td>c256: −1.1%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Throughput change against AV with its startup table, medians of 3 to 6 paired runs. With better prices AV verifies more drafts at c128 (1.0 → 2.3 per request), so the startup table over-pruned there. But the gains depend on how the table is built, and the low-concurrency regressions show that fitted tables misprice small budgets.</p>
+  <figure>
+    <img src="results/cost-curve-analysis-20261019/cost-experiment.png" alt="Three panels by concurrency: output throughput, TPOT and acceptance length for AV off k=7, AV with startup costs, AV with measured costs, and AV off with fixed k=3 and k=5.">
+    <figcaption>AV with startup costs (orange) and measured costs (green) against fixed K without AV (k=3 red, k=5 purple, k=7 blue). At c128: fixed k=5 10,060 tok/s, AV with measured costs 10,218, AV with the startup table 9,252.</figcaption>
+  </figure>
+  <p>Two limits remain. First, a well-chosen fixed K is nearly as good: k=5 matches or beats AV at c1 and c8 and is within the repeat spread at c128. Second, a token-count table cannot price mixed steps, whose cost depends on how many decode requests and prefill tokens they contain. At c256 such steps carry 64% of AV's decisions. A composition-aware measured cost model is in progress.</p>
+  <p>So the open question is whether AV's per-request adaptivity is worth its complexity, compared with the batch-size-keyed K schedule vLLM already ships (dynamic speculative decoding, RFC <a href="https://github.com/vllm-project/vllm/issues/54749">#54749</a>). That needs a direct comparison on a workload where acceptance varies strongly between requests.</p>
+</section>
+
+<section>
+  <div class="num">7 · Next steps</div>
+  <h2>What we recommend</h2>
+  <ol>
+    <li><strong>A capture-grid default that covers mixed steps</strong> (<a href="https://github.com/vllm-project/vllm/issues/62556">#62556</a>). Extend the list to the largest mixed step the scheduler can produce, with sparse spacing, bounded by graph memory as a share of KV cache. Still needed: a dense model and Hopper to show where the gain fades, and an accounting of graph memory (the GLM case). This has by far the largest payoff for users.</li>
+    <li><strong>Upstream the AV profiling fix</strong> (tomasruizt/vllm#21 on top of #54065 and #54077). Every other AV tuning depends on correct costs.</li>
+    <li><strong>AV versus dynamic K.</strong> Compare AV (with the profiling fix) against fixed K and a tuned batch-size-keyed K schedule, on SPEED-Bench and on a workload with heterogeneous acceptance. If AV only matches the best K, the simpler policy is the better product.</li>
+    <li><strong>Measured, composition-aware costs</strong>, only if step 3 shows that adaptivity pays off.</li>
+  </ol>
+  <p>Leads that did not pan out: a suspected host sync in the GDN prefill path (none in the traces, ~1% CPU), caching flashinfer's MoE tactic lookup (at most ~2% end to end, and graphs bypass it anyway), and the MoE padding mask during AV profiling (does not affect the monolithic backend used here).</p>
+</section>
+
+<section>
+  <div class="num">Appendix</div>
+  <h2>Method and corrections</h2>
+  <ul>
+    <li><strong>Harness.</strong> Fixed request count per cell, no cancellations, throughput and latency over the steady-state window, gates for saturation, queueing, preemptions and errors. AV off and on alternate across two GPUs with a fresh server per repeat. Identical prompt sets across arms.</li>
+    <li><strong>Step-level data.</strong> AIPerf per-chunk latencies, nsys, torch profiler, py-spy, and a trace patch that logs each executed step's shape and AV's decisions. Step times from CPU-side gaps are approximate under async scheduling.</li>
+    <li><strong>Earlier claims that turned out wrong.</strong> The profile dip was not a slower 1-token kernel path but the empty-state bug. A suspected "fewer prompts share each prefill step" effect remained a weak correlation and is not part of the explanation. An early cost-table dump was distorted by debug logging, one sweep ran unpatched code, and two runs once collided on the same ports. All were detected and rerun.</li>
+  </ul>
+</section>
+</main>

@@ -1,0 +1,36 @@
+diff --git a/vllm/v1/worker/gpu/spec_decode/adaptive_verification.py b/vllm/v1/worker/gpu/spec_decode/adaptive_verification.py
+index 5f91af59e5..334c931e0c 100644
+--- a/vllm/v1/worker/gpu/spec_decode/adaptive_verification.py
++++ b/vllm/v1/worker/gpu/spec_decode/adaptive_verification.py
+@@ -2,6 +2,7 @@
+ # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+ """Adaptive verification for DSpark speculative decoding."""
+ 
++import os
+ from collections import defaultdict
+ from collections.abc import Iterable, Iterator
+ from typing import TYPE_CHECKING
+@@ -25,6 +26,8 @@ from vllm.v1.worker.gpu.attn_utils import (
+ 
+ logger = init_logger(__name__)
+ _PROFILE_REPLAYS = 5
++# Experiment: skip draft pruning in steps that contain prefill tokens.
++_FULL_VERIFY_ON_PREFILL = os.environ.get("VLLM_AV_FULL_VERIFY_ON_PREFILL") == "1"
+ 
+ if TYPE_CHECKING:
+     from vllm.config import VllmConfig
+@@ -341,7 +344,13 @@ class AdaptiveVerificationManager:
+             req_id: int(num_tokens)
+             for req_id, num_tokens in zip(req_ids, num_non_draft_tokens, strict=True)
+         }
+-        draft_budget = int(np.argmax(num_tokens_to_estimated_accepted_tokens / costs))
++        has_prefill = bool((num_non_draft_tokens > self.num_bonus_tokens).any())
++        if _FULL_VERIFY_ON_PREFILL and has_prefill:
++            draft_budget = max_draft_budget
++        else:
++            draft_budget = int(
++                np.argmax(num_tokens_to_estimated_accepted_tokens / costs)
++            )
+         self._batch_budget = (
+             num_drafts_per_req,
+             num_non_draft_tokens_per_req,

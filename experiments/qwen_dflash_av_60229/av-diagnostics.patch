@@ -1,0 +1,52 @@
+diff --git a/vllm/v1/worker/gpu/async_utils.py b/vllm/v1/worker/gpu/async_utils.py
+index 647b0c297c..83dfd410a3 100644
+--- a/vllm/v1/worker/gpu/async_utils.py
++++ b/vllm/v1/worker/gpu/async_utils.py
+@@ -179,6 +179,9 @@ class AsyncOutput(AsyncModelRunnerOutput):
+         # rather than Python lists.
+         sampled_token_ids: list[list[int]] = self.sampled_token_ids.tolist()
+         num_sampled_tokens: list[int] = self.num_sampled_tokens_np.tolist()
++        import av_trace
++
++        av_trace.output(self.model_runner_output.req_ids, num_sampled_tokens)
+         for token_ids, num_tokens in zip(sampled_token_ids, num_sampled_tokens):
+             del token_ids[num_tokens:]
+         self.model_runner_output.sampled_token_ids = sampled_token_ids
+diff --git a/vllm/v1/worker/gpu/model_runner.py b/vllm/v1/worker/gpu/model_runner.py
+index e42917918a..2f56e0b0e3 100644
+--- a/vllm/v1/worker/gpu/model_runner.py
++++ b/vllm/v1/worker/gpu/model_runner.py
+@@ -1798,6 +1798,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
+             input_batch = self.prepare_inputs(
+                 scheduler_output, batch_req_state, batch_desc, num_active_loras
+             )
++            import av_trace
++
++            av_trace.step(input_batch, batch_desc)
+             block_tables, slot_mappings = self.prepare_attn(input_batch)
+             # Mamba "align" pre-copy: migrate recurrent state across block
+             # boundaries before the forward. Runs only on real batches, and
+diff --git a/vllm/v1/worker/gpu/spec_decode/adaptive_verification.py b/vllm/v1/worker/gpu/spec_decode/adaptive_verification.py
+index 5f91af59e5..72f26b0172 100644
+--- a/vllm/v1/worker/gpu/spec_decode/adaptive_verification.py
++++ b/vllm/v1/worker/gpu/spec_decode/adaptive_verification.py
+@@ -252,6 +252,9 @@ class AdaptiveVerificationManager:
+             self._cudagraph_limit,
+         )
+         logger.debug("DSpark cost tables: %s", self.cost_tables)
++        import av_trace
++
++        av_trace.costs(self, draft_curve, verify_curve)
+ 
+     def record_confidences(
+         self, confidence_probs: torch.Tensor, input_batch: "InputBatch"
+@@ -347,6 +350,9 @@ class AdaptiveVerificationManager:
+             num_non_draft_tokens_per_req,
+             draft_budget,
+         )
++        import av_trace
++
++        av_trace.budget(locals())
+         return sum(num_non_draft_tokens_per_req.values()) + draft_budget
+ 
+     def compact_batch(

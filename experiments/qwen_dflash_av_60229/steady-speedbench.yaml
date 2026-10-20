@@ -1,0 +1,45 @@
+# Template rendered by run-steady.sh: __PORT__, __C__ and __N__ are replaced per cell.
+# Fixed request count, no duration/grace period: every request runs to completion, nothing is cancelled.
+schemaVersion: "2.0"
+randomSeed: 42
+benchmark:
+  model: qwen
+  endpoint:
+    url: http://127.0.0.1:__PORT__
+    type: chat
+    streaming: true
+    use_server_token_count: true
+    timeout: 600
+    extra:
+      temperature: 0
+      ignore_eos: false
+      min_tokens: 0
+      max_completion_tokens: 1024
+      chat_template_kwargs:
+        enable_thinking: false
+  tokenizer:
+    name: /data/tomasruizt/hub_cache/models--Qwen--Qwen3.5-35B-A3B/snapshots/59d61f3ce65a6d9863b86d2e96597125219dc754
+  datasets:
+    - name: main
+      type: file
+      path: /data/tomasruizt/benchmarks/deepseek-v4-dep4-av/dataset/throughput_1k.jsonl
+      format: speed_bench_throughput_1k
+      sampling: shuffle
+      random_seed: 42
+  phases:
+    - name: profiling
+      type: concurrency
+      requests: __N__
+      concurrency: __C__
+  server_metrics:
+    enabled: true
+    urls: [http://127.0.0.1:__PORT__/metrics]
+    formats: [json]
+  artifacts:
+    dir: ${QUICK_ARTIFACTS}
+    summary: [json]
+    records: [jsonl]
+    raw: true
+    export_outputs_json: true
+  runtime:
+    ui: none

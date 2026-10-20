@@ -1,0 +1,40 @@
+--- a/vllm/v1/worker/gpu/spec_decode/adaptive_verification.py
++++ b/vllm/v1/worker/gpu/spec_decode/adaptive_verification.py
+@@ -4,6 +4,8 @@
+ 
+ from collections import defaultdict
+ from collections.abc import Iterable, Iterator
++import json
++import os
+ from typing import TYPE_CHECKING
+ 
+ import numpy as np
+@@ -235,6 +237,28 @@
+         draft_curve: list[tuple[int, float]],
+         verify_curve: list[tuple[int, float]],
+     ) -> None:
++        if path := os.environ.get("VLLM_AV_COST_CURVES"):
++            with open(path) as handle:
++                injected = json.load(handle)
++            # Calibrate decode only. Preserve the profiled prefill tail's increments.
++            old_verify = build_cost_tables_from_curves(
++                draft_curve, verify_curve, self.req_states.max_num_reqs,
++                self.req_states.max_num_batched_tokens, self._cudagraph_limit,
++            )[1]
++            draft_curve = injected["draft_curve"]
++            calibrated = injected["verify_curve"]
++            limit, last_ms = calibrated[-1]
++            tail = [(n, last_ms + max(0.0, ms - old_verify[limit]))
++                    for n, ms in enumerate(old_verify) if n > limit]
++            verify_curve = calibrated + tail
++            for curve in (draft_curve, verify_curve):
++                values = np.asarray(curve, dtype=float)
++                if (values.ndim != 2 or values.shape[1] != 2
++                        or not np.isfinite(values).all() or (values < 0).any()
++                        or (np.diff(values[:, 0]) <= 0).any()
++                        or (np.diff(values[:, 1]) < -1e-9).any()):
++                    raise ValueError("Invalid injected AV cost curve")
++            logger.info("Injected AV decode cost curves from %s", path)
+         draft_curve, verify_curve = get_tp_group().broadcast_object(
+             (draft_curve, verify_curve), src=0
+         )

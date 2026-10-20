@@ -1,0 +1,10 @@
+export ROOT=${ROOT:-/data/tomasruizt/runs/capture-worst-case-20261020}
+export PYTHONPATH=/data/tomasruizt/runtime/vllm-capture-grid-58b3298457
+export HF_HUB_CACHE=/data/tomasruizt/hub_cache
+export XDG_CACHE_HOME=/data/tomasruizt/cache
+export TMPDIR=/data/tomasruizt/tmp
+export VLLM_SERVER_DEV_MODE=1
+export EXPERIMENT_PYTHON=/data/tomasruizt/capture-env/bin/python
+export CUDA_HOME=/usr/local/cuda-13.0
+export PATH="/data/tomasruizt/capture-env/bin:$HOME/.venv/bin:$CUDA_HOME/bin:$PATH"
+unset VLLM_USE_V2_MODEL_RUNNER
