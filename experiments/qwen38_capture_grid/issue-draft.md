@@ -1,6 +1,6 @@
-# [Performance discussion] Should the default CUDA graph grid include larger sizes?
+# [Performance discussion] When do larger CUDA graph capture sizes help?
 
-The [B300 deployment recipe](https://recipes.vllm.ai/Qwen/Qwen3.8-Flash-Next?hardware=b300) leaves CUDA graph capture sizes at their defaults (1,024-tokens). This results in prefill/mixed steps running eagerly, which is super slow due to the GDN host overhead. Adding a couple CUDA graph capture sizes improves throughput/latency significantly. Probably this should be the default (at least for GDN).
+The Qwen-3.8-Flash-Next [recipe (B300)](https://recipes.vllm.ai/Qwen/Qwen3.8-Flash-Next?hardware=b300) leaves CUDA graph capture sizes at their defaults (1,024-tokens). This results in prefill/mixed steps running eagerly, which is super slow due to the GDN host overhead. Adding a couple CUDA graph capture sizes improves throughput/latency significantly.
 
 <details>
 <summary>Workload and configuration details</summary>
@@ -59,6 +59,9 @@ This looks like a very positive trade-off. We get a lot higher performance, whil
 
 The improvements are great, but there are some drawbacks measured below (4×B300 TP4). Nevertheless the overall trade-off is very positive.
 
+<details>
+<summary>GLM 5.3 Flash trade-offs</summary>
+
 | Metric | Default | Up to 4K | Change | Change (%) |
 |---|---:|---:|---|---:|
 | CUDA graph mem | 6.23 GiB/GPU | 12.88 GiB/GPU | +6.65 GiB/GPU | +106.7% |
@@ -66,6 +69,40 @@ The improvements are great, but there are some drawbacks measured below (4×B300
 | Token capacity | 23.63M tokens | 21.97M tokens | -1.66M tokens | -7.0% |
 | Graph capture time | 38 s | 43 s | +5 s | +13.2% |
 | Total startup time | 403 s | 393 s | -10 s (probably noise) | -2.5% |
+
+</details>
+
+### When larger CUDA graphs do not help
+
+**1. Qwen3-32B BF16:** On H100 80GB, "Up to 4K" reduces throughput by **4.0%** and increases TPOT by **3.4%** on (macro) average across c1, c8 and c32. We truncate the table after c32, the first concurrency to experience preemptions.
+
+<details>
+<summary>Qwen3-32B performance and trade-offs</summary>
+
+We used the same SPEED-Bench throughput_1K workload and AIPerf settings, with BF16 weights, TP1 and prefix caching enabled and reset before each run. Qwen3-32B has no MTP head. The values below are AIPerf's whole-run metrics, including filling and draining, averaged across three runs per variant and concurrency.
+
+| Metric | Concurrency | Default | Up to 4K | Change |
+|---|---:|---:|---:|---:|
+| Throughput | 1 | 41.4 tok/s | 41.0 tok/s | −1.1% |
+| Throughput | 8 | 250.7 tok/s | 258.0 tok/s | +2.9% |
+| Throughput | 32 | 687.8 tok/s | 592.8 tok/s | −13.8% |
+| TPOT | 1 | 23.91 ms | 24.18 ms | +1.1% |
+| TPOT | 8 | 25.24 ms | 25.45 ms | +0.8% |
+| TPOT | 32 | 29.88 ms | 32.33 ms | +8.2% |
+
+The table below shows ranges across three startups per variant. Changes compare the means.
+
+| Metric | Default | Up to 4K | Change | Change (%) |
+|---|---:|---:|---:|---:|
+| CUDA graph mem | 0.55 GiB/GPU | 1.18 GiB/GPU | +0.63 GiB/GPU | +114.5% |
+| KV cache mem | 5.69–5.70 GiB/GPU | 4.75–4.76 GiB/GPU | −0.94 GiB/GPU | −16.5% |
+| Token capacity | 46.6–46.7K tokens | 38.9–39.0K tokens | −7.7K tokens | −16.5% |
+| Graph capture time | 9 s | 15–16 s | +6.3 s | +70.4% |
+| Total startup time | 60–92 s | 70–102 s | +10.0 s | +14.1% |
+
+</details>
+
+**2. Qwen3.5-27B BF16 (GDN):** On 1×H100 80GB with TP1 and MTP3, Default starts successfully, but "Up to 4K" fails to start. Reserving memory for the larger graph grid leaves only **238 Mamba cache blocks**, fewer than the **256 sequences** configured with `max_num_seqs`. vLLM rejects this configuration because there is not enough cache capacity, so we could not measure throughput or TPOT for "Up to 4K".
 
 ### Questions
 
