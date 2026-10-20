@@ -20,6 +20,7 @@ from reporting.plots import save_figure
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--prefill", action="store_true")
+    parser.add_argument("--min-max", action="store_true", help="Show per-run means with min–max error bars")
     parser.add_argument("--root", type=Path, default=Path(__file__).parent / "results/qwen38-recipe-grid-20261019")
     args = parser.parse_args()
     root = args.root
@@ -33,8 +34,11 @@ def main() -> None:
     plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 11, "svg.fonttype": "none"})
     fig, ax = plt.subplots(figsize=(11, 5.8), layout="constrained")
     for index, (label, color) in enumerate(styles):
-        values = {int(row["concurrency"]): float(row["graphed_pct"]) for row in rows if row["variant"] == label}
-        bars = ax.bar([i + (index - 1) * 0.25 for i in range(len(levels))], [values[c] for c in levels], width=0.24, label=label, color=color)
+        selected = {int(row["concurrency"]): row for row in rows if row["variant"] == label}
+        metric = "mean_pct" if args.min_max else "graphed_pct"
+        values = {c: float(selected[c][metric]) for c in levels}
+        errors = [[values[c] - float(selected[c]["min_pct"]) for c in levels], [float(selected[c]["max_pct"]) - values[c] for c in levels]] if args.min_max else None
+        bars = ax.bar([i + (index - 1) * 0.25 for i in range(len(levels))], [values[c] for c in levels], width=0.24, label=label, color=color, yerr=errors, capsize=3, error_kw={"elinewidth": 1, "capthick": 1})
         labels = [f"{values[c]:.1f}".rstrip("0").rstrip(".") + "%" for c in levels]
         ax.bar_label(bars, labels=labels, padding=4, fontsize=9)
     title = "Qwen3.8-Flash-Next · Prefill/mixed-step CUDA graph coverage" if args.prefill else "Qwen3.8-Flash-Next · CUDA graph coverage"
@@ -46,7 +50,8 @@ def main() -> None:
     ax.spines[["top", "right"]].set_visible(False)
     ax.legend(frameon=False, ncol=3, loc="upper center", bbox_to_anchor=(0.5, 1.0))
     scope = "Steps > 4 × concurrency tokens (MTP3 decode-only bound)" if args.prefill else "FULL + PIECEWISE dispatches"
-    fig.supxlabel(f"{scope} · counts pooled across {runs} runs · includes filling and draining\nStep coverage, not request or runtime share. Piecewise graphs retain eager sections.", fontsize=9, color="#64748b")
+    summary = f"bars: mean of {runs} runs · error bars: min–max" if args.min_max else f"counts pooled across {runs} runs"
+    fig.supxlabel(f"{scope} · {summary}\nIncludes filling and draining. Piecewise graphs retain eager sections.", fontsize=9, color="#64748b")
     save_figure(fig, root / f"{stem}-bars")
 
 

@@ -29,7 +29,7 @@ Across all five measurements per point, Up to 4K improves average throughput by 
 <summary>Bar chart details</summary>
 
 * A pure decode batch can contain up to `4 × concurrency` query tokens with MTP3. Batches above that size must contain prefill work. The chart shows what percentage of these prefill/mixed batches use CUDA graphs. 
-* We combine the logged step counts from all five runs per point, including when the batch is filling up or draining. Piecewise graphs still run some operations eagerly.
+* Each bar shows the average coverage across five runs. The error bars show the minimum and maximum coverage across those runs. We include when the batch is filling up or draining. Piecewise graphs still run some operations eagerly.
 * Default never uses CUDA graph at c256. A single 1,080-token prefill alongside 255 decode requests already gives us `1080 + 255 × 4 = 2100` query tokens. That is why the 2K limit is too small here.
 
 </details>

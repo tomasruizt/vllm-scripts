@@ -51,9 +51,16 @@ COPY (SELECT CASE variant WHEN 'default' THEN 'Default' WHEN '2k' THEN 'Up to 2K
              100.0*sum(graphed_steps)/sum(steps) AS graphed_pct
       FROM runs GROUP BY ALL ORDER BY concurrency,variant)
 TO 'results/qwen38-recipe-restarts-20261020/graph-coverage.csv' (HEADER);
+CREATE TEMP VIEW prefill_runs AS
+SELECT startup,variant,repeat,concurrency,sum(steps) AS steps,
+       sum(CASE WHEN mode IN ('FULL','PIECEWISE') THEN steps ELSE 0 END) AS graphed_steps,
+       100.0*graphed_steps/sum(steps) AS graphed_pct
+FROM covered WHERE tokens>4*concurrency GROUP BY ALL;
+SELECT CASE WHEN count(*)=90 AND bool_and(steps>0) THEN true ELSE error('Incomplete prefill coverage') END AS verified FROM prefill_runs;
+
 COPY (SELECT CASE variant WHEN 'default' THEN 'Default' WHEN '2k' THEN 'Up to 2K' ELSE 'Up to 4K' END AS variant,
-             concurrency,count(DISTINCT (startup,repeat)) AS runs,sum(steps) AS steps,
-             sum(CASE WHEN mode IN ('FULL','PIECEWISE') THEN steps ELSE 0 END) AS graphed_steps,
-             100.0*graphed_steps/sum(steps) AS graphed_pct
-      FROM covered WHERE tokens>4*concurrency GROUP BY ALL ORDER BY concurrency,variant)
+             concurrency,count(*) AS runs,sum(steps) AS steps,sum(graphed_steps) AS graphed_steps,
+             100.0*sum(graphed_steps)/sum(steps) AS graphed_pct,
+             avg(graphed_pct) AS mean_pct,min(graphed_pct) AS min_pct,max(graphed_pct) AS max_pct
+      FROM prefill_runs GROUP BY ALL ORDER BY concurrency,variant)
 TO 'results/qwen38-recipe-restarts-20261020/graph-coverage-prefill.csv' (HEADER);

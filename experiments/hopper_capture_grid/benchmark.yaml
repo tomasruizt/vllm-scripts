@@ -1,0 +1,47 @@
+schemaVersion: "2.0"
+randomSeed: 42
+sweep:
+  type: zip
+  parameters:
+    phases.profiling.concurrency: [__CONCURRENCIES__]
+    phases.profiling.duration: [__DURATIONS__]
+benchmark:
+  model: qwen38
+  endpoint:
+    url: http://127.0.0.1:__PORT__
+    type: chat
+    streaming: true
+    use_server_token_count: true
+    timeout: 120
+    extra:
+      temperature: 0
+      max_completion_tokens: 1024
+      chat_template_kwargs:
+        enable_thinking: false
+  tokenizer:
+    name: __MODEL__
+  datasets:
+    - name: main
+      type: file
+      path: /data/tomasruizt/benchmarks/speed-bench/throughput_1k.jsonl
+      format: speed_bench_throughput_1k
+      sampling: shuffle
+      random_seed: 42
+  phases:
+    - name: profiling
+      type: concurrency
+      concurrency: 32
+      duration: 30
+      grace_period: 120
+  server_metrics:
+    enabled: true
+    urls: [http://127.0.0.1:__PORT__/metrics]
+    formats: [json]
+  artifacts:
+    dir: __ARTIFACTS__
+    summary: [json]
+    records: [jsonl]
+    raw: true
+    export_outputs_json: true
+  runtime:
+    ui: none
