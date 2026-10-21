@@ -9,7 +9,7 @@ The Qwen-3.8-Flash-Next [recipe (B300)](https://recipes.vllm.ai/Qwen/Qwen3.8-Fla
 - We benchmarked with AIPerf 0.13 and SPEED-Bench throughput_1K. We allowed natural EOS, capped output at 1,024 tokens, disabled thinking and used temperature 0 and shuffle seed 42.
 - We started each variant three times. We ran each concurrency three times after the first startup and once after each additional startup, giving five measurements per point. Each run submitted requests for 30 s (60 s at c256), then allowed up to 120 s for outstanding requests to finish. We reset the prefix cache before each run.
 - All 90 runs passed, with 32,457 completed requests and no errors or preemptions.
-- Only the capture grid changes. **Up to 2K** adds `1280,1536,1792,2048` to the default list. **Up to 4K** additionally adds `2560,3072,3584,4096`.
+- Only the capture grid changes. Up to 2K adds `1280,1536,1792,2048` to the default list. Up to 4K additionally adds `2560,3072,3584,4096`.
 
 </details>
 
@@ -36,7 +36,7 @@ Across all five measurements per point, Up to 4K improves average throughput by 
 
 ### Trade-off
 
-Up to 4K uses an extra **1.19 GiB/GPU** for CUDA graphs.
+Up to 4K uses an extra 1.19 GiB/GPU for CUDA graphs.
 
 | Variant | CUDA graph mem | KV cache mem | Token capacity | Graph capture time |
 |---|---:|---:|---:|---:|
@@ -48,7 +48,7 @@ The memory figures were identical at the reported precision across all three sta
 
 This looks like a very positive trade-off. We get a lot higher performance, while losing only little KV-capacity, and spending a few extra seconds on graph capture with Up to 4K.
 
-### GLM 5.3 Flash
+## GLM 5.3 Flash
 
 | Metric | Concurrency | Default | Up to 4K | Change |
 |---|---|---:|---:|---:|
@@ -60,7 +60,7 @@ This looks like a very positive trade-off. We get a lot higher performance, whil
 The improvements are great, but there are some drawbacks measured below (4×B300 TP4). Nevertheless the overall trade-off is very positive.
 
 <details>
-<summary>GLM 5.3 Flash trade-offs</summary>
+<summary>Trade-offs</summary>
 
 | Metric | Default | Up to 4K | Change | Change (%) |
 |---|---:|---:|---|---:|
@@ -72,14 +72,26 @@ The improvements are great, but there are some drawbacks measured below (4×B300
 
 </details>
 
-### When larger CUDA graphs do not help
+## Root Cause
 
-**1. Qwen3-32B BF16:** On H100 80GB, "Up to 4K" reduces throughput by **4.0%** and increases TPOT by **3.4%** on (macro) average across c1, c8 and c32. We truncate the table after c32, the first concurrency to experience preemptions.
+The cause is a discontinuity in runtime when running batches in/out of CUDA graphs. This was documented in August in the [vLLM Blog on adaptive verification](https://vllm.ai/blog/2026-08-14-dspark-adaptive-verification) (see below), where the authors used `max_cudagraph_capture_size=4096`. The default caputure-limit of 1024 is surpassed already for 128 requests with 8 speculative tokens plus 1 bonus token (9*128=1152). And mixed prefill/decode batches fall out of the range quickly and run eagerly, even for `FULL_AND_PIECEWISE` execution. These mixed batches have very high host overhead in GDN MoE models, so they tank performance when running eagerly.
+
+<p align="center">
+  <img src="https://vllm.ai/blog-assets/figures/2026-08-14-dspark-adaptive-verification/fig2-costcurve.svg" alt="Verification and draft cost curves across CUDA graph capture sizes" width="70%">
+</p>
+
+## When larger CUDA graphs do not help
+
+Michael Goin suggested the models that benefit from larger CUDA graph sizes are likely large complex MoE models. Our benchmarks support this reading.
+
+### 1. Qwen3-32B BF16
+
+Degradation: On H100 80GB, "Up to 4K" reduces throughput by 4.0% and increases TPOT by 3.4% on (macro) average across c1, c8 and c32.
 
 <details>
-<summary>Qwen3-32B performance and trade-offs</summary>
+<summary>Trade-offs</summary>
 
-We used the same SPEED-Bench throughput_1K workload and AIPerf settings, with BF16 weights, TP1 and prefix caching enabled and reset before each run. Qwen3-32B has no MTP head. The values below are AIPerf's whole-run metrics, including filling and draining, averaged across three runs per variant and concurrency.
+We used the same SPEED-Bench throughput_1K workload and AIPerf settings, with BF16 weights, TP1 and prefix caching enabled and reset before each run. Qwen3-32B has no MTP head. The values below are AIPerf's whole-run metrics, including filling and draining, averaged across three runs per variant and concurrency. We truncate the table after c32, the first concurrency to experience preemptions.
 
 | Metric | Concurrency | Default | Up to 4K | Change |
 |---|---:|---:|---:|---:|
@@ -102,13 +114,17 @@ The table below shows ranges across three startups per variant. Changes compare 
 
 </details>
 
-**2. Qwen3.5-27B BF16 (GDN):** On 1×H100 80GB with TP1 and MTP3, Default starts successfully, but "Up to 4K" fails to start. Reserving memory for the larger graph grid leaves only **238 Mamba cache blocks**, fewer than the **256 sequences** configured with `max_num_seqs`. vLLM rejects this configuration because there is not enough cache capacity, so we could not measure throughput or TPOT for "Up to 4K".
+### 2. Qwen3.5-27B BF16 (GDN)
 
-### Questions
+Degradation: Failure on TP1, and same speed at TP2.
+* TP1: On 1×H100 80GB with TP1 and MTP3, Default starts successfully, but "Up to 4K" fails to start. Reserving memory for the larger graph grid leaves only 238 Mamba cache blocks, fewer than the 256 sequences configured with `max_num_seqs`. vLLM rejects this configuration because there is not enough cache capacity.
+* TP2: With 2×H100 80GB and TP2, both variants start successfully, but "Up to 4K" provides no clear speed-up: throughput changes ranged from −1.1% to +0.1% across c1, c8 and c32. TPOT changes ranged from −0.2% to +1.7%.
+
+## Questions
 
 Would it make sense to include a few larger capture sizes by default? Should this depend on the model, hardware or workload? What else should we benchmark before deciding?
 
-### Related issues and PRs
+## Related issues and PRs
 
 - [#27222: Qwen3-Next CPU overhead](https://github.com/vllm-project/vllm/issues/27222) reports improved throughput with larger captures.
 - [PR #49390: Raise Blackwell capture default to 1,024](https://github.com/vllm-project/vllm/pull/49390) introduced the default ceiling used here.
