@@ -1,6 +1,7 @@
 """Report AIPerf SPEED-Bench cells, measured in the steady-state window with validity gates."""
 
 import argparse
+import csv
 from hashlib import sha256
 import html
 import json
@@ -21,17 +22,28 @@ import matplotlib.pyplot as plt
 REPO = Path(__file__).resolve().parents[2]
 MODE_SUFFIX = ""
 sys.path.insert(0, str(REPO))
-from reporting.plots import plot_series, scatter_series, save_figure, write_csv
+from reporting.plots import aggregate_concurrency, plot_series, scatter_series, save_figure, write_csv
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, help="single run dir (one-tab report)")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--plot-csv", type=Path, help="Plot saved run-level mode/concurrency/interactivity/throughput rows")
+    parser.add_argument("--series", action="append", help="mode:label:color:marker, repeatable for saved-run plots")
+    parser.add_argument("--title", help="Title for saved-run plots")
+    parser.add_argument("--figsize", nargs=2, type=float, default=(10.5, 4.5), metavar=("WIDTH", "HEIGHT"))
     parser.add_argument("--mode-suffix", default="", help="run folders are <mode><suffix>, e.g. offcg/oncg with cg")
     parser.add_argument("--run", action="append", default=[],
                         help="slug:label:source[:suffix], repeatable, one tab per run (e.g. default:Default capture sizes:/runs/x)")
     args = parser.parse_args()
+    if args.plot_csv:
+        with args.plot_csv.open() as stream:
+            rows = [dict(r, concurrency=int(r["concurrency"]), interactivity=float(r["interactivity"]),
+                         throughput=float(r["throughput"]), cell="main", valid=True) for r in csv.DictReader(stream)]
+        series = [tuple(spec.split(":")) for spec in args.series] if args.series else None
+        draw(rows, args.output, series=series, title=args.title, figsize=tuple(args.figsize))
+        return
     runs = [parse_run(spec) for spec in args.run] or [("run", "Results", args.source, args.mode_suffix)]
     args.output.mkdir(parents=True, exist_ok=True)
     panels = [build_run(slug, label, source, suffix, args.output) for slug, label, source, suffix in runs]
@@ -189,20 +201,26 @@ def aggregate(rows: list[dict]) -> list[dict]:
     ]
 
 
-def draw(rows: list[dict], output: Path) -> None:
+def draw(rows: list[dict], output: Path, *, series: list[tuple[str, str, str, str]] | None = None,
+         title: str | None = None, figsize: tuple[float, float] = (10.5, 4.5)) -> None:
     plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 11, "svg.fonttype": "none"})
-    fig, ax = plt.subplots(figsize=(10.5, 4.5), layout="constrained")
-    valid, medians = measured(rows), aggregate(rows)
-    for mode, color, marker in [("off", "#d97706", "o"), ("on", "#08916d", "D")]:
-        scatter_series(ax, [r for r in valid if r["mode"] == mode], "interactivity", "throughput", color=color, marker=marker, alpha=0.4, s=42)
-        grouped = [r for r in medians if r["mode"] == mode]
-        plot_series(ax, grouped, "interactivity", "throughput", color=color, marker=marker, linewidth=2, label=f"Median · AV {mode} · k=7")
+    fig, ax = plt.subplots(figsize=figsize, layout="constrained")
+    valid = measured(rows)
+    medians = aggregate(rows) if series is None else []
+    styles = series or [("off", "Median · AV off · k=7", "#d97706", "o"), ("on", "Median · AV on · k=7", "#08916d", "D")]
+    for mode, label, color, marker in styles:
+        runs = [r for r in valid if r["mode"] == mode]
+        scatter_series(ax, runs, "interactivity", "throughput", color=color, marker=marker, alpha=0.4, s=42)
+        grouped = aggregate_concurrency(runs, ["interactivity", "throughput"]) if series else [r for r in medians if r["mode"] == mode]
+        plot_series(ax, grouped, "interactivity", "throughput", color=color, marker=marker, linewidth=2, label=label)
     for row in medians:
         ax.annotate(f"c{row['concurrency']}", (row["interactivity"], row["throughput"]), xytext=(7, 8), textcoords="offset points", fontsize=9)
     ax.set(xlabel="Interactivity: 1 / mean request TPOT (tok/s/user)", ylabel="Steady-state output throughput (tok/s)", xlim=(0, max(r["interactivity"] for r in valid) * 1.16), ylim=(0, max(r["throughput"] for r in valid) * 1.18))
     ax.grid(alpha=0.2)
     ax.spines[["top", "right"]].set_visible(False)
     ax.legend(frameon=False)
+    if title:
+        ax.set_title(title)
     save_figure(fig, output / "throughput-interactivity")
 
 

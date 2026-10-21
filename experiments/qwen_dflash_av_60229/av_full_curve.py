@@ -23,6 +23,8 @@ class FullCurveProbe:
         self.stamp = None
         self.rng = np.random.default_rng(542)
         self.curve_path = None
+        self.native_tables = None
+        self.measured_tables = None
         self.digest = None
         self.pending = deque()
         self.events = None
@@ -37,9 +39,19 @@ class FullCurveProbe:
         mode = self.policy["mode"]
         if mode == "calibrate":
             return values["costs"]
-        if mode != "measured":
+        if mode not in ("native", "measured"):
             raise RuntimeError(f"Unexpected experiment mode: {mode}")
         manager = values["self"]
+        if self.native_tables is None:
+            self.native_tables = manager.cost_tables
+        if mode == "native":
+            manager.cost_tables = self.native_tables
+            r = len(values["req_ids"])
+            start = int(values["num_non_draft_tokens_total"])
+            stop = start + int(values["max_draft_budget"]) + 1
+            draft, verify = self.native_tables
+            self.counts["native_decisions"] += 1
+            return draft[r] + verify[start:stop]
         path = self.policy["curve"]
         if path != self.curve_path:
             raw = Path(path).read_bytes()
@@ -49,12 +61,14 @@ class FullCurveProbe:
             if self.digest != self.policy["sha256"]:
                 raise RuntimeError("Frozen curve checksum mismatch")
             manager.set_cost_curves(data["draft_curve"], data["verify_curve"])
+            self.measured_tables = manager.cost_tables
             self.curve_path = path
             self.max_measured_tokens = int(data["verify_curve"][-1][0])
         r = len(values["req_ids"])
         start = int(values["num_non_draft_tokens_total"])
         stop = start + int(values["max_draft_budget"]) + 1
-        draft, verify = manager.cost_tables
+        manager.cost_tables = self.measured_tables
+        draft, verify = self.measured_tables
         if r >= len(draft) or stop > len(verify) or stop - 1 > self.max_measured_tokens:
             raise RuntimeError(f"Measured table does not cover R={r}, tokens={start}:{stop}")
         costs = draft[r] + verify[start:stop]
@@ -72,11 +86,14 @@ class FullCurveProbe:
             r = len(values["req_ids"])
             self.write(self.trace, dict(phase=self.policy["phase"], time_ns=time.time_ns(),
                 requests=r, non_draft_tokens=int(values["num_non_draft_tokens_total"]),
-                capacity=int(values["max_draft_budget"]), budget=budget, source="measured",
+                capacity=int(values["max_draft_budget"]), budget=budget, source=self.policy["mode"],
                 sha256=self.digest, selected_ms=float(values["costs"][budget])))
         return budget
 
     def before_forward(self, batch: object, description: object, dummy: bool) -> None:
+        # Pure prefill has no draft-budget decision, so get_costs may not run.
+        if not dummy:
+            self.refresh()
         self.drain()
         if dummy or self.policy.get("mode") != "calibrate":
             return
@@ -123,7 +140,8 @@ class FullCurveProbe:
         if self.policy:
             path = self.root / f"audit-{self.policy['phase']}-rank{self.rank}.json"
             path.write_text(json.dumps(dict(**self.counts, mode=self.policy["mode"],
-                                           sha256=self.digest, fallback_decisions=0)))
+                                           sha256=self.digest if self.policy["mode"] == "measured" else None,
+                                           fallback_decisions=0)))
 
     def close(self) -> None:
         if self.pending:
@@ -167,7 +185,8 @@ def freeze_curves(rows: list[dict], capture_sizes: list[int], minimum: int = 3) 
         measured = [(n, float(np.median(ms)), len(ms)) for n, ms in sorted(groups[name].items())
                     if len(ms) >= minimum and np.all(np.isfinite(ms)) and min(ms) > 0]
         if not measured or measured[0][0] != 1 or measured[-1][0] != limit:
-            raise ValueError(f"Insufficient measured {name} endpoints, refusing extrapolation")
+            domain = (measured[0][0], measured[-1][0]) if measured else None
+            raise ValueError(f"Insufficient measured {name} endpoints: {domain}, need 1..{limit}, refusing extrapolation")
         x, y, _ = np.asarray(measured).T
         knots = np.arange(1, 257) if name == "draft" else np.unique(
             np.concatenate((capture_sizes, x[x > max(capture_sizes)])))

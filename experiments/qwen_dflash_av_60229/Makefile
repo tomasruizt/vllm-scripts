@@ -27,6 +27,19 @@ MERGED_PARQUET := /private/tmp/$(RUN_ID)-metrics.parquet
 .PHONY: fetch-cost-results
 .PHONY: fetch-community-gdn analyze-community-gdn
 .PHONY: fetch-quick-profiling analyze-quick-profiling
+.PHONY: fetch-profiling-sweep analyze-profiling-sweep plot-profiling-sweep
+plot-profiling-sweep:
+	$(DUCKDB) -c "COPY (SELECT arm AS mode, concurrency, throughput, 1000.0 / mean_tpot_ms AS interactivity FROM read_parquet('results/qwen-gdn-repeated-serving-20261020/metrics.parquet') WHERE valid ORDER BY arm, concurrency, worker, trial) TO 'results/qwen-gdn-repeated-serving-20261020/plot-runs.csv' (HEADER);"
+	$(LOCAL_PYTHON) build_report.py --plot-csv results/qwen-gdn-repeated-serving-20261020/plot-runs.csv --output plots/repeated-profiling --figsize 7.6 6.4 --title 'Qwen3.5-35B-A3B + DFlash' --series 'main:GDN + AV:#64748b:o' --series 'community:GDN + AV + #54065:#c44e45:s' --series 'gdn:GDN + AV + #54065 + #62715:#138b83:D'
+
+fetch-profiling-sweep:
+	mkdir -p results/qwen-gdn-repeated-serving-20261020
+	rsync -az --exclude inputs.json --exclude profile_export_raw.jsonl --exclude gpu_telemetry_export.jsonl --exclude output_fragments --exclude raw_records $(REMOTE):$(REMOTE_RUNS)/qwen-gdn-repeated-serving-20261020/ results/qwen-gdn-repeated-serving-20261020/
+
+analyze-profiling-sweep:
+	$(LOCAL_PYTHON) summarize_profiling_sweep.py results/qwen-gdn-repeated-serving-20261020 $(SWEEP_CHECK)
+	$(DUCKDB) -c "SELECT concurrency, arm, count(*) AS trials, count(*) FILTER (WHERE valid) AS valid_trials, round(median(throughput) FILTER (WHERE valid)) AS median_tok_s, round(min(throughput) FILTER (WHERE valid)) AS min_tok_s, round(max(throughput) FILTER (WHERE valid)) AS max_tok_s, round(median(mean_tpot_ms) FILTER (WHERE valid), 2) AS median_tpot_ms, round(median(mean_itl_ms) FILTER (WHERE valid), 2) AS median_itl_ms, round(median(mean_ttft_ms) FILTER (WHERE valid), 1) AS median_ttft_ms FROM read_parquet('results/qwen-gdn-repeated-serving-20261020/metrics.parquet') GROUP BY ALL ORDER BY concurrency, arm;"
+
 fetch-quick-profiling:
 	$(MAKE) fetch-results RUN_ID=qwen-gdn-quick-serving-20261020
 
@@ -83,10 +96,27 @@ C256_PREFIX ?= qwen-cost-c256
 C256_TP ?= 1
 C256_TP2_OUTPUT ?= results/cost-c256-tp2-analysis-20261019
 FULL_CURVE_RUN ?= qwen-full-curve-c256-20261020
+AV_FULL_SWEEP_RUN ?= qwen-av-full-sweep-20261020
 
-.PHONY: fetch-full-curve-results
+.PHONY: fetch-av-full-sweep-results analyze-av-full-sweep analyze-av-full-sweep-acceptance plot-av-full-sweep
+fetch-av-full-sweep-results:
+	$(MAKE) fetch-results RUN_ID=$(AV_FULL_SWEEP_RUN)
+
+analyze-av-full-sweep:
+	$(LOCAL_PYTHON) summarize_av_full_sweep.py
+
+analyze-av-full-sweep-acceptance:
+	$(DUCKDB) < acceptance_full_sweep.sql
+
+plot-av-full-sweep:
+	$(LOCAL_PYTHON) plot_av_full_sweep.py
+
+.PHONY: fetch-full-curve-results analyze-full-curve
 fetch-full-curve-results:
 	$(MAKE) fetch-results RUN_ID=$(FULL_CURVE_RUN)
+
+analyze-full-curve:
+	$(LOCAL_PYTHON) summarize_full_curve.py
 
 .PHONY: fetch-c256-results analyze-c256
 .PHONY: fetch-c256-tp2-results fetch-c256-frozen analyze-c256-tp2
@@ -220,3 +250,16 @@ profile-prefill:
 fetch-profile:
 	mkdir -p results/prefill-step-profile
 	rsync -a $(REMOTE):$(PROF_RUN_DIR)/{traces,server-command.txt,run.log,pyspy-prefill.txt} results/prefill-step-profile/
+
+NATIVE_TABLES_RUN ?= qwen-native-tables-tp2-20261021
+
+.PHONY: fetch-native-tables plot-cost-curves
+fetch-native-tables:
+	$(MAKE) fetch-results RUN_ID=$(NATIVE_TABLES_RUN)
+
+plot-cost-curves:
+	$(LOCAL_PYTHON) plot_base_vs_pr_cost_curves.py --draft --output plots/full-curve-sweep/cost-curves \
+		--arm "results/$(NATIVE_TABLES_RUN)/cost-tables.txt:Native (startup profile):#d97a00" \
+		--arm "results/$(FULL_CURVE_RUN)/measured-curves-frozen.json:Measured (serving):#13706a" \
+		--verify-label "Target forward cost (ms)" \
+		--title "AV cost tables, native startup profile vs measured during serving (Qwen3.5-35B-A3B + DFlash k=7, 2x B300 TP2)"

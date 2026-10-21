@@ -519,3 +519,80 @@ QUICK_ARTIFACTS="$RUN/artifacts-r1-oracle-c256" timeout 1800 ~/aiperf-venv/bin/a
 ```
 
 Canonical combined data: `results/cost-c256-tp2-analysis-20261019/{metrics,pairs,decisions,points-frozen}.parquet`, preserving AIPerf metrics and outputs. Rebuild with `make fetch-c256-tp2-results`, `make fetch-c256-frozen`, then `make analyze-c256-tp2`. The [queue helper](queue_cost_c256.py) records effective controls and ordering. Sixteen focused tests, patch dry-run, syntax checks and runtime audits pass.
+
+## 2026-10-20: complete measured-curve replacement at c256 (rh-dte)
+
+**Median throughput is 3.74% higher than the reused baseline on the same GPUs.** This replaces the whole cost model, including mixed batches, through the native graph-bucket/interpolation mechanism. Acceptance estimates, ranking, k=7, frozen source `888ec6bb` and serving configuration remain unchanged. Six new untraced runs and the separate trace pass all serving gates. The comparison is six new-run medians versus three historical native runs on GPUs 4/5, not a fresh paired estimate, so system drift remains a possible contributor.
+
+| Cost model | Runs | Median tok/s | TPOT ms | AL |
+|---|---:|---:|---:|---:|
+| Existing native baseline | 3 | 17,879 | 11.539 | 2.829 |
+| Complete measured replacement | 6 | 18,547 | 10.902 | 2.776 |
+
+Measured-run throughput spans 18,425–18,698 tok/s. **All 9,671 audited choices use measured prices, zero fallback**, including 3,453 mixed choices. In the diagnostic steady window, coverage is **489/489**, including 321 mixed choices. Both TP ranks agree on all 1,381 traced allocations. This supersedes the partial-lookup experiment as the test of a complete replacement.
+
+The [frozen curve](results/qwen-full-curve-c256-20261020/measured-curves-frozen.json), SHA-256 `43a774f8e1674dde929b6a6e45f03ad1fc75adb016f56f87774f5252954a9368`, uses 37,475 real-serving CUDA-event samples, medians, interpolation for missing knots and the native monotone envelope. Request coverage is 1–256. Target coverage is 1–16,377, the feasible maximum after DFlash reserves seven extra slots per request. Every actual query is checked against that measured domain. Timing events are disabled during performance runs. The large-token anchors use targeted randomized-token, one-output-token prefills, while all performance runs use unchanged SPEED-Bench prompts. These are context/composition-averaged GPU costs, excluding sampling and CPU overhead, so this is still not a literal perfect-cost oracle.
+
+Serving command uses `TARGET`, `CHECKOUT`, `EXPERIMENT`, `RUN` and `CG_SIZES` as above. The isolated checkout contains [these hooks](install_full_curve.py), and `RUN/control.json` selects the frozen curve and its SHA-256:
+
+```bash
+OMP_NUM_THREADS=1 PYTHONPATH="$CHECKOUT:$EXPERIMENT" VLLM_USE_V2_MODEL_RUNNER=1 VLLM_ADAPTIVE_VERIFICATION_PROFILE_CONTEXT_LEN=1024 FULL_CURVE_ROOT="$RUN" ~/.venv/bin/python -m vllm.entrypoints.openai.api_server --model "$TARGET" --served-model-name qwen --language-model-only --max-model-len 16384 --tensor-parallel-size 2 --max-num-seqs 256 --max-num-batched-tokens 16384 --gpu-memory-utilization 0.92 --no-enable-prefix-caching --disable-uvicorn-access-log --host 127.0.0.1 --port 8674 --speculative-config '{"method":"dflash","model":"z-lab/Qwen3.5-35B-A3B-DFlash","revision":"52cb554b4995dede3e2e1bdb129cdb1f3529332b","num_speculative_tokens":7,"draft_sample_method":"probabilistic","enable_adaptive_verification":true}' --compilation-config "{\"cudagraph_capture_sizes\":[$CG_SIZES]}"
+```
+
+Each performance cell runs the unchanged [AIPerf template](steady-speedbench.yaml), c256, 1,024 requests, natural EOS and output cap 1,024:
+
+```bash
+sed -e 's/__PORT__/8674/g' -e 's/__C__/256/' -e 's/__N__/1024/' "$EXPERIMENT/steady-speedbench.yaml" > "$RUN/c256.yaml"
+QUICK_ARTIFACTS="$RUN/artifacts" timeout 1800 ~/aiperf-venv/bin/aiperf profile --config "$RUN/c256.yaml"
+```
+
+Rebuild with `make fetch-full-curve-results` and `make analyze-full-curve`. Canonical data: `results/full-curve-analysis-20261020/{metrics,audits,timings,decisions}.parquet`, [comparison](results/full-curve-analysis-20261020/comparison.csv). Three contract tests pass, the job exits 0 and its GPU reservation is released. Nothing published.
+
+## 2026-10-20: matched TP2 full-curve concurrency sweep (rh-3js)
+
+**Provisional conclusion: a cost curve derived from real runtime measurements shows potential to substantially improve AV at intermediate concurrency in this workload.** The largest observed median gains are c64 (+13.98%) and c128 (+11.12%), with a regression at c1 and little change at c8/c32/c256. High native-baseline variability and non-interleaved measurements prevent attributing the full observed gain confidently to the curve. This is a measured, context/composition-averaged GPU cost model, not a perfect-cost upper bound.
+
+All 72 included cells pass, six repeats per policy and concurrency. Both policies use the same persistent TP2 server, original acceptance estimator/ranking/k7 and the frozen curve above. Values are medians, changes are ratios of medians, not paired estimates. Native throughput varies considerably (c64 6,898–9,380 tok/s, c128 9,660–12,674), so the headline gains do not represent tight uncertainty estimates.
+
+| c | Native tok/s | Measured tok/s | Change | Native TPOT ms | Measured TPOT ms |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 567 | 531 | −6.27% | 1.631 | 1.742 |
+| 8 | 2,879 | 2,883 | +0.14% | 2.533 | 2.525 |
+| 32 | 6,404 | 6,494 | +1.41% | 4.462 | 4.389 |
+| 64 | 8,425 | 9,602 | +13.98% | 6.603 | 5.816 |
+| 128 | 12,544 | 13,939 | +11.12% | 8.597 | 7.724 |
+| 256 | 18,418 | 18,298 | −0.65% | 11.571 | 11.468 |
+
+The fresh c256 comparison **does not reproduce the earlier +3.74% historical-baseline gain**. Use this matched-configuration sweep for the concurrency comparison. Measured prices cover every audited measured-policy choice (118,287 across pilot/main stages), with no fallback. Native tables are restored explicitly when switching back, and all timing events stay disabled. The first c256 pilot windows were about 18 seconds, so submission duration increased from 30 to 38 seconds and both pilots were replaced. All included steady windows are at least 19.2 seconds. There are 74 collected cells, including the two superseded pilots.
+
+[Throughput versus interactivity](plots/full-curve-sweep/throughput-interactivity.png) ([SVG](plots/full-curve-sweep/throughput-interactivity.svg)) shows all 72 included runs and median curves. Orange is native AV costs, teal is measured AV costs. Both use frozen `888ec6bb`, the baseline is not a separate upstream-main checkout. Rebuild with `make plot-av-full-sweep`.
+
+The serving command is the full-curve command above on port 8676. [Native AIPerf sweep configuration](full-curve-sweep.yaml) uses ZIP concurrency/duration pairs, the unchanged SPEED-Bench workload and a 120-second drain allowance. The [controller](run_av_full_sweep.py) runs one gated pilot, then five native multi-run trials per policy, reusing the server. Effective main durations are `[30,30,30,30,30,38]` for c1/8/32/64/128/256:
+
+```bash
+~/aiperf-venv/bin/aiperf profile --config "$RUN/main-measured/config.yaml"
+~/aiperf-venv/bin/aiperf profile --config "$RUN/main-native/config.yaml"
+```
+
+**Run-order caveat:** AIPerf v0.13.0 ran all five measured-policy main sweeps first, then all five native-policy main sweeps. Time-dependent system effects remain confounded with policy. AIPerf's own whole-cell throughput also shows substantial native variation (c128 9,408–12,201 tok/s), so the spread is not solely an artifact of the custom steady-window calculation. Existing logs/telemetry and an interleaved reproduction are needed to resolve this. The original c256 +3.74% historical-baseline comparison is superseded by this fresh c256 result (−0.65%).
+
+Rebuild with `make fetch-av-full-sweep-results` and `make analyze-av-full-sweep`. [Comparison CSV](results/qwen-av-full-sweep-20261020/analysis/comparison.csv), canonical long-format `results/qwen-av-full-sweep-20261020/analysis/{metrics,audits}.parquet`. Source unchanged at `888ec6bb` plus experiment hooks, job exit 0, GPUs released. Three contract tests, configuration validation, Python/shell syntax and diff checks pass. Nothing published.
+
+### Acceptance-length audit
+
+The AL changes are plausible for a cost-only policy: the estimator and drafter stay unchanged, but selected verification budgets and subsequent trajectories can change. Optimizing accepted tokens per unit cost does not require maximizing AL.
+
+| c | Native AL | Measured AL | AL change | Throughput change |
+|---:|---:|---:|---:|---:|
+| 1 | 2.645 | 2.534 | −4.20% | −6.27% |
+| 8 | 2.835 | 2.754 | −2.86% | +0.14% |
+| 32 | 2.715 | 2.779 | +2.37% | +1.41% |
+| 64 | 2.695 | 2.828 | +4.94% | +13.98% |
+| 128 | 2.880 | 2.838 | −1.48% | +11.12% |
+| 256 | 2.826 | 2.766 | −2.15% | −0.65% |
+
+At c1, reduced AL accompanies a slowdown, so the trade-off is unfavorable here. At c64, AL improves but explains only part of the observed throughput increase. At c128, slightly lower AL with higher throughput is consistent with cheaper verification work, but does not prove that mechanism. Native c128 AL stays within 2.872–2.897 while throughput spans 9,660–12,674 tok/s, so its large runtime variation is not explained by acceptance-length changes.
+
+All 72 AL values recompute exactly from accepted-token/request-step counters. Position totals match accepted-token totals, and all 504 position survival points are valid and non-increasing within each run. These position probabilities include AV truncation, they are not conditional acceptance probabilities for verified tokens. The proposal counter reports exactly seven drafts per attempt in every run because the frozen scheduler counts its original scheduled drafts before worker-side AV compaction. It cannot establish the actual verified budget or the acceptance rate conditional on verification. This sweep recorded no executed-budget traces, so the budget mechanism remains unconfirmed.
+
+AL counters cover the whole client cell, whereas throughput uses its steady window. Duration-bounded runs also consume different-length prefixes of the same seeded prompt order, so these aggregates are not a matched-prefix acceptance test or an exact throughput decomposition. Nothing here establishes an improvement in acceptance-estimator accuracy. Rebuild with `make analyze-av-full-sweep-acceptance`. [AL comparison](results/qwen-av-full-sweep-20261020/analysis/acceptance-comparison.csv), [counter validation](results/qwen-av-full-sweep-20261020/analysis/acceptance-validation.csv), long-format `acceptance-runs.parquet` and `acceptance-positions.parquet` alongside the sweep metrics. No new GPU runs.

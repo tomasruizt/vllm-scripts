@@ -52,10 +52,15 @@ def main() -> None:
     print((args.output / "validation.csv").read_text())
 
 
-def load_metrics(path: Path) -> dict:
+def load_metrics(path: Path, *, phase_name: str | None = None) -> dict:
     data = json.loads(path.read_text())
     server = json.loads(path.with_name("server_metrics_export.json").read_text())
     requests = [json.loads(line) for line in path.with_name("profile_export.jsonl").read_text().splitlines()]
+    if phase_name is not None:
+        if len(data["input_config"]["phases"]) > 1:
+            phase_dir = path.parent / "phases" / phase_name
+            data = json.loads((phase_dir / "profile_export_aiperf.json").read_text())
+        requests = [r for r in requests if r["metadata"]["phase_name"] == phase_name]
     done = [row for row in requests if "output_sequence_length" in row.get("metrics", {})]
     config = next(p for p in data["input_config"]["phases"] if p["name"] == "profiling")
     source = path.parents[3]

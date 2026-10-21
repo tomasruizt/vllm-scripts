@@ -1,0 +1,62 @@
+# AIPerf owns the complete concurrency sweep, warmup and two trials per server.
+# Two GPU pairs execute this plan independently, giving four trials per arm/C.
+schemaVersion: "2.0"
+randomSeed: 42
+multi_run:
+  num_runs: 2
+  disable_warmup_after_first: true
+  vary_seed_per_trial: false
+sweep:
+  type: zip
+  iteration_order: repeated
+  same_seed: true
+  parameters:
+    phases.profiling.concurrency: [1, 8, 32, 64, 128, 256]
+    phases.profiling.requests: [24, 128, 256, 384, 640, 1024]
+    phases.warmup.concurrency: [1, 8, 32, 64, 128, 256]
+    phases.warmup.requests: [2, 16, 32, 64, 128, 256]
+benchmark:
+  model: qwen
+  endpoint:
+    url: http://127.0.0.1:__PORT__
+    type: chat
+    streaming: true
+    use_server_token_count: true
+    timeout: 600
+    extra:
+      temperature: 0
+      ignore_eos: false
+      min_tokens: 0
+      max_completion_tokens: 1024
+      chat_template_kwargs:
+        enable_thinking: false
+  tokenizer:
+    name: /data/tomasruizt/hub_cache/models--Qwen--Qwen3.5-35B-A3B/snapshots/59d61f3ce65a6d9863b86d2e96597125219dc754
+  datasets:
+    - name: main
+      type: file
+      path: /data/tomasruizt/benchmarks/deepseek-v4-dep4-av/dataset/throughput_1k.jsonl
+      format: speed_bench_throughput_1k
+      sampling: shuffle
+      random_seed: 42
+  phases:
+    - name: warmup
+      type: concurrency
+      requests: 2
+      concurrency: 1
+    - name: profiling
+      type: concurrency
+      requests: 24
+      concurrency: 1
+  server_metrics:
+    enabled: true
+    urls: [http://127.0.0.1:__PORT__/metrics]
+    formats: [json]
+  artifacts:
+    dir: ${QUICK_ARTIFACTS}
+    summary: [json]
+    records: [jsonl]
+    raw: true
+    export_outputs_json: true
+  runtime:
+    ui: none
