@@ -2,7 +2,7 @@
 
 ## Summary
 
-vLLM reports how many draft tokens were drafted and accepted during speculative decoding (SD). With adaptive verification and structured outputs, these numbers no longer mean the same thing on every code path. We propose three clear definitions, one invariant that always holds, and to report all three metrics when using SD.
+vLLM reports how many draft tokens were drafted and accepted during speculative decoding (SD). With adaptive verification (AV) and structured outputs (SO), these numbers no longer mean the same thing on every code path. We propose three clear definitions, one invariant that always holds, and to report all three metrics when using SD.
 
 | Count | Meaning |
 | --- | --- |
@@ -31,7 +31,7 @@ Today the counts depend on the code path, not only on what happened:
 
 - **Async scheduling** subtracts grammar-invalid draft tokens from `num_draft_tokens`, even though they were included in the target forward pass.
 - **Sync scheduling** never counts grammar-invalid draft tokens at all, because they are dropped before scheduling.
-- **Verified tokens are not reported.** With adaptive verification, there is no way to see how many draft tokens the target actually verified.
+- **Verified tokens are not reported.** With AV, there is no way to see how many draft tokens the target actually verified.
 
 So two runs with identical draft tokens can report different numbers, which is confusing for anyone reading the metrics.
 
@@ -42,7 +42,7 @@ So two runs with identical draft tokens can report different numbers, which is c
 `num_draft_tokens` counts every token the drafter proposed, including:
 
 - draft tokens that violate the grammar (both scheduling modes),
-- draft tokens skipped by adaptive verification.
+- draft tokens skipped by AV.
 
 Padding slots are a special case. They count if the target runs a forward pass on them, and are excluded otherwise. For example, when `ngram_gpu` finds fewer than `k` matches, the V2 model runner fills the empty slots with real tokens and verifies them, so they count. The V1 model runner pads with `-1` and trims those slots before the forward pass, so they don't. This preserves the invariant `drafted >= verified`.
 
@@ -50,7 +50,7 @@ Padding slots are a special case. They count if the target runs a forward pass o
 
 `num_verified_tokens` counts draft tokens the target model ran a forward pass on. It measures how much target compute went into verification.
 
-- With adaptive verification, the model runner reports it, because only the model runner knows which draft tokens it verified.
+- With AV, the model runner reports it, because only the model runner knows which draft tokens it verified.
 - Otherwise, the scheduler computes it as `min(scheduled draft tokens, proposed draft tokens)`. This counts grammar-invalid draft tokens in async scheduling (included in the target forward pass), and drops them in sync scheduling (not included).
 
 ### 3. Report all three everywhere
@@ -63,12 +63,12 @@ All examples use `k = 4`.
 
 | Case | What happens | drafted | verified | accepted |
 | --- | --- | --- | --- | --- |
-| No grammar, no adaptive verification | All 4 draft tokens in the target forward pass, target accepts 2 | 4 | 4 | 2 |
-| Adaptive verification | Drafter proposes 4, target verifies the first 3, accepts 2 | 4 | 3 | 2 |
+| No grammar, no AV | All 4 draft tokens in the target forward pass, target accepts 2 | 4 | 4 | 2 |
+| AV | Drafter proposes 4, target verifies the first 3, accepts 2 | 4 | 3 | 2 |
 | Sync scheduling, grammar rejects last 2 draft tokens | Only 2 draft tokens in the target forward pass, target accepts 1 | 4 | 2 | 1 |
 | Async scheduling, grammar rejects last 2 draft tokens | All 4 in the target forward pass, last 2 masked, target accepts 1 | 4 | 4 | 1 |
 | V2 `ngram_gpu`, only 2 matches | Empty slots filled with the last sampled token and verified normally | 4 | 4 | ≤ 4 |
-| V1 `ngram_gpu`, only 2 matches, structured outputs | `-1` padding is trimmed by the worker before the forward pass | 2 | 2 | ≤ 2 |
+| V1 `ngram_gpu`, only 2 matches, SO | `-1` padding is trimmed by the worker before the forward pass | 2 | 2 | ≤ 2 |
 
 The acceptance rate (accepted / drafted) is the same for sync and async scheduling (1/4). Only verified differs, which reflects the real difference in compute.
 
@@ -76,24 +76,24 @@ See [appendix B](#appendix) for the edge cases behind these rows, e.g. how async
 
 ## Impact on users and clients
 
-Without structured outputs, drafted and accepted do not change, and verified equals drafted unless adaptive verification is on.
+Without SO, drafted and accepted do not change, and verified equals drafted unless AV is on.
 
-With structured outputs and spec decode:
+With SO:
 
 - `num_draft_tokens` goes up, and `draft_acceptance_rate` goes down. The new numbers are the same in sync and async scheduling.
 - Clients that compute `accepted / draft_tokens` from Prometheus will see lower rates. This includes AIPerf's speed-bench report, the Datadog integration and many user scripts.
-- AIPerf's per-request adapter keeps working. It ignores new fields, and all of its consistency checks still hold. Its docs say vLLM subtracts structured-output-invalid draft tokens, which would need an update.
+- AIPerf's per-request adapter keeps working. It ignores new fields, and all of its consistency checks still hold. Its docs say vLLM subtracts grammar-invalid draft tokens, which would need an update.
 - The new Prometheus counter name contains neither `num_draft_tokens` nor `num_drafts`, so parsers that match metric names by substring (like `vllm bench serve`) do not double count.
 
 ## Out of scope
 
-- **V1 `ngram_gpu` without structured outputs.** The worker trims `-1` padding, but the scheduler never sees it. So drafted and verified still count all `k` slots. This is pre-existing. A fix would let the V1 worker report its valid draft token counts.
+- **V1 `ngram_gpu` without SO.** The worker trims `-1` padding, but the scheduler never sees it. So drafted and verified still count all `k` slots. This is pre-existing. A fix would let the V1 worker report its valid draft token counts.
 - **Drafts after an EOS.** Stats are recorded before the output is trimmed at the stop token. So accepted can include tokens after an accepted EOS, which are then discarded. This is tracked in #56101. Two fixes are discussed there: clip accepted at the stop token, or keep accepted and report committed tokens separately (#56137, #56195). Both keep the invariant, since they only change accepted or add a new count.
 
 ## Open questions
 
 1. Is `accepted / drafted` the right default for `draft_acceptance_rate`, or should we also expose `accepted / verified` as its own field? See [appendix C](#appendix) for arguments.
-2. Should draft tokens skipped by adaptive verification lower the acceptance rate? They were not rejected by the target, but a better drafter could have produced higher-confidence draft tokens.
+2. Should draft tokens skipped by AV lower the acceptance rate? They were not rejected by the target, but a better drafter could have produced higher-confidence draft tokens.
 
 ## Appendix
 
@@ -131,7 +131,7 @@ With structured outputs and spec decode:
 - **It measures the drafter.** A drafter that proposes grammar-invalid tokens should be penalized for it.
 - **One denominator everywhere.** Prometheus, logs, benchmarks and the per-request payload agree.
 
-`accepted / verified` is still useful. It measures how well target compute was used, which is what adaptive verification tunes. Since verified is now reported, clients can compute it. (open question: should we expose it as its own field?)
+`accepted / verified` is still useful. It measures how well target compute was used, which is what AV tunes. Since verified is now reported, clients can compute it. (open question: should we expose it as its own field?)
 
 </details>
 
@@ -159,7 +159,7 @@ Open items that touch the same counts. #29821 (merged) is listed for context, be
 
 **Variable draft length and acceptance rate**
 
-- #58340 (PR): exposes the verified draft token count for adaptive verification. The implementation of this RFC builds on it.
+- #58340 (PR): exposes the verified draft token count for AV. The implementation of this RFC builds on it.
 - #56278 (PR): per-request acceptance histogram by draft length.
 - #44487 (PR): Prometheus histogram of per-request acceptance rate.
 - #61084 (PR): warns on sustained near-zero acceptance. Would fire on dummy-0 draft tokens.
