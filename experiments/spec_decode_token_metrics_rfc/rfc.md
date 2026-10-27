@@ -2,7 +2,7 @@
 
 ## Summary
 
-vLLM reports how many draft tokens were drafted and accepted during speculative decoding (SD). With adaptive verification (AV) and structured outputs (SO), these numbers no longer mean the same thing on every code path. We propose three clear definitions, one invariant that always holds, and to report all three metrics when using SD.
+vLLM reports how many draft tokens were drafted and accepted during speculative decoding (SD). With adaptive verification (AV) and structured outputs (SO), it is no longer clear what `drafted` means. We propose three clear definitions, one invariant that always holds, and to report all three metrics when using SD.
 
 | Count | Meaning |
 | --- | --- |
@@ -27,13 +27,15 @@ Two features make `drafted` and `verified` differ.
 
 ## Problem
 
-Today the counts depend on the code path, not only on what happened:
+Today, `num_draft_tokens` counts the draft tokens that passed the grammar check. This is neither the number of proposed tokens nor the number of verified tokens:
 
-- **Async scheduling** subtracts grammar-invalid draft tokens from `num_draft_tokens`, even though they were included in the target forward pass.
-- **Sync scheduling** never counts grammar-invalid draft tokens at all, because they are dropped before scheduling.
+- **It is not "proposed tokens".** Grammar-invalid draft tokens are subtracted, but draft tokens skipped by AV are kept.
+- **It is not "verified tokens".** Async scheduling subtracts grammar-invalid draft tokens, even though they were included in the target forward pass.
 - **Verified tokens are not reported.** With AV, there is no way to see how many draft tokens the target actually verified.
 
-So two runs with identical draft tokens can report different numbers, which is confusing for anyone reading the metrics.
+If we add a `verified` count without changing `drafted`, the invariant can be violated. This happens when async scheduling, SO and AV are used together.
+
+Sync and async scheduling also count draft steps differently. If all draft tokens of a step are grammar-invalid, async counts the step and sync does not (#56977). This changes the mean acceptance length.
 
 ## Proposal
 
@@ -44,7 +46,7 @@ So two runs with identical draft tokens can report different numbers, which is c
 - draft tokens that violate the grammar (both scheduling modes),
 - draft tokens skipped by AV.
 
-Padding slots are a special case. They count if the target runs a forward pass on them, and are excluded otherwise. For example, when `ngram_gpu` finds fewer than `k` matches, the V2 model runner fills the empty slots with real tokens and verifies them, so they count. The V1 model runner pads with `-1` and trims those slots before the forward pass, so they don't. This preserves the invariant `drafted >= verified`.
+Padding slots (e.g. from `ngram_gpu`) count only if the target runs a forward pass on them, see [appendix B](#appendix).
 
 ### 2. Verified means included in the target forward pass
 
@@ -53,26 +55,32 @@ Padding slots are a special case. They count if the target runs a forward pass o
 - With AV, the model runner reports it, because only the model runner knows which draft tokens it verified.
 - Otherwise, the scheduler computes it as `min(scheduled draft tokens, proposed draft tokens)`. This counts grammar-invalid draft tokens in async scheduling (included in the target forward pass), and drops them in sync scheduling (not included).
 
-### 3. Report all three everywhere
+### 3. Count draft steps the same way in both modes
+
+A step counts as a draft step (`num_drafts`, `num_spec_steps`) if the drafter proposed tokens for it, even if all of them are grammar-invalid. The prefill step still does not count. The mean acceptance length stays `1 + accepted / draft steps`.
+
+### 4. Report all three metrics everywhere
 
 `verified` is reported wherever `drafted` and `accepted` are: Prometheus, the periodic log line, the per-request metrics, `vllm bench serve` and the Rust frontend. See [appendix A](#appendix) for the field names.
 
+A client should use `drafted` to judge the drafter, `verified` to measure target compute, and the mean acceptance length to estimate the speedup.
+
 ## Worked examples
 
-All examples use `k = 4`.
+All examples use `k = 4`. The last column shows today's `drafted` count.
 
-| Case | What happens | `drafted` | `verified` | `accepted` |
-| --- | --- | --- | --- | --- |
-| No grammar, no AV | All 4 draft tokens in the target forward pass, target accepts 2 | 4 | 4 | 2 |
-| AV | Drafter proposes 4, target verifies the first 3, accepts 2 | 4 | 3 | 2 |
-| Sync scheduling, grammar rejects last 2 draft tokens | Only 2 draft tokens in the target forward pass, target accepts 1 | 4 | 2 | 1 |
-| Async scheduling, grammar rejects last 2 draft tokens | All 4 in the target forward pass, last 2 masked, target accepts 1 | 4 | 4 | 1 |
-| V2 `ngram_gpu`, only 2 matches | Empty slots filled with the last sampled token and verified normally | 4 | 4 | ≤ 4 |
-| V1 `ngram_gpu`, only 2 matches, SO | `-1` padding is trimmed by the worker before the forward pass | 2 | 2 | ≤ 2 |
+| Case | What happens | `drafted` | `verified` | `accepted` | `drafted` today |
+| --- | --- | --- | --- | --- | --- |
+| No grammar, no AV | All 4 draft tokens in the target forward pass, target accepts 2 | 4 | 4 | 2 | 4 |
+| AV | Drafter proposes 4, target verifies the first 3, accepts 2 | 4 | 3 | 2 | 4 |
+| Sync scheduling, grammar rejects last 2 draft tokens | Only 2 draft tokens in the target forward pass, target accepts 1 | 4 | 2 | 1 | 2 |
+| Async scheduling, grammar rejects last 2 draft tokens | All 4 in the target forward pass, last 2 masked, target accepts 1 | 4 | 4 | 1 | 2 |
+| Async + AV, grammar rejects last 2 draft tokens | Target verifies the first 3 (the 3rd is invalid), accepts 1 | 4 | 3 | 1 | 2 (less than `verified`) |
+| Sync scheduling, grammar rejects all 4 draft tokens | No draft tokens in the target forward pass | 4 | 0 | 0 | 0 (step skipped) |
 
 The acceptance rate (`accepted / drafted`) is the same for sync and async scheduling (1/4). Only `verified` differs, which reflects the real difference in compute.
 
-See [appendix B](#appendix) for the edge cases behind these rows, e.g. how async draft tokens enter the forward pass before the grammar check, and how `-1` placeholders are handled.
+See [appendix B](#appendix) for the edge cases behind these rows, e.g. how async draft tokens enter the forward pass before the grammar check, and how padding slots are counted.
 
 ## Impact on users and clients
 
@@ -81,14 +89,25 @@ Without SO, `drafted` and `accepted` do not change, and `verified` equals `draft
 With SO:
 
 - `num_draft_tokens` goes up, and `draft_acceptance_rate` goes down. The new numbers are the same in sync and async scheduling.
+- The mean acceptance length only changes in sync scheduling, when all draft tokens of a step are grammar-invalid.
 - Clients that compute `accepted / draft_tokens` from Prometheus will see lower rates. This includes AIPerf's speed-bench report, the Datadog integration and many user scripts.
+- Clients that use `drafted` to estimate target compute should use `verified` instead.
 - AIPerf's per-request adapter keeps working. It ignores new fields, and all of its consistency checks still hold. Its docs say vLLM subtracts grammar-invalid draft tokens, which would need an update.
 - The new Prometheus counter name contains neither `num_draft_tokens` nor `num_drafts`, so parsers that match metric names by substring (like `vllm bench serve`) do not double count.
 
+There is no flag for the old behavior. We will note the change in the release notes and update the docs.
+
+`verified` is always reported, even when it equals `drafted`, so the output format does not depend on the config. This adds two Prometheus counters (one of them per position).
+
+## Alternatives considered
+
+- **`drafted` means "sent to verification".** This would not penalize the drafter for grammar-invalid tokens, although a better drafter would have proposed valid ones. It also clashes with the domain language: AV skips draft tokens without verifying them, but "drafted but not verified" would become a contradiction.
+- **Rename `drafted` to `proposed`.** The two words mean the same, and a rename breaks existing dashboards and clients. It also does not solve the problem, since we would still need `verified`.
+- **Only add `verified`.** The smallest change, but `verified` can then be larger than `drafted`, violating the invariant (see [Problem](#problem)).
+
 ## Out of scope
 
-- **V1 `ngram_gpu` without SO.** The worker trims `-1` padding, but the scheduler never sees it. So `drafted` and `verified` still count all `k` slots. This is pre-existing. A fix would let the V1 worker report its valid draft token counts.
-- **Drafts after an EOS.** Stats are recorded before the output is trimmed at the stop token. So `accepted` can include tokens after an accepted EOS, which are then discarded. This is tracked in #56101. Two fixes are discussed there: clip `accepted` at the stop token, or keep accepted and report committed tokens separately (#56137, #56195). Both keep the invariant, since they only change accepted or add a new count.
+- **Draft tokens after a stop.** Stats are recorded before the output is cut at the stop (EOS, stop token ids, `max_tokens`). So `accepted` can include tokens after the stop, which are discarded. This is tracked in #56101, with two proposed fixes: clip `accepted` at the stop, or report committed tokens separately (#56137, #56195). Both keep the invariant.
 
 ## Open questions
 
@@ -114,8 +133,7 @@ With SO:
 <summary>B. Edge cases in how draft tokens reach the target forward pass</summary>
 
 - **Async draft tokens enter the target forward pass before the grammar check.** The forward pass for step N starts while the CPU still validates the draft tokens against the grammar. So invalid draft tokens cost target compute, even though they can never be accepted. This is why they count as `verified` on that path.
-- **`-1` placeholders never reach the embedding layer as `-1`.** The V1 model runner clamps input ids to `>= 0` before the embedding lookup. This consumes target compute capacity. The rejection sampler sees the original `-1` and rejects that position outright.
-- **`ngram_gpu` padding differs between model runners.** V2 fills empty slots with real tokens, which are proposed, included in the target forward pass and can be accepted. V1 pads with `-1` and trims those slots before the forward pass.
+- **Padding slots count only if the target runs a forward pass on them.** When `ngram_gpu` finds fewer than `k` matches, the V2 model runner fills the empty slots with the last sampled token and verifies them, so they count. The V1 model runner pads with `-1` and removes those slots before the forward pass, so they don't. Exception (pre-existing): without SO, the V1 scheduler doesn't see the removed slots and still counts all `k`.
 - **All draft tokens grammar-invalid (sync).** No draft tokens are scheduled, but the drafter did propose them. The step now counts as a spec step with 0 accepted. This slightly lowers the mean acceptance length on such workloads. #56977 considers counting such steps a bug. We count them on purpose, because the drafter should be penalized for proposing grammar-invalid draft tokens.
 - **Drafter skipped.** When the longest sequence in the batch no longer fits the drafter's `max_model_len`, the drafter is skipped for the whole batch, and the V1 model runner passes zeros as draft tokens. The zeros are included in the target forward pass, so they count as `verified`, since this is real work. They also count as `drafted`, which keeps `drafted >= verified`. The acceptance rate drops to about 0 on those steps (#34734, #58080). We think the metrics are right to show this, and that the real fix is to not verify zeros at all (#34757, #52756). This differs from #34734, which asks to exclude these steps from the stats.
 - **Truncated draft tokens (sync).** If the scheduler truncates the valid draft tokens (e.g. near `max_model_len`), the trailing invalid draft tokens are outside the scheduled window and are not counted.
