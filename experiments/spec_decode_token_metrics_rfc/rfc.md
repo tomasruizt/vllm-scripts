@@ -35,7 +35,7 @@ Today, `num_draft_tokens` counts the draft tokens that passed the grammar check.
 
 If we add a `verified` count without changing `drafted`, the invariant can be violated. This happens when async scheduling, SO and AV are used together.
 
-Sync and async scheduling also count draft steps differently. If all draft tokens of a step are grammar-invalid, async counts the step and sync does not (#56977). This changes the mean acceptance length.
+Sync and async scheduling also count spec steps differently. If all draft tokens of a step are grammar-invalid, async counts the step and sync does not (#56977). This changes the mean acceptance length.
 
 ## Proposal
 
@@ -55,9 +55,9 @@ Padding slots (e.g. from `ngram_gpu`) count only if the target runs a forward pa
 - With AV, the model runner reports it, because only the model runner knows which draft tokens it verified.
 - Otherwise, the scheduler computes it as `min(scheduled draft tokens, proposed draft tokens)`. This counts grammar-invalid draft tokens in async scheduling (included in the target forward pass), and drops them in sync scheduling (not included).
 
-### 3. Count draft steps the same way in both modes
+### 3. Count spec steps the same way in both modes
 
-A step counts as a draft step (`num_drafts`, `num_spec_steps`) if the drafter proposed tokens for it, even if all of them are grammar-invalid. The prefill step still does not count. The mean acceptance length stays `1 + accepted / draft steps`.
+A step counts as a spec step (`num_drafts`, `num_spec_steps`) if the drafter proposed tokens for it, even if all of them are grammar-invalid. The prefill step still does not count. The mean acceptance length stays `1 + accepted / spec steps`.
 
 ### 4. Report all three metrics everywhere
 
