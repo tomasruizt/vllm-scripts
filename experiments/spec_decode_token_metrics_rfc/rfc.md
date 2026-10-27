@@ -18,7 +18,7 @@ This RFC grew out of reviewing #58340, and discussions with @benchislett and @yz
 
 Two features make `drafted` and `verified` differ.
 
-**Adaptive verification.** The drafter proposes `k` tokens, but the target only verifies a prefix of them, chosen by a confidence score. This saves target compute when the later draft tokens are unlikely to be accepted. The skipped draft tokens were proposed, but never verified.
+**Adaptive verification.** The drafter proposes `k` tokens, but the target only verifies a prefix of them, chosen by a confidence score. This saves target compute when the later draft tokens are unlikely to be accepted. AV is only available in the V2 model runner (MRV2), not in the V1 model runner (MRV1). The skipped draft tokens were proposed, but never verified.
 
 **Structured outputs.** A grammar (e.g. a JSON schema) constrains the output. A draft token that violates the grammar can never be accepted. When vLLM checks the grammar depends on the scheduling mode:
 
@@ -31,7 +31,8 @@ Today, `num_draft_tokens` counts the draft tokens that passed the grammar check.
 
 - **It is not "proposed tokens".** Grammar-invalid draft tokens are subtracted, but draft tokens skipped by AV are kept.
 - **It is not "verified tokens".** Async scheduling subtracts grammar-invalid draft tokens, even though they were included in the target forward pass.
-- **Verified tokens are not reported.** With AV, there is no way to see how many draft tokens the target actually verified.
+
+On top of that, `verified` is not reported. With AV, there is no way to see how many draft tokens the target actually verified.
 
 If we add a `verified` count without changing `drafted`, the invariant can be violated. This happens when async scheduling, SO and AV are used together.
 
@@ -102,7 +103,7 @@ There is no flag for the old behavior. We will note the change in the release no
 ## Alternatives considered
 
 - **`drafted` means "sent to verification".** This would not penalize the drafter for grammar-invalid tokens, although a better drafter would have proposed valid ones. It also clashes with the domain language: AV skips draft tokens without verifying them, but "drafted but not verified" would become a contradiction.
-- **Rename `drafted` to `proposed`.** The two words mean the same, and a rename breaks existing dashboards and clients. It also does not solve the problem, since we would still need `verified`.
+- **Rename `drafted` to `proposed`.** The two words mean the same thing, and a rename breaks existing dashboards and clients. It also does not solve the problem, since we would still need `verified`.
 - **Only add `verified`.** The smallest change, but `verified` can then be larger than `drafted`, violating the invariant (see [Problem](#problem)).
 
 ## Out of scope
@@ -112,7 +113,7 @@ There is no flag for the old behavior. We will note the change in the release no
 ## Open questions
 
 1. Is `accepted / drafted` the right default for `draft_acceptance_rate`, or should we also expose `accepted / verified` as its own field? See [appendix C](#appendix) for arguments.
-2. Should draft tokens skipped by AV lower the acceptance rate? They were not rejected by the target, but a better drafter could have produced higher-confidence draft tokens.
+2. Should draft tokens skipped by AV lower the acceptance rate? They were not rejected by the target, but a better drafter could have produced higher-confidence draft tokens. As proposed, they count in `drafted`, so they do lower it.
 
 ## Appendix
 
@@ -133,10 +134,10 @@ There is no flag for the old behavior. We will note the change in the release no
 <summary>B. Edge cases in how draft tokens reach the target forward pass</summary>
 
 - **Async draft tokens enter the target forward pass before the grammar check.** The forward pass for step N starts while the CPU still validates the draft tokens against the grammar. So invalid draft tokens cost target compute, even though they can never be accepted. This is why they count as `verified` on that path.
-- **Padding slots count only if the target runs a forward pass on them.** When `ngram_gpu` finds fewer than `k` matches, the V2 model runner fills the empty slots with the last sampled token and verifies them, so they count. The V1 model runner pads with `-1` and removes those slots before the forward pass, so they don't. Exception (pre-existing): without SO, the V1 scheduler doesn't see the removed slots and still counts all `k`.
-- **All draft tokens grammar-invalid (sync).** No draft tokens are scheduled, but the drafter did propose them. The step now counts as a spec step with 0 accepted. This slightly lowers the mean acceptance length on such workloads. #56977 considers counting such steps a bug. We count them on purpose, because the drafter should be penalized for proposing grammar-invalid draft tokens.
-- **Drafter skipped.** When the longest sequence in the batch no longer fits the drafter's `max_model_len`, the drafter is skipped for the whole batch, and the V1 model runner passes zeros as draft tokens. The zeros are included in the target forward pass, so they count as `verified`, since this is real work. They also count as `drafted`, which keeps `drafted >= verified`. The acceptance rate drops to about 0 on those steps (#34734, #58080). We think the metrics are right to show this, and that the real fix is to not verify zeros at all (#34757, #52756). This differs from #34734, which asks to exclude these steps from the stats.
-- **Truncated draft tokens (sync).** If the scheduler truncates the valid draft tokens (e.g. near `max_model_len`), the trailing invalid draft tokens are outside the scheduled window and are not counted.
+- **Padding slots count only if the target runs a forward pass on them.** When `ngram_gpu` finds fewer than `k` matches, MRV2 fills the empty slots with the last sampled token and verifies them, so they count. MRV1 pads with `-1` and removes those slots before the forward pass, so they don't. Exception (pre-existing): with MRV1 and without SO, the scheduler doesn't see the removed slots and still counts all `k`.
+- **All draft tokens grammar-invalid (sync).** No draft tokens are scheduled, but the drafter did propose them. The step now counts as a spec step with 0 accepted. #56977 considers counting such steps a bug. We count them on purpose, because the drafter should be penalized for proposing grammar-invalid draft tokens.
+- **Drafter skipped.** When the longest sequence in the batch no longer fits the drafter's `max_model_len`, the drafter is skipped for the whole batch, and MRV1 passes zeros as draft tokens. The zeros are included in the target forward pass, so they count as `verified`, since this is real work. They also count as `drafted`, which keeps `drafted >= verified`. The acceptance rate drops to about 0 on those steps (#34734, #58080). We think the metrics are right to show this, and that the real fix is to not verify zeros at all (#34757, #52756). This differs from #34734, which asks to exclude these steps from the stats.
+- **Truncated draft tokens (sync).** If the scheduler truncates the valid draft tokens (e.g. near `max_model_len`), the trailing invalid draft tokens are not counted in `drafted`. This is the one exception to Proposal 1: `drafted` only counts draft tokens up to the scheduler's limit.
 
 </details>
 
