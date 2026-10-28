@@ -12,12 +12,14 @@ def main() -> None:
     root = Path(sys.argv[1])
     rows = [load_cell(path, root) for path in sorted(root.glob("*/*/startup-*/c*/artifacts/**/profile_export_aiperf.json"))]
     startups = [startup_row(path) for path in sorted(root.glob("*/*/startup-*/server.log"))]
-    for case in ("dense", "gdn"):
+    for case in sorted({row["case"] for row in startups}):
         for variant in ("default", "4k"):
             directory = root / case / variant
             code = int((directory / "exit-code.txt").read_text())
             cells = [row for row in rows if row["case"] == case and row["variant"] == variant]
-            assert code != 0 or len(cells) == 18, f"Incomplete successful worker: {directory}"
+            levels_path = directory / "levels.json"
+            expected = 3 * len(json.loads(levels_path.read_text())) if levels_path.exists() else 18
+            assert code != 0 or len(cells) == expected, f"Incomplete successful worker: {directory}"
             assert code == 0 or list(directory.glob("startup-*/failure.txt")), directory
     (root / "metrics.json").write_text(json.dumps(rows) + "\n")
     (root / "startup-metrics.json").write_text(json.dumps(startups) + "\n")

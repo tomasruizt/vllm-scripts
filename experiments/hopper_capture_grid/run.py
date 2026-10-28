@@ -1,4 +1,4 @@
-"""Repeat the original AIPerf SPEED-Bench workload on single-H100 models."""
+"""Repeat the original AIPerf SPEED-Bench workload on H100 deployments."""
 import json
 import os
 from pathlib import Path
@@ -23,7 +23,7 @@ def main() -> None:
     case, variant = sys.argv[1:]
     model_name, revision = MODELS[case]
     model = CACHE / f"models--Qwen--{model_name}" / "snapshots" / revision
-    port = 8800 + 2 * list(MODELS).index(case) + (variant == "4k")
+    port = int(os.environ.get("PORT_BASE", "8800")) + 2 * list(MODELS).index(case) + (variant == "4k")
     directory = ROOT / case / variant
     directory.mkdir(parents=True)
     result = 1
@@ -39,6 +39,13 @@ def run_startup(directory: Path, model: Path, port: int, startup: int) -> None:
     output = directory / f"startup-{startup}"
     output.mkdir()
     command = server_command(directory, model, port)
+    (output / "gpu-ids.txt").write_text(os.environ.get("CUDA_VISIBLE_DEVICES", "") + "\n")
+    with (output / "gpu-topology.txt").open("w") as topology:
+        subprocess.run(["nvidia-smi", "topo", "-m"], stdout=topology, check=True)
+    fields = "index,uuid,pstate,clocks.current.sm,clocks.current.memory,power.draw,power.limit,temperature.gpu,utilization.gpu,memory.used"
+    telemetry_command = ["nvidia-smi", "--query-gpu=timestamp," + fields, "--format=csv", "--loop-ms=1000"]
+    with (output / "gpu-telemetry.csv").open("w") as telemetry_log:
+        telemetry = subprocess.Popen(telemetry_command, stdout=telemetry_log, stderr=subprocess.STDOUT, start_new_session=True)
     (output / "server-command.json").write_text(json.dumps(command))
     (output / "start-ns.txt").write_text(str(time.time_ns()))
     with (output / "server.log").open("w") as log:
@@ -49,9 +56,20 @@ def run_startup(directory: Path, model: Path, port: int, startup: int) -> None:
         info = fetch(port, "server_info?config_format=json", timeout=180)
         (output / "server-info.json").write_bytes(info)
         print(f"READY {directory.parent.name}/{directory.name}/{startup}", flush=True)
-        levels = [256, 128, 64, 32, 8, 1] if startup != 2 else [1, 8, 32, 64, 128, 256]
+        if os.environ.get("STOP_AT_PREEMPTIONS") == "1":
+            peer = "4k" if directory.name == "default" else "default"
+            wait_file(directory.parent / peer / output.name / "server-info.json")
+        levels = concurrency_levels(directory, startup)
+        measured = []
         for concurrency in levels:
             measure(output, model, port, concurrency)
+            measured.append(concurrency)
+            if os.environ.get("STOP_AT_PREEMPTIONS") == "1":
+                pressure = stop_at_pressure(output, concurrency)
+                if startup == 1 and pressure:
+                    break
+        if os.environ.get("STOP_AT_PREEMPTIONS") == "1" and startup == 1:
+            (directory / "levels.json").write_text(json.dumps(measured))
         (output / "exit-code.txt").write_text("0\n")
     except Exception as error:
         (output / "failure.txt").write_text(repr(error))
@@ -59,11 +77,12 @@ def run_startup(directory: Path, model: Path, port: int, startup: int) -> None:
         raise
     finally:
         stop(server)
+        stop(telemetry)
 
 
 def server_command(directory: Path, model: Path, port: int) -> list[str]:
     command = [PYTHON, "-m", "vllm.entrypoints.openai.api_server", "--model", str(model), "--served-model-name", "qwen38",
-               "--language-model-only", "--dtype", "bfloat16", "--tensor-parallel-size", "1", "--gpu-memory-utilization", "0.90",
+               "--language-model-only", "--dtype", "bfloat16", "--tensor-parallel-size", os.environ.get("TP", "1"), "--gpu-memory-utilization", "0.90",
                "--max-model-len", "8192", "--max-num-seqs", "256", "--max-num-batched-tokens", "16384",
                "--enable-prefix-caching", "--kv-cache-dtype", "fp8", "--reasoning-parser", "qwen3",
                "--disable-uvicorn-access-log", "--cudagraph-metrics", "--host", "127.0.0.1", "--port", str(port)]
@@ -98,16 +117,44 @@ def measure(output: Path, model: Path, port: int, concurrency: int) -> None:
     with (cell / "client.log").open("w") as log:
         subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, timeout=240, check=True)
     assert list((cell / "artifacts").rglob("profile_export_aiperf.json")), cell
+    summary = json.loads(next((cell / "artifacts").rglob("profile_export_aiperf.json")).read_text())
+    metrics = json.loads(next((cell / "artifacts").rglob("server_metrics_export.json")).read_text())["metrics"]
+    preemptions = sum(series["stats"]["total"] for series in metrics["vllm:num_preemptions"]["series"])
+    status = dict(preemptions=preemptions, error_rate=summary["request_error_rate"]["avg"])
+    temporary = cell / "status.tmp"
+    temporary.write_text(json.dumps(status))
+    temporary.replace(cell / "status.json")
     print(f"CELL_DONE {cell.relative_to(ROOT)}", flush=True)
+
+
+def concurrency_levels(directory: Path, startup: int) -> list[int]:
+    selected = os.environ.get("CONCURRENCIES")
+    if selected:
+        levels = [int(value) for value in selected.split(",")]
+        (directory / "levels.json").write_text(json.dumps(levels))
+        return levels
+    if os.environ.get("STOP_AT_PREEMPTIONS") == "1":
+        return json.loads((directory / "levels.json").read_text()) if startup > 1 else [1, 8, 32, 64, 128, 256]
+    return [256, 128, 64, 32, 8, 1] if startup != 2 else [1, 8, 32, 64, 128, 256]
+
+
+def stop_at_pressure(output: Path, concurrency: int) -> bool:
+    variant = "4k" if output.parent.name == "default" else "default"
+    peer = output.parents[1] / variant / output.name / f"c{concurrency}" / "status.json"
+    wait_file(peer)
+    own = output / f"c{concurrency}" / "status.json"
+    statuses = [json.loads(path.read_text()) for path in (own, peer)]
+    return any(status["preemptions"] > 0 or status["error_rate"] > 0 for status in statuses)
 
 
 def wait_file(path: Path) -> None:
     deadline = time.monotonic() + 1200
     while not path.exists():
-        if (path.parents[1] / "exit-code.txt").exists():
-            raise RuntimeError(f"Default worker exited before producing configuration: {path}")
+        worker = next(parent for parent in path.parents if parent.name in ("default", "4k"))
+        if (worker / "exit-code.txt").exists():
+            raise RuntimeError(f"Peer worker exited before producing artifact: {path}")
         if time.monotonic() > deadline:
-            raise TimeoutError(f"Missing default configuration: {path}")
+            raise TimeoutError(f"Missing peer artifact: {path}")
         time.sleep(2)
 
 
