@@ -33,8 +33,9 @@
 * When publishing a report (e.g. to my website), only publish the page and the files it links for download. Never publish raw data or log archives, and check every published file for local paths, usernames, hostnames and secrets first.
 * Write generated outputs (reports, plots, CSVs, previews) only to the experiment's git-ignored folders: `results/`, `plots/` and `report/` (one subfolder per variant, e.g. `report/cg/`). Commit only code and docs.
 * When I ask you to plot something, its likely that we already have good plotting code that can be reused in `vllm-scripts`. Please check that before writing new plotting code. If the existing code needs to be extended / generalized, please do so.
+* When I say the perf pareto-curve, I always mean the throughput-latency curve: throughput (tok/s) on the y-axis and inverse TPOT (tok/s/user) on the x-axis.
 * When you reference a commit, please provide a bit of context in parenthesis. e.g. (main on 2026-10-12), or (from PR #1234).
-
+* For smoke testing large benchmarks, we can use a small clone of the model: https://huggingface.co/collections/inference-optimization/small-models this is useful to catch any programming mistakes.
 
 # beads (shared by agents of all providers):
 * Track tasks and durable knowledge in beads (`bd`), so agents of different providers can collaborate. The database lives in the private repo `~/code/priv-knowledge-base/.beads`. `~/code/rh/.beads/redirect` and `vllm-scripts/.beads/redirect` (git-ignored) point there, so `bd` works from both.
