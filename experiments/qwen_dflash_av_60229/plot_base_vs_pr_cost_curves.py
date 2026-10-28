@@ -31,6 +31,8 @@ def main() -> None:
         axis.set(xlabel="Scheduled target tokens", ylabel=args.verify_label)
     axes[0].set_title("Decode graph range")
     axes[1].set_title("Entire token range")
+    for spec in args.vline:
+        mark_tokens(axes[1], spec)
     if args.draft:
         axes[2].set(xlabel="Requests in batch", ylabel="Drafter cost (ms)", title="Drafter")
     for axis in axes:
@@ -47,6 +49,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arm", action="append", help="path:label:color, repeatable")
     parser.add_argument("--draft", action="store_true", help="add a drafter cost panel")
+    parser.add_argument("--vline", action="append", default=[], help="tokens:label, marked on the full-range panel")
     parser.add_argument("--title", default=DEFAULT_TITLE)
     parser.add_argument("--verify-label", default="Raw target cost (ms)")
     parser.add_argument("--output", default=str(ROOT / "qwen-av-tail-profile-20261019/base-vs-pr-cost-curves"))
@@ -61,6 +64,12 @@ def plot_arm(axes: list, spec: str, draft: bool) -> None:
         plot_points(axis, selected, label, color)
     if draft:
         plot_points(axes[2], [(reqs, ms) for reqs, ms in curves["draft_curve"] if reqs >= 1], label, color)
+
+
+def mark_tokens(axis: plt.Axes, spec: str) -> None:
+    tokens, label = spec.split(":", 1)
+    axis.axvline(int(tokens), color="gray", linestyle=":", linewidth=1)
+    axis.text(int(tokens), 0.03, f" {label}", transform=axis.get_xaxis_transform(), color="gray", fontsize=9)
 
 
 def plot_points(axis: plt.Axes, points: list, label: str, color: str) -> None:

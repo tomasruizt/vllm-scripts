@@ -97,6 +97,12 @@ C256_TP ?= 1
 C256_TP2_OUTPUT ?= results/cost-c256-tp2-analysis-20261019
 FULL_CURVE_RUN ?= qwen-full-curve-c256-20261020
 AV_FULL_SWEEP_RUN ?= qwen-av-full-sweep-20261020
+DSV41_RUN ?= dsv41-cost-20261021
+
+.PHONY: fetch-dsv41-results
+fetch-dsv41-results:
+	mkdir -p results/$(DSV41_RUN)
+	rsync -az --exclude vllm-source.tar.gz --exclude '*.whl' --exclude profile_export_raw.jsonl --exclude gpu_telemetry_export.jsonl $(REMOTE):$(REMOTE_RUNS)/$(DSV41_RUN)/ results/$(DSV41_RUN)/
 
 .PHONY: fetch-av-full-sweep-results analyze-av-full-sweep analyze-av-full-sweep-acceptance plot-av-full-sweep
 fetch-av-full-sweep-results:
@@ -252,14 +258,19 @@ fetch-profile:
 	rsync -a $(REMOTE):$(PROF_RUN_DIR)/{traces,server-command.txt,run.log,pyspy-prefill.txt} results/prefill-step-profile/
 
 NATIVE_TABLES_RUN ?= qwen-native-tables-tp2-20261021
+COST_NATIVE ?= results/$(NATIVE_TABLES_RUN)/cost-tables.txt
+COST_MEASURED ?= results/$(FULL_CURVE_RUN)/measured-curves-frozen.json
+COST_PLOT ?= plots/full-curve-sweep/cost-curves
+COST_TITLE ?= AV cost tables, native startup profile vs measured during serving (Qwen3.5-35B-A3B + DFlash k=7, 2x B300 TP2)
 
 .PHONY: fetch-native-tables plot-cost-curves
 fetch-native-tables:
 	$(MAKE) fetch-results RUN_ID=$(NATIVE_TABLES_RUN)
 
 plot-cost-curves:
-	$(LOCAL_PYTHON) plot_base_vs_pr_cost_curves.py --draft --output plots/full-curve-sweep/cost-curves \
-		--arm "results/$(NATIVE_TABLES_RUN)/cost-tables.txt:Native (startup profile):#d97a00" \
-		--arm "results/$(FULL_CURVE_RUN)/measured-curves-frozen.json:Measured (serving):#13706a" \
-		--verify-label "Target forward cost (ms)" \
-		--title "AV cost tables, native startup profile vs measured during serving (Qwen3.5-35B-A3B + DFlash k=7, 2x B300 TP2)"
+	mkdir -p $(dir $(COST_PLOT))
+	$(LOCAL_PYTHON) plot_base_vs_pr_cost_curves.py --draft --output "$(COST_PLOT)" \
+		--arm "$(COST_NATIVE):Native (startup profile):#d97a00" \
+		--arm "$(COST_MEASURED):Measured (serving):#13706a" \
+		--verify-label "Target forward cost (ms)" --vline "6144:max CUDA graph size (6,144)" \
+		--title "$(COST_TITLE)"

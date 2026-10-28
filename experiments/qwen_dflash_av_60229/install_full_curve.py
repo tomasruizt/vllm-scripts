@@ -15,6 +15,9 @@ def main() -> None:
          "        costs = self._full_curve.get_costs(locals())\n"
          "        draft_budget = int(np.argmax(num_tokens_to_estimated_accepted_tokens / costs))\n"
          "        draft_budget = self._full_curve.select(locals())\n"),
+        ('        logger.debug("DSpark cost tables: %s", self.cost_tables)\n',
+         '        logger.debug("DSpark cost tables: %s", self.cost_tables)\n'
+         '        self._full_curve.record_native_tables(self, draft_curve, verify_curve)\n'),
     ])
     update(root / "model_runner.py", [
         ("        self.step_timing.forward_start()\n",

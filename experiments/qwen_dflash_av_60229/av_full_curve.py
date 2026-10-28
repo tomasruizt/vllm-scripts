@@ -13,7 +13,7 @@ import numpy as np
 
 class FullCurveProbe:
     def __init__(self, steps: int) -> None:
-        assert steps == 7
+        self.steps = steps
         from vllm.distributed import get_tensor_model_parallel_rank
 
         self.rank = get_tensor_model_parallel_rank()
@@ -32,6 +32,21 @@ class FullCurveProbe:
         self.timings = (self.root / f"timings-rank{self.rank}.jsonl").open("a", buffering=1)
         self.trace = (self.root / f"decisions-rank{self.rank}.jsonl").open("a", buffering=1)
         atexit.register(self.close)
+
+    def record_native_tables(self, manager: object, draft: list, verify: list) -> None:
+        path = self.root / f"native-costs-rank{self.rank}.json"
+        if path.exists():
+            return
+        self.native_tables = manager.cost_tables
+        data = dict(draft_curve=draft, verify_curve=verify,
+                    draft_table=manager.cost_tables[0].tolist(),
+                    verify_table=manager.cost_tables[1].tolist(), configured_drafter_k=self.steps,
+                    max_num_seqs=manager.req_states.max_num_reqs,
+                    max_num_batched_tokens=manager.req_states.max_num_batched_tokens,
+                    max_total_logits=manager._max_total_logits,
+                    num_bonus_tokens=manager.num_bonus_tokens,
+                    profile_context_len=int(os.environ.get("VLLM_ADAPTIVE_VERIFICATION_PROFILE_CONTEXT_LEN", "8192")))
+        path.write_text(json.dumps(data))
 
     def get_costs(self, values: dict) -> np.ndarray:
         self.refresh()
@@ -56,7 +71,8 @@ class FullCurveProbe:
         if path != self.curve_path:
             raw = Path(path).read_bytes()
             data = json.loads(raw)
-            validate_curves(data, manager.req_states.max_num_reqs, manager.req_states.max_num_batched_tokens - 7)
+            limit = int(os.environ.get("FULL_CURVE_MAX_TARGET_TOKENS", manager.req_states.max_num_batched_tokens - self.steps))
+            validate_curves(data, manager.req_states.max_num_reqs, limit)
             self.digest = hashlib.sha256(raw).hexdigest()
             if self.digest != self.policy["sha256"]:
                 raise RuntimeError("Frozen curve checksum mismatch")
@@ -81,7 +97,14 @@ class FullCurveProbe:
     def select(self, values: dict) -> int:
         budget = int(values["draft_budget"])
         if self.policy["mode"] == "calibrate":
-            return int(self.rng.integers(int(values["max_draft_budget"]) + 1))
+            selected = int(self.rng.integers(int(values["max_draft_budget"]) + 1))
+            if self.policy.get("trace") and self.counts["decisions"] % 20 == 0:
+                self.write(self.trace, dict(phase=self.policy["phase"], time_ns=time.time_ns(),
+                    requests=len(values["req_ids"]), non_draft_tokens=int(values["num_non_draft_tokens_total"]),
+                    capacity=int(values["max_draft_budget"]), budget=selected, native_budget=budget,
+                    expected_tokens=values["num_tokens_to_estimated_accepted_tokens"].tolist(),
+                    native_costs=values["costs"].tolist(), source="calibrate"))
+            return selected
         if self.policy.get("trace"):
             r = len(values["req_ids"])
             self.write(self.trace, dict(phase=self.policy["phase"], time_ns=time.time_ns(),
@@ -165,7 +188,9 @@ def validate_curves(data: dict, requests: int = 256, tokens: int = 16377) -> Non
             raise ValueError(f"Measured {name} does not cover 1..{limit}")
 
 
-def freeze_curves(rows: list[dict], capture_sizes: list[int], minimum: int = 3) -> dict:
+def freeze_curves(rows: list[dict], capture_sizes: list[int], minimum: int = 3,
+                  requests: int = 256, tokens: int = 16377, steps: int = 7,
+                  tensor_parallel_size: int = 2, max_batch_tokens: int = 16384) -> dict:
     groups = {name: defaultdict(list) for name in ("draft", "verify")}
     for row in rows:
         if row.get("rank", 0) != 0:
@@ -179,24 +204,23 @@ def freeze_curves(rows: list[dict], capture_sizes: list[int], minimum: int = 3) 
         groups["verify"][bucket].append(float(row["forward_ms"]))
     curves = {}
     points = {}
-    # DFlash reserves k=7 extra input slots per request before target scheduling.
-    # Hence even R=1 cannot query more than 16384-7 target tokens.
-    for name, limit in (("draft", 256), ("verify", 16377)):
+    # Callers derive the feasible target limit from their pinned scheduler.
+    for name, limit in (("draft", requests), ("verify", tokens)):
         measured = [(n, float(np.median(ms)), len(ms)) for n, ms in sorted(groups[name].items())
                     if len(ms) >= minimum and np.all(np.isfinite(ms)) and min(ms) > 0]
         if not measured or measured[0][0] != 1 or measured[-1][0] != limit:
             domain = (measured[0][0], measured[-1][0]) if measured else None
             raise ValueError(f"Insufficient measured {name} endpoints: {domain}, need 1..{limit}, refusing extrapolation")
         x, y, _ = np.asarray(measured).T
-        knots = np.arange(1, 257) if name == "draft" else np.unique(
+        knots = np.arange(1, requests + 1) if name == "draft" else np.unique(
             np.concatenate((capture_sizes, x[x > max(capture_sizes)])))
         values = np.maximum.accumulate(np.interp(knots, x, y))
         curves[f"{name}_curve"] = np.column_stack((knots, values)).tolist()
         points[name] = measured
-    curves.update(points=points, minimum_samples=minimum, tensor_parallel_size=2,
-                  max_num_seqs=256, max_num_batched_tokens=16384, configured_drafter_k=7,
-                  max_feasible_target_tokens=16377,
+    curves.update(points=points, minimum_samples=minimum, tensor_parallel_size=tensor_parallel_size,
+                  max_num_seqs=requests, max_num_batched_tokens=max_batch_tokens, configured_drafter_k=steps,
+                  max_feasible_target_tokens=tokens,
                   method="Real-batch CUDA event medians, interpolated missing knots, native monotone envelope and graph buckets",
                   limitations="Context/composition averaged, excludes CPU and sampling overhead, not a perfect oracle")
-    validate_curves(curves)
+    validate_curves(curves, requests, tokens)
     return curves

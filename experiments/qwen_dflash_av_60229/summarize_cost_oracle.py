@@ -66,16 +66,16 @@ def load_metrics(path: Path, *, phase_name: str | None = None) -> dict:
     source = path.parents[3]
     phase = path.parents[1].name
     metric = server["metrics"]
+    drafts = build_report.server_total(metric, "vllm:spec_decode_num_drafts") if "vllm:spec_decode_num_drafts" in metric else 0
     row = dict(suite=source.name, phase=phase, concurrency=config["concurrency"],
                scope="fixed_length_cost_calibration" if phase.startswith("burst") else "natural_eos",
-               requests_target=config["requests"], requests=len(done),
+               requests_target=config.get("requests") or len(requests), requests=len(done),
                cancelled=sum(r["metadata"].get("was_cancelled", False) for r in requests),
                error_rate=data["request_error_rate"]["avg"],
                preemptions=build_report.server_total(metric, "vllm:num_preemptions"),
                server_running_p50=build_report.server_stat(metric, "vllm:num_requests_running", "p50"),
                server_waiting_p50=build_report.server_stat(metric, "vllm:num_requests_waiting", "p50"),
-               acceptance_length=1 + build_report.server_total(metric, "vllm:spec_decode_num_accepted_tokens")
-               / build_report.server_total(metric, "vllm:spec_decode_num_drafts"),
+               acceptance_length=1 + build_report.server_total(metric, "vllm:spec_decode_num_accepted_tokens") / drafts if drafts else None,
                aiperf_throughput=data["output_token_throughput"]["avg"],
                window_start_ns=sorted(r["metadata"]["request_end_ns"] for r in done)[min(config["concurrency"], len(done)) - 1],
                window_end_ns=max(r["metadata"]["request_start_ns"] for r in done),

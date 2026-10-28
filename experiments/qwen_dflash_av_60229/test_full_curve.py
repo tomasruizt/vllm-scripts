@@ -48,6 +48,7 @@ class FullCurveTests(unittest.TestCase):
             manager.cost_tables = (np.full(257, 10.), np.full(16385, 20.))
             manager.set_cost_curves = lambda *args: setattr(manager, "cost_tables", (np.ones(257), np.arange(16385) + 2))
             probe = FullCurveProbe.__new__(FullCurveProbe)
+            probe.steps = 7
             probe.refresh = lambda: None
             probe.policy = dict(mode="measured", phase="test", curve=str(path), sha256=digest)
             probe.curve_path = None
@@ -71,6 +72,15 @@ class FullCurveTests(unittest.TestCase):
             values["num_non_draft_tokens_total"] = 16384
             with self.assertRaises(RuntimeError):
                 probe.get_costs(values)
+
+    def test_dspark_full_target_domain_has_no_dflash_slot_reservation(self) -> None:
+        rows = [dict(num_reqs=r, num_tokens=t, drafter_ms=1, forward_ms=2)
+                for r, t in ((1, 1), (256, 16384)) for _ in range(3)]
+        curves = freeze_curves(rows, [1, 6144], tokens=16384, tensor_parallel_size=4)
+        validate_curves(curves, 256, 16384)
+        self.assertEqual(curves["tensor_parallel_size"], 4)
+        self.assertEqual(curves["max_feasible_target_tokens"], 16384)
+        self.assertEqual(curves["verify_curve"][-1][0], 16384)
 
 
 if __name__ == "__main__":
