@@ -1,0 +1,54 @@
+diff --git a/tests/v1/e2e/spec_decode/acceptance_rates/xpress/test_xpress.py b/tests/v1/e2e/spec_decode/acceptance_rates/xpress/test_xpress.py
+index a2097e90b8..527044ddef 100644
+--- a/tests/v1/e2e/spec_decode/acceptance_rates/xpress/test_xpress.py
++++ b/tests/v1/e2e/spec_decode/acceptance_rates/xpress/test_xpress.py
+@@ -1,6 +1,8 @@
+ # SPDX-License-Identifier: Apache-2.0
+ # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+ 
++from dataclasses import replace
++
+ import pytest
+ 
+ from vllm import SamplingParams
+@@ -34,7 +36,19 @@ QWEN3_XPRESS = ArgsTest(
+ )
+ 
+ 
+-@pytest.mark.parametrize("args", [QWEN3_XPRESS], ids=["qwen3_xpress"])
++# Adaptive verification shortens the acceptance length a bit,
++# but GSM8K performance should stay constant.
++QWEN3_XPRESS_AV = replace(
++    QWEN3_XPRESS,
++    enable_adaptive_verification=True,
++    expected_acceptance_rate=0.375,
++    expected_acceptance_len=6.5,
++)
++
++
++@pytest.mark.parametrize(
++    "args", [QWEN3_XPRESS, QWEN3_XPRESS_AV], ids=["qwen3_xpress", "qwen3_xpress_av"]
++)
+ def test_xpress_correctness_and_acceptance_rate(args: ArgsTest, vllm_runner):
+     """Guard GSM8K accuracy and acceptance metrics for XPress models."""
+     assert_draft_model_correctness(args, vllm_runner)
+diff --git a/tests/v1/e2e/spec_decode/draft_model/test_draft_model.py b/tests/v1/e2e/spec_decode/draft_model/test_draft_model.py
+index 177734672a..23259ad6e1 100644
+--- a/tests/v1/e2e/spec_decode/draft_model/test_draft_model.py
++++ b/tests/v1/e2e/spec_decode/draft_model/test_draft_model.py
+@@ -51,6 +51,7 @@ class ArgsTest:
+     num_prompts: int = 200
+     max_num_seqs: int = 100
+     enable_prefix_caching: bool | None = None
++    enable_adaptive_verification: bool = False
+     chat_template_kwargs: dict | None = None
+     reject_full_acceptance: bool = False
+     engine_kwargs: dict[str, Any] = field(default_factory=dict)
+@@ -441,6 +442,7 @@ def vllm_runner_kwargs(args: ArgsTest) -> dict[str, Any]:
+             "enforce_eager": args.enforce_eager,
+             "draft_tensor_parallel_size": args.draft_tensor_parallel_size,
+             "parallel_drafting": args.parallel_drafting,
++            "enable_adaptive_verification": args.enable_adaptive_verification,
+         },
+         max_num_seqs=args.max_num_seqs,
+         max_model_len=args.max_model_len,
