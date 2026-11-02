@@ -1,5 +1,6 @@
 """Plot matched AV cost policies using the native AIPerf sweep results."""
 
+import argparse
 import json
 import os
 from pathlib import Path
@@ -18,8 +19,14 @@ from reporting.plots import save_figure
 
 
 def main() -> None:
-    source = Path("results/qwen-av-full-sweep-20261020/analysis/metrics.parquet")
-    output = Path("plots/full-curve-sweep")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, default=Path("results/qwen-av-full-sweep-20261020/analysis/metrics.parquet"))
+    parser.add_argument("--output", type=Path, default=Path("plots/full-curve-sweep"))
+    parser.add_argument("--title", default="Qwen3.5-35B-A3B + DFlash · 2× B300 (TP2) · k=7")
+    parser.add_argument("--auto-limits", action="store_true")
+    args = parser.parse_args()
+    source = args.source
+    output = args.output
     output.mkdir(parents=True, exist_ok=True)
     rows = query(f"SELECT mode,concurrency,throughput,1000/mean_tpot_ms interactivity FROM '{source}' WHERE included AND valid")
     medians = query(f"SELECT mode,concurrency,count(*) runs,median(throughput) throughput,1000/median(mean_tpot_ms) interactivity FROM '{source}' WHERE included AND valid GROUP BY mode,concurrency ORDER BY mode,concurrency")
@@ -30,10 +37,10 @@ def main() -> None:
     draw_policy(ax, rows, medians, "measured", "Measured AV cost curve", "#0f766e", "D")
     label_concurrencies(ax, medians)
     ax.set(xlabel="Interactivity (tok/s/user, 1000 / mean TPOT in ms)",
-           ylabel="Steady-state output throughput (tok/s)", xlim=(0, 660), ylim=(0, 20500))
+           ylabel="Steady-state output throughput (tok/s)",
+           xlim=(0, None if args.auto_limits else 660), ylim=(0, None if args.auto_limits else 20500))
     ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:,.0f}"))
-    ax.set_title("Adaptive verification: native versus measured costs\n"
-                 "Qwen3.5-35B-A3B + DFlash · 2× B300 (TP2) · k=7", loc="left", pad=16)
+    ax.set_title("Adaptive verification: native versus measured costs\n" + args.title, loc="left", pad=16)
     ax.grid(alpha=.18)
     ax.spines[["top", "right"]].set_visible(False)
     ax.legend(loc="upper right", frameon=False)

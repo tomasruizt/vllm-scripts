@@ -596,3 +596,50 @@ At c1, reduced AL accompanies a slowdown, so the trade-off is unfavorable here. 
 All 72 AL values recompute exactly from accepted-token/request-step counters. Position totals match accepted-token totals, and all 504 position survival points are valid and non-increasing within each run. These position probabilities include AV truncation, they are not conditional acceptance probabilities for verified tokens. The proposal counter reports exactly seven drafts per attempt in every run because the frozen scheduler counts its original scheduled drafts before worker-side AV compaction. It cannot establish the actual verified budget or the acceptance rate conditional on verification. This sweep recorded no executed-budget traces, so the budget mechanism remains unconfirmed.
 
 AL counters cover the whole client cell, whereas throughput uses its steady window. Duration-bounded runs also consume different-length prefixes of the same seeded prompt order, so these aggregates are not a matched-prefix acceptance test or an exact throughput decomposition. Nothing here establishes an improvement in acceptance-estimator accuracy. Rebuild with `make analyze-av-full-sweep-acceptance`. [AL comparison](results/qwen-av-full-sweep-20261020/analysis/acceptance-comparison.csv), [counter validation](results/qwen-av-full-sweep-20261020/analysis/acceptance-validation.csv), long-format `acceptance-runs.parquet` and `acceptance-positions.parquet` alongside the sweep metrics. No new GPU runs.
+
+## 2026-11-02: DeepSeek K5 measured-cost comparison (rh-dno, collected October 23)
+
+**Measured costs give modest gains at c8 and c256, with changes within ±1% elsewhere.** This does not reproduce Qwen's large intermediate-concurrency gains. Both arms use DSpark K5 (the checkpoint's trained width), unchanged acceptance estimation, one persistent TP4 + EP server on B300 GPUs 0/3/4/7, and alternating native/measured order per repeat.
+
+| c | Native tok/s | Measured tok/s | Change | Native TPOT ms | Measured TPOT ms | Native AL | Measured AL |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 315 | 316 | +0.33% | 2.937 | 2.949 | 2.159 | 2.123 |
+| 8 | 1,866 | 1,953 | +4.68% | 3.815 | 3.625 | 2.584 | 2.503 |
+| 32 | 4,761 | 4,737 | −0.50% | 5.952 | 5.963 | 2.537 | 2.467 |
+| 64 | 6,790 | 6,765 | −0.37% | 8.200 | 8.183 | 2.514 | 2.347 |
+| 128 | 8,877 | 8,805 | −0.80% | 11.854 | 11.807 | 2.403 | 2.402 |
+| 256 | 10,879 | 11,266 | +3.56% | 17.932 | 17.459 | 2.134 | 2.377 |
+
+Values are medians and throughput changes are ratios of medians. All six matched-repeat gains are positive at c8 (+2.79% to +6.11%) and c256 (+1.38% to +5.80%). Other levels have both positive and negative paired changes. These six-repeat ranges are not confidence intervals.
+
+Post-hoc significance analysis (six repeat-level pairs per concurrency, two-sided one-sample t-test on paired percentage gains, Holm correction across six concurrency levels): c8 mean paired gain +5.06%, pointwise 95% CI +3.73%..+6.39%, adjusted p=0.00114. C256 mean paired gain +2.67%, CI +0.96%..+4.38%, adjusted p=0.0508, borderline (log-ratio t-test adjusted p=0.0471). No other concurrency is significant. These paired-mean estimates differ from the ratios of medians in the table. An exact paired sign-flip sensitivity test gives unadjusted p=0.03125 and Holm-adjusted p=0.1875 for both c8 and c256, so neither passes that sensitivity check after multiplicity correction. Six pairs from one persistent server, deterministic AB/BA order and potentially correlated time effects limit the strength of a distribution-robust claim. [Full statistics](results/dsv41-k5-full-20261023-r2/analysis/significance.json).
+
+- 76 collected comparison cells, 72 included (six per policy/concurrency), four replaced duration pilots. All included cells pass, 28,175 completed requests, minimum steady window 23.93 s.
+- Calibration: 26,571 K5 serving-timing rows from two repeats at c1/c8/c32/c128/c256, plus 114 new timing rows during real-text tail calibration/flush. Original failed-run artifacts retained and reused only on the same physical GPUs/configuration.
+- Frozen curve: 256 draft knots, 104 target knots, target coverage 1..16,384, minimum three samples per measured anchor, no native fallback. SHA256 `f8e0ade946cecd8f956469caba83ed92767f73de6ba6c0885d776249ee0275ca`. All 304 comparison-phase TP-rank audits pass, including excluded pilots.
+- The small DSpark clone smoke test passed calibration, tail benchmarking, freezing, switching and metric collection before the full-model restart. Both full-job exit codes are zero.
+- Model `deepseek-ai/DeepSeek-V4.1-Flash-1017` revision `1bae0e1088993b9b82de08f59de5be5a34e42170`, vLLM `db3b0f0fae4bc98492b3863685e541e62bc59576` (main on 2026-10-21), default profiling context 8,192.
+
+The measured curve averages context/composition, excludes CPU/sampling overhead and is not a perfect-cost oracle. AL comes from whole-cell server counters, whereas throughput uses steady windows. No performance-run executed-budget trace was collected. The earlier exploratory K7 calibration (10,472 timings, 168/417 sampled counterfactual choices changed) is separate and is not used in this K5 curve.
+
+Reproduction (set `MODEL` to the cached snapshot of the exact model revision above, use the pinned instrumented environment and experiment helper on `PYTHONPATH`):
+
+```bash
+export VLLM_USE_V2_MODEL_RUNNER=1 OMP_NUM_THREADS=1
+unset VLLM_ADAPTIVE_VERIFICATION_PROFILE_CONTEXT_LEN
+CG_SIZES=$(printf '%s\n' 1 2 4 $(seq 8 8 248) $(seq 256 16 1024) $(seq 1280 256 4096) 5120 6144 | paste -sd,)
+python -m vllm.entrypoints.openai.api_server --model "$MODEL" --served-model-name deepseek --language-model-only \
+  --tensor-parallel-size 4 --enable-expert-parallel --max-model-len 32768 --max-num-seqs 256 \
+  --max-num-batched-tokens 16384 --gpu-memory-utilization 0.92 --no-enable-prefix-caching \
+  --disable-uvicorn-access-log --host 127.0.0.1 --port 8681 \
+  --speculative-config '{"method":"dspark","num_speculative_tokens":5,"enable_adaptive_verification":true}' \
+  --compilation-config '{"cudagraph_capture_sizes":['"$CG_SIZES"']}'
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_CACHE=/data/engine/hub_cache \
+  ~/aiperf-venv/bin/aiperf profile --config "$CELL_CONFIG"
+```
+
+Each cell config uses AIPerf 0.13, SPEED throughput-1K real prompts shuffled with seed 42, streaming chat, server token counts, temperature 0, `thinking: false`, natural EOS, maximum output 1,024, 30 s submissions and 120 s grace. C128/C256 replacement pilots extend submission duration to obtain valid steady windows. The controller switches the control file before each individual cell, caches/restores native tables and audits all four ranks.
+
+Data: [run-level Parquet](results/dsv41-k5-full-20261023-r2/analysis/metrics.parquet), [median/min/max summary](results/dsv41-k5-full-20261023-r2/analysis/summary.parquet), [comparison CSV](results/dsv41-k5-full-20261023-r2/analysis/comparison.csv), [exact example cell config](results/dsv41-k5-full-20261023-r2/cells/r1-c8-native/config.yaml), [throughput/interactivity figure, all 72 points at alpha 0.25](plots/dsv41-k5-full-20261023-r2/throughput-interactivity.png), [installed cost curves](plots/dsv41-k5-full-20261023-r2/cost-curves.png). Nothing published.
+
+Fetch with `make fetch-dsv41-results DSV41_RUN=dsv41-k5-full-20261023-r2`, summarize with `~/.venv/bin/python summarize_av_full_sweep.py results/dsv41-k5-full-20261023-r2`, query the resulting Parquet directly with DuckDB. Plot with `~/.venv/bin/python plot_av_full_sweep.py --source results/dsv41-k5-full-20261023-r2/analysis/metrics.parquet --output plots/dsv41-k5-full-20261023-r2 --title 'DeepSeek-V4.1-Flash-1017 + DSpark, TP4 + EP, K5' --auto-limits`.

@@ -3,12 +3,13 @@
 import json
 from pathlib import Path
 import subprocess
+import sys
 
 from fit_cost_curves import write_parquet
 
 
 def main() -> None:
-    root = Path("results/qwen-av-full-sweep-20261020")
+    root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("results/qwen-av-full-sweep-20261020")
     output = root / "analysis"
     output.mkdir(exist_ok=True)
     if (root / "metrics.jsonl").exists():
@@ -28,7 +29,9 @@ def main() -> None:
         COPY (SELECT mode, concurrency, count(*) runs, bool_and(valid AND window_s>=15) all_valid,
             min(window_s) min_window_s, median(throughput) throughput,
             min(throughput) min_throughput, max(throughput) max_throughput,
-            median(mean_tpot_ms) tpot_ms, median(acceptance_length) acceptance_length
+            median(mean_tpot_ms) tpot_ms, min(mean_tpot_ms) min_tpot_ms, max(mean_tpot_ms) max_tpot_ms,
+            median(acceptance_length) acceptance_length,
+            min(acceptance_length) min_acceptance_length, max(acceptance_length) max_acceptance_length
             FROM '{output}/metrics.parquet' WHERE included GROUP BY mode,concurrency)
             TO '{output}/summary.parquet' (FORMAT PARQUET);
         COPY (SELECT n.concurrency, n.runs native_runs, m.runs measured_runs,
