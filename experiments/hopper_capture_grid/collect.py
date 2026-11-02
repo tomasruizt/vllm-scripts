@@ -4,8 +4,8 @@ from pathlib import Path
 import re
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "qwen_dflash_av_60229"))
-from build_report import server_stat, server_total, steady_window
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from benchmarking.aiperf import read_artifacts, server_stat, server_total, steady_window
 
 
 def main() -> None:
@@ -29,10 +29,11 @@ def main() -> None:
 def load_cell(path: Path, root: Path) -> dict:
     case, variant, startup, cell = path.relative_to(root).parts[:4]
     directory = root / case / variant / startup
-    data = json.loads(path.read_text())
-    server = json.loads(path.with_name("server_metrics_export.json").read_text())
-    records = [json.loads(line) for line in path.with_name("profile_export.jsonl").read_text().splitlines()]
-    done = [record for record in records if "output_sequence_length" in record.get("metrics", {})]
+    artifacts = read_artifacts(path)
+    data = artifacts.summary
+    server = artifacts.server
+    records = artifacts.requests
+    done = artifacts.completed
     concurrency = int(cell.removeprefix("c"))
     metrics = server["metrics"]
     log = (directory / "server.log").read_text()

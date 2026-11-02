@@ -5,7 +5,8 @@ from pathlib import Path
 import subprocess
 import sys
 
-from fit_cost_curves import write_parquet
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from benchmarking.artifacts import write_parquet
 
 
 def main() -> None:

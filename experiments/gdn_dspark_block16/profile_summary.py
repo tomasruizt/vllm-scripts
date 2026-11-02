@@ -9,8 +9,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from statistics import mean, median
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "qwen_dflash_av_60229"))
-from fit_cost_curves import write_parquet
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from benchmarking.artifacts import write_parquet
 
 
 def main() -> None:

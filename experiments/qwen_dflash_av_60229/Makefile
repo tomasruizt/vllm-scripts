@@ -218,9 +218,10 @@ help:
 	echo 'Override REMOTE, RUN_ID, REMOTE_RUNS, or DUCKDB as needed.'
 
 report:
-	ssh -T -o BatchMode=yes $(REMOTE) 'mkdir -p "$(REMOTE_BUILDER_DIR)/reporting" "$(REMOTE_BUILDER_DIR)/experiments/qwen_dflash_av_60229"'
+	ssh -T -o BatchMode=yes $(REMOTE) 'mkdir -p "$(REMOTE_BUILDER_DIR)/reporting" "$(REMOTE_BUILDER_DIR)/benchmarking" "$(REMOTE_BUILDER_DIR)/experiments/qwen_dflash_av_60229"'
 	scp -q build_report.py $(REMOTE):$(REMOTE_BUILDER_DIR)/experiments/qwen_dflash_av_60229/build_report.py
-	scp -q ../../reporting/plots.py $(REMOTE):$(REMOTE_BUILDER_DIR)/reporting/plots.py
+	scp -q ../../reporting/*.py $(REMOTE):$(REMOTE_BUILDER_DIR)/reporting/
+	scp -q ../../benchmarking/*.py $(REMOTE):$(REMOTE_BUILDER_DIR)/benchmarking/
 	scp -q ../../reporting/b200-theme.css $(REMOTE):$(REMOTE_BUILDER_DIR)/reporting/b200-theme.css
 	ssh -T -o BatchMode=yes $(REMOTE) 'rm -rf "$(REMOTE_REPORT_DIR)" && "$(REMOTE_PYTHON)" "$(REMOTE_BUILDER_DIR)/experiments/qwen_dflash_av_60229/build_report.py" --source "$(REMOTE_RUN_DIR)" --output "$(REMOTE_REPORT_DIR)" $(REPORT_ARGS)'
 	rm -rf "$(REPORT_STAGE)"

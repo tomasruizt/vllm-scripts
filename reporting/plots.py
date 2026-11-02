@@ -1,11 +1,12 @@
 """Plotting and export primitives shared by benchmark experiments."""
 
-import csv
 from collections import defaultdict
 from pathlib import Path
 from statistics import mean
 
 import matplotlib.pyplot as plt
+
+from benchmarking.artifacts import write_csv
 
 
 def aggregate_concurrency(rows, metrics):
@@ -40,13 +41,6 @@ def is_pareto(point, rows, x, y):
         and (other[x] > point[x] or other[y] > point[y])
         for other in rows
     )
-
-
-def write_csv(rows, path):
-    with Path(path).open("w", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
-        writer.writeheader()
-        writer.writerows(rows)
 
 
 def save_figure(fig, stem, dpi=180):

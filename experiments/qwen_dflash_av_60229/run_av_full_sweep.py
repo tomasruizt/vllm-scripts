@@ -11,7 +11,8 @@ from urllib.request import Request, urlopen
 
 import yaml
 
-import build_report
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from benchmarking import aiperf as build_report
 
 
 CONCURRENCIES = [1, 8, 32, 64, 128, 256]

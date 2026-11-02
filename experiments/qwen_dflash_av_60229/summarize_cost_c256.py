@@ -6,13 +6,15 @@ from hashlib import sha256
 import json
 import os
 from pathlib import Path
+import sys
 import re
 import shutil
 from statistics import median
 import subprocess
 
 import build_report
-from fit_cost_curves import write_parquet
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from benchmarking.artifacts import write_parquet
 from summarize_cost_oracle import load_metrics
 
 

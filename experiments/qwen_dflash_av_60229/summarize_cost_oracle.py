@@ -6,9 +6,12 @@ from hashlib import sha256
 import json
 import os
 from pathlib import Path
+import sys
 
 import build_report
-from fit_cost_curves import write_parquet
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from benchmarking.artifacts import write_parquet
+from benchmarking.aiperf import read_artifacts
 
 
 def main() -> None:
@@ -53,15 +56,11 @@ def main() -> None:
 
 
 def load_metrics(path: Path, *, phase_name: str | None = None) -> dict:
-    data = json.loads(path.read_text())
-    server = json.loads(path.with_name("server_metrics_export.json").read_text())
-    requests = [json.loads(line) for line in path.with_name("profile_export.jsonl").read_text().splitlines()]
-    if phase_name is not None:
-        if len(data["input_config"]["phases"]) > 1:
-            phase_dir = path.parent / "phases" / phase_name
-            data = json.loads((phase_dir / "profile_export_aiperf.json").read_text())
-        requests = [r for r in requests if r["metadata"]["phase_name"] == phase_name]
-    done = [row for row in requests if "output_sequence_length" in row.get("metrics", {})]
+    artifacts = read_artifacts(path, phase_name=phase_name)
+    data = artifacts.summary
+    server = artifacts.server
+    requests = artifacts.requests
+    done = artifacts.completed
     config = next(p for p in data["input_config"]["phases"] if p["name"] == "profiling")
     source = path.parents[3]
     phase = path.parents[1].name

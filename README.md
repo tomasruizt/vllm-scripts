@@ -1,5 +1,7 @@
 # Benchmarking For Speculative Decoding on vLLM V1
 
+For new experiments and analysis, start with [the shared infrastructure](benchmarking/README.md) and [repository agent instructions](AGENTS.md). Reuse the AIPerf metrics, artifact exports and report builders before adding new helpers.
+
 The benchmarking scripts (SLURM files) are generated programmatically using the `create_slurm_files.py` script.
 They are created in the `generated-lrz/` directory.
 LRZ is the cluster I run the benchmarks on.

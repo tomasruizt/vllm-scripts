@@ -3,9 +3,11 @@
 import hashlib
 import json
 from pathlib import Path
+import sys
 import subprocess
 
-from fit_cost_curves import write_parquet
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from benchmarking.artifacts import write_parquet
 from summarize_cost_oracle import load_metrics
 
 

@@ -2,6 +2,7 @@
 
 ## Reuse first
 
+- Read `../benchmarking/README.md` before adding metric parsing or export code. Reuse `benchmarking.aiperf` and `benchmarking.artifacts`, and use `aiperf_report.py` for reports following the existing AV off/on SPEED-Bench protocol.
 - Read the existing experiment's generator and template before changing its report.
 - Use `plots.py` for series plotting, CSV exports, and PNG/SVG exports. Keep experiment-specific metric parsing in its analysis directory.
 - `b200-theme.css` contains the shared rules copied from the original B200 report. Reuse it rather than inventing another theme. Embed it in generated HTML so reports open offline.

@@ -7,9 +7,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "qwen_dflash_av_60229"))
-
-import build_report
-from fit_cost_curves import write_parquet
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from benchmarking.artifacts import write_csv, write_parquet
 from summarize_cost_oracle import load_metrics
 
 
@@ -27,7 +26,7 @@ def main() -> None:
     rows = [row for source in sources for row in collect_metrics(source)]
     if args.extra_source:
         write_parquet(rows, output / "metrics.parquet")
-        build_report.write_csv(
+        write_csv(
             [
                 {key: value for key, value in row.items() if not key.endswith("_json")}
                 for row in rows
@@ -90,7 +89,7 @@ def collect_metrics(source: Path) -> list[dict]:
     rows = [load_cell(path, source) for path in paths]
     if rows:
         write_parquet(rows, source / "metrics.parquet")
-        build_report.write_csv(
+        write_csv(
             [
                 {key: value for key, value in row.items() if not key.endswith("_json")}
                 for row in rows

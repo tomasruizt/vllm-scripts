@@ -6,9 +6,12 @@ import csv
 import json
 import os
 from pathlib import Path
-import subprocess
+import sys
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from benchmarking.artifacts import write_parquet
 
 
 def main() -> None:
@@ -117,16 +120,6 @@ def nonnegative_fit(design: np.ndarray, target: np.ndarray) -> np.ndarray:
         if np.max(np.abs(coef - old)) < 1e-9:
             break
     return coef
-
-
-def write_parquet(rows: list[dict], output: Path) -> None:
-    staging = output.with_suffix(".jsonl")
-    staging.write_text("".join(json.dumps(row) + "\n" for row in rows))
-    source_sql = str(staging).replace("'", "''")
-    output_sql = str(output).replace("'", "''")
-    query = f"COPY (SELECT * FROM read_json_auto('{source_sql}', maximum_object_size=268435456)) TO '{output_sql}' (FORMAT PARQUET, COMPRESSION ZSTD)"
-    subprocess.run(["duckdb", "-c", query], check=True)
-    staging.unlink()
 
 
 def compare_startup(points: list[tuple[int, int, float, int]], curves: dict, source: Path) -> list[dict]:
