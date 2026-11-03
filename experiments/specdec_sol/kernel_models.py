@@ -282,7 +282,8 @@ class Model:
             ("expert_gemm", [(m, part) for m in moes for part in ["w13", "w2"]], self.expert_gemm),
             ("attention", attention, self.attention),
             ("kv_write", attention, lambda c: self.traffic(0, c["kv_bytes_per_token"] * self.tokens, "new KV stored once") if self.tokens is not None else unsupported("kv_write", "execution token count unavailable")),
-            ("ssm_update", states, lambda c: estimate("stateful", {"state_bytes": c["ssm_bytes"], "requests": self.reqs}, self.hardware)),
+            ("ssm_update", states, lambda c: estimate("stateful", {"state_bytes": c["ssm_bytes"], "requests": self.reqs,
+                                                                   "checkpoint_write_bytes": c["ssm_bytes"] * self.reqs}, self.hardware)),
             ("conv", states, lambda c: self.traffic(c["conv_bytes"] * self.reqs, 0, "state-read reference only, convolution work and persistence unspecified")),
             ("activation_gemm", [None], lambda _: self.activation_gemm()),
         ]
