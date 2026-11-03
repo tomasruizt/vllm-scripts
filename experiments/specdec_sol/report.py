@@ -21,11 +21,11 @@ sys.path.insert(0, str(HERE))
 
 from benchmarking.aiperf import server_total  # noqa: E402
 from reporting.model_tabs import model_tabs  # noqa: E402
-from sol import breakdown_table, has_kernel_sol, sol_floor, waterfall_rows  # noqa: E402
+from sol import breakdown_table, has_kernel_sol, host_gaps, sol_floor, stall_summary, waterfall_rows  # noqa: E402
 
 THEME = (REPO / "reporting/b200-theme.css").read_text()
 NO_KERNEL_SOL_NOTE = (
-    '<p class="metric-note">No per-kernel SOL for this run: no ncu data and no layer inventory from the probe. '
+    '<p class="metric-note">No per-kernel semantic or counter reference for this run. '
     "The timeline is uncolored, and the tables show only measured time.</p>"
 )
 COMPONENT_COLORS = {  # by label prefix, so a component keeps its color when others are missing
@@ -96,7 +96,7 @@ if (!window.detailTip) {
     view.measureBox.setAttribute("x", x);
     view.measureBox.setAttribute("width", w);
     view.measureText.setAttribute("x", x + w / 2);
-    view.measureText.textContent = `${(b - a).toFixed(1)} µs · ${view.selectedKernels.length} kernels`;
+    view.measureText.textContent = `${(b - a).toFixed(1)} µs · ${view.selectedKernels.length} kernels · cmd+c to copy`;
   };
   const timeAt = (view, event) => Math.max(0, Math.min(view.span, (event.clientX - view.plot.getBoundingClientRect().left) / view.scale));
   const setupMeasure = (view) => {
@@ -305,18 +305,25 @@ def overview(run_dir: Path, steady: pd.DataFrame, steady_ops: pd.DataFrame, meta
     command = json.loads((run_dir / "nsys/command.json").read_text())
     server = command[command.index("-m") - 1 :]
     total = steady.cost_ns.mean() / 1e3
+    median = steady.cost_ns.median() / 1e3
     floor = sol_floor(steady_ops, steady)
+    reference_run = reference(run_dir / "nsys/aiperf-reference")
+    if meta.get("shape_diagnostic"):
+        reference_run = {"text": "Shape diagnostic: graph construction was captured for metadata. Annotation overhead is present, the unprofiled reference run was omitted."}
     items = [
-        f"Steady steps: {len(steady)}, on average {steady.reqs.mean():.1f} requests x {steady.tokens.mean():.1f} tokens, "
-        f"{steady.context.mean() / steady.reqs.mean():.0f} context tokens per request",
-        f"Mean step cost: {total:.1f} µs (median {steady.cost_ns.median() / 1e3:.1f} µs)"
-        + (f", <b>{total / floor[1]:.2f}x {floor[0]}</b> ({floor[1]:.1f} µs)" if floor else ""),
+        batch_line(steady),
+        step_cost_line(total, median, floor),
+        *stall_item(steady, floor, host_gaps(steady_ops)),
         analytic_line(steady),
-        reference(run_dir / "nsys/aiperf-reference"),
+        reference_run["text"],
+        *speculation_items(steady, reference_run, total),
         f"GPU: {html.escape(hw['gpu'])}, peak DRAM BW {hw['bw'] / 1e12:.2f} TB/s",
         f"vLLM: {html.escape(run['commit'])} ({html.escape(run['date'])})",
         "Checks: " + ", ".join(f"{k}: {v}" for k, v in meta["checks"].items()),
     ]
+    if "analytic_assumptions" in steady:
+        assumptions = sorted({item for value in steady.analytic_assumptions.dropna() for item in json.loads(value)})
+        items.append("Estimate assumptions: " + ". ".join(assumptions))
     items = "".join(f"<li>{item}</li>" for item in items)
     command_html = html.escape(shell_lines(server))
     return f'<div class="card"><ul>{items}</ul><details><summary>vllm serve command</summary><pre>{command_html}</pre></details></div>'
@@ -341,21 +348,73 @@ def analytic_line(steady: pd.DataFrame) -> str:
     return f"Analytic SOL: target {target:.1f} µs, draft {draft:.1f} µs ({steady.draft_forwards.mean():.1f} draft forwards per step)"
 
 
-def reference(artifacts: Path) -> str:
+def reference(artifacts: Path) -> dict:
     """The AIPerf run before the capture. Acceptance length only when the server exports spec-decode counters."""
     exports = list(artifacts.rglob("profile_export_aiperf.json"))
     if not exports:
-        return "Reference run without capture: missing"
+        return {"text": "Reference run without capture: missing"}
     export = json.loads(exports[0].read_text())
     text = f"Reference run without capture: TPOT {export['inter_token_latency']['avg']:.3f} ms, "
     text += f"{export['output_token_throughput']['avg']:.0f} output tok/s"
+    result = {"text": text, "tpot_ms": float(export["inter_token_latency"]["avg"])}
     metrics_files = list(artifacts.rglob("server_metrics_export.json"))
     metrics = json.loads(metrics_files[0].read_text())["metrics"] if metrics_files else {}
     if "vllm:spec_decode_num_drafts" not in metrics:
-        return text
+        return result
     accepted = server_total(metrics, "vllm:spec_decode_num_accepted_tokens")
     drafts = server_total(metrics, "vllm:spec_decode_num_drafts")
-    return text + f", acceptance length {1 + accepted / drafts:.2f}"
+    result["acceptance"] = 1 + accepted / drafts
+    result["text"] = text + f", acceptance length {result['acceptance']:.2f}"
+    return result
+
+
+def batch_line(steady: pd.DataFrame) -> str:
+    """The batch shape. `tokens` is the scheduled verify batch, not the tokens the step generates."""
+    per_request = steady.tokens.sum() / steady.reqs.sum()
+    return (f"Steady steps: {len(steady)}, on average {steady.reqs.mean():.1f} requests x {per_request:.1f} scheduled tokens per request "
+            f"({per_request - 1:.1f} drafts + 1 verify), {steady.context.mean() / steady.reqs.mean():.0f} context tokens per request")
+
+
+def step_cost_line(total: float, median: float, floor: tuple[str, float] | None) -> str:
+    text = f"Mean step cost: {total:.1f} µs (median {median:.1f} µs)"
+    if not floor:
+        return text
+    return text + f", <b>{total / floor[1]:.2f}x {floor[0]}</b> ({floor[1]:.1f} µs), median step {median / floor[1]:.2f}x"
+
+
+def stall_item(steady: pd.DataFrame, floor: tuple[str, float] | None, host: pd.Series) -> list[str]:
+    """The all-steps mean and the median step disagree when a few steps stall, so say how many and how much."""
+    stall = stall_summary(steady, host)
+    if not stall:
+        return []
+    text = (f"Stalls: <b>{stall['count']} of {stall['steps']}</b> steady steps leave the GPU idle above {stall['threshold_us'] / 1e3:g} ms on the host "
+            f"and hold <b>{stall['time_share']:.1%}</b> of the measured time, where the pipeline, not the kernels, sets the step cost")
+    if floor and not pd.isna(stall["mean_cost_ns"]):
+        text += f"; without them the mean step is {stall['mean_cost_ns'] / 1e3:.1f} µs ({stall['mean_cost_ns'] / 1e3 / floor[1]:.2f}x {floor[0]})"
+    return [text]
+
+
+def speculation_items(steady: pd.DataFrame, reference_run: dict, total: float) -> list[str]:
+    """Scheduled drafts, generated tokens per step and the per-token cost, so the token fields cannot be misread."""
+    budgets = (steady.tokens - steady.reqs) / steady.reqs
+    if not budgets.max():
+        return []
+    constant = budgets.nunique() == 1
+    budget = f"unchanged in all {len(steady)} steady steps" if constant else f"from {budgets.min():.1f} to {budgets.max():.1f} across the steady steps"
+    acceptance = reference_run.get("acceptance")
+    if acceptance is None:
+        return [f"Speculation: {budgets.mean():.1f} drafted tokens per request, budget {budget}"]
+    text = (f"Speculation: {budgets.mean():.1f} drafted tokens per request, budget {budget}, and the reference run measured an acceptance length "
+            f"of {acceptance:.2f}, so one step generates {acceptance:.2f} tokens")  # fmt: skip
+    if constant and "av_enabled" in steady and steady.av_enabled.all():
+        text += "; adaptive verification kept the full draft budget in every steady step"
+    items = [text]
+    if "tpot_ms" in reference_run:
+        per_token_ms = total / acceptance / 1e3
+        delta = per_token_ms / reference_run["tpot_ms"] - 1
+        items.append(f"Per-token cost: {total:.1f} µs/step over {acceptance:.2f} generated tokens is {per_token_ms:.3f} ms/token, "
+                     f"{delta:+.1%} against the reference TPOT of {reference_run['tpot_ms']:.3f} ms")  # fmt: skip
+    return items
 
 
 def performance(ops: pd.DataFrame, steps: pd.DataFrame) -> str:
@@ -376,7 +435,17 @@ def performance(ops: pd.DataFrame, steps: pd.DataFrame) -> str:
     lines = "".join(f'<tr><td style="text-align:left">{html.escape(label)}</td><td>{value:.1f}</td><td>{value / total:.1%}</td></tr>' for label, value in rows)
     lines += f'<tr><td style="text-align:left"><b>Total step cost</b></td><td><b>{total:.1f}</b></td><td></td></tr>'
     table = f'<div class="table-scroll"><table><thead><tr><th>Component</th><th>µs/step</th><th>share</th></tr></thead><tbody>{lines}</tbody></table></div>'
-    return f'<div class="card">{svg}<div class="legend">{legend}</div>{table}</div>'
+    return f'<div class="card">{svg}<div class="legend">{legend}</div>{table}{performance_note(ops, steps)}</div>'
+
+
+def performance_note(ops: pd.DataFrame, steps: pd.DataFrame) -> str:
+    """Says which step the waterfall describes when the mean and the median disagree."""
+    stall = stall_summary(steps, host_gaps(ops))
+    if not stall:
+        return ""
+    return (f'<p class="metric-note">Components are means over all {len(steps)} steady steps. {stall["count"]} of them stall with host idle above '
+            f'{stall["threshold_us"] / 1e3:g} ms and hold {stall["time_share"]:.1%} of the measured time, all of it in Idle: host. '
+            f'The timeline above shows the median step instead.</p>')  # fmt: skip
 
 
 def timeline(ops: pd.DataFrame, ranges: pd.DataFrame, step: pd.Series) -> str:
@@ -433,23 +502,33 @@ def table_html(table: pd.DataFrame, has_sol: bool) -> str:
     for key, row in table.iterrows():
         cells = zip(keys, key if isinstance(key, tuple) else (key,))
         names = "".join(f'<td class="name {column}">{html.escape(str(k)).replace(" &gt; ", " &gt;<br>")}</td>' for column, k in cells)
-        values = "".join(f"<td>{row[c]:.1f}</td>" for c in (["ops", "cost", "busy", "sol", "idle"] if has_sol else ["ops", "cost", "busy", "idle"]))
+        values = "".join(f"<td>{row[c]:.1f}</td>" if pd.notna(row[c]) else na_cell(row.mapped) for c in (["ops", "cost", "busy", "sol", "idle"] if has_sol else ["ops", "cost", "busy", "idle"]))
         if has_sol:
-            x_sol = min(row.x_sol, 99)
-            values += f'<td style="background:{lost_color(row.lost / table.lost.max())}">{row.lost:.1f}</td>'
-            values += f'<td style="background:{sol_color(x_sol)}">{x_sol:.1f}</td>'
+            x_sol = row.x_sol if pd.isna(row.x_sol) else min(row.x_sol, 99)  # >99x only for tiny copies, NA stays NA
+            values += f'<td style="background:{lost_color(row.lost / table.lost.max())}">{row.lost:.1f}</td>' if pd.notna(row.lost) else na_cell(row.mapped)
+            values += f'<td style="background:{sol_color(x_sol)}">{x_sol:.1f}</td>' if pd.notna(x_sol) else na_cell(row.mapped)
         rows.append(f"<tr>{names}{values}</tr>")
     return f'<div class="table-scroll"><table><thead><tr>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table></div>'
+
+
+def na_cell(mapped: float) -> str:
+    """A group without a complete SOL estimate says how much of it is mapped, so n/a cannot be read as unmapped."""
+    share = math.floor(mapped * 1000) / 10  # never round a partial group up to 100%
+    return f'<td title="{share:.1f}% of the busy time in this group has a SOL estimate">n/a</td>'
 
 
 def footer() -> str:
     return (
         "<footer><p>Cost of an op = its busy time plus the GPU idle gap before it, so op costs sum to the step time. "
-        "SOL of a kernel = ncu duration x max(SM %, memory %) under kernel replay, the time at the peak of its busiest unit. "
-        "SOL of a copy = bytes / peak DRAM BW. Ops with neither have no SOL estimate. Analytic SOL = per forward, "
-        "max((weights + KV + recurrent state) / peak DRAM BW, 2 x active params x tokens / measured BF16 GEMM rate), with "
-        "MoE experts counted as far as R requests touch them under uniform routing (E (1 - (1 - k/E)^R)), and one draft forward per draft graph replay. "
-        "x SOL = cost / SOL. Idle kinds: host (launch call returned after the GPU went idle), in_graph (between nodes "
+        "Kernel SOL comes from semantic work with declared shapes, precision ceilings and traffic assumptions. "
+        "When semantic metadata is missing, NCU resource-demand references supply a fallback, with exact and transferred matches labeled. "
+        "These describe measured implementation work, rather than a semantic lower bound. Operations missing both sources are gray. "
+        "Incomplete table groups show n/a. "
+        "D2D copies count a payload read and write, host transfers require a link profile. "
+        "The forward reference excludes intermediate materialization and checkpoint writes. Draft query work is excluded when its shape is unknown. "
+        "These optimistic roofline references omit finite-workload latency and cache effects. "
+        "Timeline x SOL = kernel duration / SOL. Table x SOL = attributed cost / SOL, with overlapping busy time counted once. "
+        "Idle kinds: host (launch call returned after the GPU went idle), in_graph (between nodes "
         "of one graph), launch_latency (op was queued and still waited). Graph kernels without a CUPTI launch record are assigned to "
         "the latest graph launch that has no kernels of its own, so they get its phase.</p></footer>"
     )
@@ -462,25 +541,35 @@ def kernel_box(op, us, y: float) -> str:
     a = us(op.start)
     b = us(op.end)
     has_sol = op.sol_ns > 0  # NaN compares False
-    x_sol = op.busy_ns / op.sol_ns if has_sol else math.nan
+    x_sol = op.dur_ns / op.sol_ns if has_sol else math.nan
     kernel_id = f"step{op.step}-op{op.Index}"
+    usage = ""
+    if pd.notna(op.sol_pct):
+        busiest = "bandwidth" if pd.notna(op.mem_pct) and op.mem_pct >= op.sm_pct else "compute"
+        usage = f"ncu {busiest} usage: {op.sol_pct:.0f}% of peak"
     lines = [
-        f"id: {kernel_id}",
         f"phase: {op.phase}",
         f"name: {op.name}",
-        f"start: {a:.3f} µs (trace {op.start} ns)",
+        f"operator: {op.operator_name}" if pd.notna(getattr(op, "operator_name", None)) else "",
+        f"input shapes: {op.operator_input_shapes}" if pd.notna(getattr(op, "operator_input_shapes", None)) else "",
+        f"shape estimate: {op.operator_estimate_reason}" if pd.notna(getattr(op, "operator_estimate_reason", None)) and op.operator_estimate_reason else "",
         f"duration: {op.dur_ns / 1e3:.3f} µs",
         f"category: {op.category}",
-        "launch: inferred (no CUPTI launch record)" if op.inferred_launch else "",
         f"busy: {op.busy_ns / 1e3:.1f} µs",
-        f"SOL: {op.sol_ns / 1e3:.1f} µs ({op.sol_source})" if has_sol else "SOL: no estimate",
-        "" if not has_sol else f"x SOL: {x_sol:.1f}" if x_sol < 100 else "x SOL: >99",
-        f"ncu: {op.sol_pct:.0f}% of peak" if pd.notna(op.sol_pct) else "",  # none for copies
-        f"idle before: {op.gap_ns / 1e3:.1f} µs ({op.gap_kind})" if op.gap_ns > 0 else "",
+        f"bandwidth SOL: {op.sol_memory_ns / 1e3:.3f} µs" if pd.notna(getattr(op, "sol_memory_ns", None)) else "",
+        f"compute SOL: {op.sol_compute_ns / 1e3:.3f} µs" if pd.notna(getattr(op, "sol_compute_ns", None)) else "",
+        f"SOL: {op.sol_ns / 1e3:.1f} µs, from {op.sol_source}" if has_sol else "SOL: no estimate for this kernel",
+        "" if not has_sol else f"duration is {x_sol:.1f}x SOL" if x_sol < 100 else "duration is >99x SOL",
+        f"estimate confidence: {getattr(op, 'sol_quality', getattr(op, 'model_quality', 'unsupported'))}",
+        f"why: {getattr(op, 'sol_reason', getattr(op, 'model_reason', ''))}",
+        "assuming: " + ", ".join(json.loads(getattr(op, "sol_assumptions", getattr(op, "model_assumptions", "[]")))),
+        "launch: inferred (no CUPTI launch record)" if op.inferred_launch else "",
+        usage,  # none for copies
+        f"idle before launch: {op.gap_ns / 1e3:.1f} µs ({op.gap_kind})" if op.gap_ns > 0 else "",
     ]
     inset = ""
     if has_sol:
-        inset = rect(a, a + (b - a) / x_sol, y + LANE * 0.65, LANE * 0.35, "#1f2937", ' opacity=".55"')
+        inset = rect(a, min(b, a + op.sol_ns / 1e3), y + LANE * 0.65, LANE * 0.35, "#1f2937", ' opacity=".55"')
     attrs = ""
     if op.kind == "kernel":
         record = {"id": kernel_id, "device": op.deviceId, "stream": op.streamId, "start_us": f"{a:.3f}",

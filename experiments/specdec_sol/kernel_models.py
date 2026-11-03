@@ -1,27 +1,22 @@
-"""Analytic SOL per kernel, from the layer inventory the probe reports and the step's batch shape.
+"""Associate profiler kernels with logical layers, then delegate work and hardware pricing to benchmarking.roofline.
 
-Kernels of one forward run in program order, so the k-th GEMM kernel belongs to the k-th linear layer, the k-th
-attention kernel to the k-th attention layer, and so on. A family is mapped only when its kernel count is a multiple
-of its layer count (several forwards per step, or several kernels per layer), otherwise its kernels get no model and
-the mismatch is reported. Each kernel's bound is max(bytes / peak DRAM BW, FLOPs / measured GEMM rate):
-
-- gemm: the layer's weights, 2 x elements x tokens FLOPs.
-- expert_gemm: per MoE layer w13 then w2, only the experts touched with one routing per request (uniform over requests).
-- attention: the layer's KV of all context tokens. kv_write: the KV of the new tokens.
-- ssm_update / conv: read and write the recurrent SSM / conv state of every request.
-- lm_head and sampling (sample phase): the LM head weights, the logits of the step's tokens.
-- communication: a ring all-reduce of one activation vector per token, 2 (n - 1) / n of it per GPU over NVLink.
-- activation_gemm: GEMMs whose operands are activations, not a layer's weights (e.g. hyper-connection mixing):
-  read and write one activation vector per token, like elementwise kernels.
-- elementwise (everything else): read and write one activation vector per token, what a fused kernel cannot avoid.
+The execution-order mapping is inferred, not an operator graph. Its assumptions and partial metadata are retained
+with every estimate. Unknown kernels never receive an activation-sized fallback. NCU references are applied separately.
 """
 
 import itertools
+import json
 import re
 from collections import Counter
+from pathlib import Path
+import sys
 
 import numpy as np
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from benchmarking.roofline import Estimate, Hardware, estimate, unsupported  # noqa: E402
+from benchmarking.nsys_shapes import estimate_shapes  # noqa: E402
 
 FAMILIES = [  # first match wins, on the lowercase short name
     ("communication", r"allreduce|all_reduce|allgather|all_gather|reduce_scatter|nccl|cross_device|custom_ar|twoshot|oneshot"),
@@ -35,13 +30,13 @@ FAMILIES = [  # first match wins, on the lowercase short name
     ("gemm", r"nvjet|gemm|cutlass.*linear|linear.*cutlass|xmma|cublas|matmul|^sm\d+_.*(gemm|linear)"),
 ]
 NOT_GEMM = r"splitkreduce|reduce_kernel|quantiz"
-ACT_BYTES = 2  # bf16 activations
-NVLINK_BYTES_PER_S = 900e9  # NVLink 5 (B200/B300) per direction and GPU, nsys does not record it
 
 
 def kernel_models(ops: pd.DataFrame, steps: pd.DataFrame, info: dict, hw: dict) -> tuple[pd.DataFrame, dict]:
     """Adds model_sol_ns and model_family to the kernels of steady steps, returns the mapping checks."""
-    ops = ops.assign(model_sol_ns=np.nan, model_family=None)
+    ops = ops.assign(model_sol_ns=np.nan, model_memory_ns=np.nan, model_compute_ns=np.nan,
+                     model_read_bytes=np.nan, model_write_bytes=np.nan, model_family=None,
+                     model_quality="unsupported", model_reason="no semantic mapping", model_assumptions="[]", model_flops="{}")
     kernels = ops.kind == "kernel"
     ops.loc[kernels, "model_family"] = [family(row.name, row.signature) for row in ops[kernels].itertuples()]
     steady = steps[steps.steady]
@@ -51,8 +46,48 @@ def kernel_models(ops: pd.DataFrame, steps: pd.DataFrame, info: dict, hw: dict) 
     by_step = dict(tuple(ordered.groupby("step")))
     for step in steady.itertuples():
         sols = step_models(by_step.get(step.step, ordered.iloc[:0]), step, info, hw, templates, checks)
-        ops.loc[list(sols), "model_sol_ns"] = list(sols.values())
+        if sols:
+            records = pd.DataFrame.from_dict({i: estimate_record(value) for i, value in sols.items()}, orient="index")
+            ops.loc[records.index, records.columns] = records
     return ops, checks
+
+
+def shape_models(ops: pd.DataFrame, info: dict, hw: dict, dtype: str | None = None) -> pd.DataFrame:
+    """Native input shapes refine single-kernel operators. Precision must be declared, not guessed from shapes."""
+    ops = ops.assign(operator_shape_estimate=False, operator_estimate_reason=None)
+    for field, value in estimate_record(unsupported("", "no semantic mapping")).items():
+        if field not in ops:
+            ops[field] = value
+    known = ops.operator_name.notna() & (ops.operator_kernel_count == 1)
+    ops.loc[ops.operator_name.notna() & ~known, "operator_estimate_reason"] = "operator spans multiple GPU kernels"
+    candidates = ops[known].assign(layer_mapped=ops.model_sol_ns[known].notna())
+    keys = ["operator_name", "operator_input_shapes", "model_family", "layer_mapped"]
+    for _, group in candidates.groupby(keys, dropna=False):
+        row = next(group.itertuples())
+        shapes = json.loads(row.operator_input_shapes)
+        precision = dtype or mapped_precision(row, shapes, info)
+        value = estimate_shapes(row.operator_name, shapes, precision, hardware_profile(info, hw))
+        ops.loc[group.index, "operator_estimate_reason"] = value.reason
+        if value.bound_ns is None or value.bound_ns <= 0:
+            continue
+        for field, entry in estimate_record(value).items():
+            ops.loc[group.index, field] = entry
+        ops.loc[group.index, "model_family"] = "nsys " + row.operator_name
+        ops.loc[group.index, "operator_shape_estimate"] = True
+    return ops
+
+
+def mapped_precision(op, shapes: list[list[int]], info: dict) -> str | None:
+    """Require an already-mapped GEMM plus consistent declared layer precision and matching logical dimensions."""
+    if op.model_family != "gemm" or pd.isna(op.model_sol_ns) or op.operator_name != "aten::mm" or len(shapes) != 2:
+        return None
+    if len(shapes[1]) != 2:
+        return None
+    k = shapes[1][0]
+    n = shapes[1][1]
+    dtypes = {layer["compute_dtype"] for layers in info.get("layers", {}).values() for layer in layers
+              if layer.get("compute_dtype") and layer.get("input_size") == k and layer.get("output_size") == n}
+    return next(iter(dtypes)) if len(dtypes) == 1 else None
 
 
 OWNERS = {"target": "execute_model", "draft": "propose"}  # the CPU phase that launches each forward
@@ -73,9 +108,9 @@ def classification_name(name: str, signature: str) -> str:
 def step_models(ops: pd.DataFrame, step, info: dict, hw: dict, templates: dict, checks: dict) -> dict:
     """SOL in ns per kernel index of one step, kernels in program order."""
     model = Model(info, hw, step)
-    sols = {i: model.communication() if f == "communication" else model.elementwise() for i, f in ops.model_family.items()}
+    sols = {i: model.communication() for i, f in ops.model_family.items() if f == "communication"}
     for owner, method in OWNERS.items():
-        sols.update(model.forward(ops[ops.phase.str.contains(method)], owner, templates[owner], checks))
+        sols.update(Model(info, hw, step, owner).forward(ops[ops.phase.str.contains(method)], owner, templates[owner], checks))
     sols.update(model.sample(ops[ops.phase.str.contains(r"\.sample(?:$|>)", regex=True)]))
     return sols
 
@@ -95,7 +130,7 @@ def gemm_template(ordered: pd.DataFrame, steady: pd.DataFrame, owner: str, info:
     for count, steps in counts.groupby(counts).groups.items():
         template = fit(layers, gemms[gemms.step == steps[0]].name.tolist())
         mapped = sum(group is not None for group in template) if template else 0
-        checks[f"{owner} GEMM mapping, {count} kernels ({len(steps)} steps)"] = f"{mapped} mapped" if template else "not mapped"
+        checks[f"{owner} GEMM mapping, {count} kernels ({len(steps)} of {steady.step.nunique()} steps)"] = f"{mapped} mapped" if template else "not mapped"
         if template:
             templates[count] = template
     return templates
@@ -192,32 +227,51 @@ def module(name: str) -> str:
     return match.group(1) if match else name.rsplit(".", 1)[0]
 
 
-def group_sol(group: list[dict], model: "Model") -> float:
-    return model.gemm({"bytes": sum(layer["bytes"] for layer in group), "elems": sum(layer["elems"] for layer in group)})
+def group_sol(group: list[dict], model: "Model") -> Estimate:
+    if len(group) == 1:
+        return model.gemm(group[0])
+    return model.gemm({"bytes": sum(layer["bytes"] for layer in group),
+                       "elems": sum(layer.get("logical_elems", layer["elems"]) for layer in group)})
+
+
+def estimate_record(value: Estimate) -> dict:
+    return {"model_sol_ns": value.bound_ns, "model_memory_ns": value.memory_ns, "model_compute_ns": value.compute_ns,
+            "model_read_bytes": value.work.read_bytes if value.work else None,
+            "model_write_bytes": value.work.write_bytes if value.work else None,
+            "model_quality": value.quality, "model_reason": value.reason,
+            "model_assumptions": json.dumps(value.work.assumptions if value.work else ()),
+            "model_flops": json.dumps(value.work.flops if value.work else {})}
 
 
 class Model:
     """The bounds of one step's kernels, given the layer inventory and the step's tokens, requests and context."""
 
-    def __init__(self, info: dict, hw: dict, step) -> None:
+    def __init__(self, info: dict, hw: dict, step, owner: str = "target") -> None:
         self.info = info
-        self.bw = hw["bw"]
-        self.flops = info["gemm_flops_per_s"]
-        self.tokens = step.tokens
+        self.hw = hw
+        self.hardware = hardware_profile(info, hw)
+        self.tokens = query_tokens(step, owner, padded=True)
+        logits_tokens = getattr(step, "logits_tokens", None)
+        self.logits_tokens = float(logits_tokens) if pd.notna(logits_tokens) else None
         self.reqs = step.reqs
         self.context = step.context
-        self.hidden = info["hidden_size"]
+        self.hidden = info.get("hidden_size", 0)
         self.world_size = hw.get("world_size", 1)
+        self.shape_source = "draft execution shape unavailable" if owner == "draft" else str(getattr(step, "query_shape_source", "scheduler shape, execution shape unavailable"))
+        self.queries = getattr(step, "query_lengths", None) if owner == "target" else None
+        self.contexts = getattr(step, "context_lengths", None) if owner == "target" else None
 
-    def bound(self, nbytes: float, flops: float = 0.0) -> float:
-        return max(nbytes / self.bw, flops / self.flops) * 1e9
+    def traffic(self, read: float, write: float = 0, *assumptions: str) -> Estimate:
+        return estimate("traffic", {"read_bytes": read, "write_bytes": write,
+                                    "assumptions": (self.shape_source, *assumptions)}, self.hardware)
 
-    def communication(self) -> float:
+    def communication(self) -> Estimate:
         n = self.world_size
-        return 2 * (n - 1) / n * self.tokens * self.hidden * ACT_BYTES / NVLINK_BYTES_PER_S * 1e9 if n > 1 else np.nan
-
-    def elementwise(self) -> float:
-        return self.bound(2 * self.tokens * self.hidden * ACT_BYTES)
+        bandwidth = self.hw.get("link_bytes_per_s")
+        if n <= 1 or not bandwidth or self.tokens is None or not self.hidden:
+            return unsupported("communication", "link bandwidth, execution shape or activation dimensions unavailable")
+        traffic = 2 * (n - 1) / n * self.tokens * self.hidden * self.info.get("activation_bytes", 2)
+        return estimate("traffic", {"read_bytes": traffic, "assumptions": ("ring all-reduce over declared link bandwidth",)}, Hardware(bandwidth))
 
     def forward(self, ops: pd.DataFrame, owner: str, templates: dict, checks: dict) -> dict:
         cache = [c for c in self.info["cache"] if c["owner"] == owner]
@@ -226,10 +280,11 @@ class Model:
         states = [c for c in cache if c["kind"] == "state"]
         plan = [
             ("expert_gemm", [(m, part) for m in moes for part in ["w13", "w2"]], self.expert_gemm),
-            ("attention", attention, lambda c: self.bound(c["kv_bytes_per_token"] * (self.context + self.tokens))),
-            ("kv_write", attention, lambda c: self.bound(c["kv_bytes_per_token"] * self.tokens)),
-            ("ssm_update", states, lambda c: self.bound(2 * c["ssm_bytes"] * self.reqs)),
-            ("conv", states, lambda c: self.bound(2 * c["conv_bytes"] * self.reqs)),
+            ("attention", attention, self.attention),
+            ("kv_write", attention, lambda c: self.traffic(0, c["kv_bytes_per_token"] * self.tokens, "new KV stored once") if self.tokens is not None else unsupported("kv_write", "execution token count unavailable")),
+            ("ssm_update", states, lambda c: estimate("stateful", {"state_bytes": c["ssm_bytes"], "requests": self.reqs}, self.hardware)),
+            ("conv", states, lambda c: self.traffic(c["conv_bytes"] * self.reqs, 0, "state-read reference only, convolution work and persistence unspecified")),
+            ("activation_gemm", [None], lambda _: self.activation_gemm()),
         ]
         sols = self.gemms(ops[ops.model_family == "gemm"], templates)
         for name, layers, cost in plan:
@@ -237,7 +292,7 @@ class Model:
             mapped = assign(kernels, layers, cost)
             if mapped is None:
                 checks[f"{owner} {name}"] = f"{len(kernels)} kernels for {len(layers)} layers, not mapped"
-                mapped = {i: np.nan for i in kernels.index}
+                mapped = {i: unsupported(name, "kernel-to-layer mapping unavailable") for i in kernels.index}
             sols.update(mapped)
         return sols
 
@@ -245,27 +300,74 @@ class Model:
         """GEMM kernels follow the template of their count, steps with an unmapped count get no model."""
         template = templates.get(len(kernels))
         if template is None:
-            return {i: np.nan for i in kernels.index}
-        return {i: group_sol(group, self) if group else np.nan for i, group in zip(kernels.index, template)}
+            return {i: unsupported("linear", "kernel-to-layer mapping unavailable") for i in kernels.index}
+        return {i: group_sol(group, self) if group else unsupported("linear", "kernel has no mapped layer") for i, group in zip(kernels.index, template)}
 
-    def gemm(self, layer: dict) -> float:
-        return self.bound(layer["bytes"], 2.0 * layer["elems"] * self.tokens)
+    def gemm(self, layer: dict) -> Estimate:
+        meta = {"weight_bytes": layer["bytes"], "weight_elements": layer.get("logical_elems", layer["elems"]),
+                "tokens": self.tokens, "compute_dtype": layer.get("compute_dtype", self.info.get("activation_dtype", "bf16")),
+                "input_width": layer.get("input_size"), "output_width": layer.get("output_size"),
+                "activation_bytes": self.info.get("activation_bytes", 2), "assumptions": (self.shape_source, "kernel-to-layer association inferred from execution order")}
+        return estimate("linear", meta, self.hardware)
 
-    def expert_gemm(self, moe_part: tuple[dict, str]) -> float:
+    def expert_gemm(self, moe_part: tuple[dict, str]) -> Estimate:
         moe, part = moe_part
         k = moe.get("top_k") or self.info["top_k"] or 1
         experts = moe.get("global_experts") or moe["experts"]  # the local experts are a uniform share of all of them
         touched = 1 - (1 - k / experts) ** self.reqs  # the tokens of one request (verify + drafts) route alike
-        flops = 2 * moe[f"{part}_elems"] / moe["experts"] * k * moe["experts"] / experts * self.tokens
-        return self.bound(moe[f"{part}_bytes"] * touched, flops)
+        return estimate("linear", {"weight_bytes": moe[f"{part}_bytes"] * touched,
+                                  "weight_elements": moe[f"{part}_elems"] * k / experts,
+                                  "tokens": self.tokens, "compute_dtype": self.info.get("activation_dtype", "bf16"),
+                                  "assumptions": (self.shape_source, "uniform expert routing, drafts of one request share experts")}, self.hardware)
+
+    def activation_gemm(self) -> Estimate:
+        """GEMMs over activations, not a linear layer's weights (hyper-connection mixing, sparse-attention indexer
+        scores): no declared weight to size the estimate from, so the bound is one read + one write of the
+        activation tensor, the floor a GEMM over it cannot beat."""
+        if self.tokens is None or not self.hidden:
+            return unsupported("activation_gemm", "execution shape or activation dimensions unavailable")
+        size = self.tokens * self.hidden * self.info.get("activation_bytes", 2)
+        return self.traffic(size, size, "single read + write of the activation tensor, GEMM operands are activations not a declared weight layer")
+
+    def attention(self, cache: dict) -> Estimate:
+        if cache.get("layout") == "FullAttentionSpec" and all(cache.get(key) for key in ("query_heads", "kv_heads", "head_dim", "kv_element_bytes")) and self.queries is not None and self.contexts is not None:
+            return estimate("attention", {"query_lengths": self.queries, "context_lengths": self.contexts,
+                                          "query_heads": cache["query_heads"], "kv_heads": cache["kv_heads"], "head_dim": cache["head_dim"],
+                                          "activation_bytes": self.info.get("activation_bytes", 2), "kv_bytes": cache["kv_element_bytes"],
+                                          "compute_dtype": self.info.get("activation_dtype", "bf16")}, self.hardware)
+        # Older probes know cache bytes but not query heads, so retain only the declared KV traffic bound.
+        tokens = self.tokens or 0
+        return self.traffic(cache["kv_bytes_per_token"] * (self.context + tokens), 0,
+                            "all cached KV read once, attention arithmetic and activation traffic unavailable")
 
     def sample(self, ops: pd.DataFrame) -> dict:
         """The target's logits: the LM head GEMM reads its weights, the sampling kernels read the logits."""
         heads = [layer for layer in self.info["layers"]["target"] if layer["kind"] == "lm_head"]
-        vocab = heads[0]["elems"] / self.hidden if heads and self.hidden else 0
-        logits = self.bound(self.tokens * vocab * 4)
-        head = self.gemm(heads[0]) if heads else np.nan
-        return {i: head if f == "gemm" else logits for i, f in ops.model_family.items()}
+        # Sampling rows are not the padded target-forward rows. Without a logits shape use a weight-read bound.
+        self.tokens = self.logits_tokens
+        head = self.gemm(heads[0]) if heads else unsupported("linear", "LM head unavailable")
+        return {i: head for i, f in ops.model_family.items() if f == "gemm"}
+
+
+def hardware_profile(info: dict, hw: dict) -> Hardware:
+    rates = dict(info.get("compute_flops_per_s", {}))
+    if info.get("gemm_flops_per_s"):
+        rates.setdefault(info.get("gemm_dtype", "bf16"), info["gemm_flops_per_s"])
+    return Hardware(hw["bw"], rates)
+
+
+def query_tokens(step, owner: str = "target", padded: bool = False) -> float | None:
+    if owner == "draft":
+        value = getattr(step, "draft_tokens", None)
+        return float(value) if pd.notna(value) else None
+    actual = getattr(step, "actual_tokens", None)
+    padded_value = getattr(step, "padded_tokens", None)
+    if padded and pd.notna(padded_value):
+        return float(padded_value)
+    if pd.notna(actual):
+        return float(actual)
+    scheduled = getattr(step, "tokens", None)
+    return float(scheduled) if not getattr(step, "av_enabled", False) and pd.notna(scheduled) else None
 
 
 def assign(kernels: pd.DataFrame, layers: list, cost) -> dict | None:

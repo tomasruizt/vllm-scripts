@@ -5,13 +5,15 @@ Ranges are labeled "sol/<Class>.<method>", they cost ~1 us each and are recorded
 """
 
 import functools
+import json
 import math
+import os
 import re
 
 import torch
 
 STEP_METHOD = "execute_model"  # one call per engine step, sol.py splits steps on it
-RUNNER_METHODS = [STEP_METHOD, "sample_tokens", "prepare_inputs", "_prepare_inputs", "sample", "_sample",
+RUNNER_METHODS = [STEP_METHOD, "capture_model", "sample_tokens", "prepare_inputs", "_prepare_inputs", "sample", "_sample",
                   "postprocess_sampled", "propose_draft_token_ids"]  # fmt: skip
 SPECULATOR_ATTRS = ["speculator", "drafter"]  # V2, V1
 SPECULATOR_METHODS = ["propose"]
@@ -27,6 +29,16 @@ class SolProbe:
         targets.append((torch.cuda.CUDAGraph, "replay"))
         return [label for cls, name in targets if (label := wrap(cls, name))]
 
+    def sol_shape_capture_status(self) -> bool:
+        return bool(getattr(self.model_runner, "_sol_shape_capture_started", False))
+
+    def sol_start_shape_measurement(self) -> None:
+        torch.cuda.nvtx.mark("sol/measurement_start")
+
+    def sol_stop_shape_measurement(self) -> None:
+        torch.cuda.nvtx.mark("sol/measurement_end")
+        torch.cuda.profiler.stop()
+
     def sol_model_info(self) -> dict:
         """What the analytic SOL needs: bytes and elements of dense and expert weights, KV bytes per token and
         recurrent state bytes per request, for target and draft, plus the measured BF16 GEMM rate of this GPU."""
@@ -39,9 +51,15 @@ class SolProbe:
         info = {"target": weights(target, set()), "draft": weights(draft, target_ptrs) if draft else None}
         info.update(state_sizes(runner.get_kv_cache_spec(), {name for name, _ in target.named_modules()}))
         layers = {"target": layer_list(target, set()), "draft": layer_list(draft, target_ptrs) if draft else []}
-        cache = cache_layers(runner.get_kv_cache_spec(), {name for name, _ in target.named_modules()})
+        modules = dict(target.named_modules())
+        if draft is not None:
+            modules.update(draft.named_modules())
+        cache = cache_layers(runner.get_kv_cache_spec(), {name for name, _ in target.named_modules()}, modules)
         hidden = getattr(text_config, "hidden_size", 0)
-        return {**info, "top_k": top_k, "gemm_flops_per_s": gemm_rate(), "layers": layers, "cache": cache, "hidden_size": hidden}
+        dtype = runner.model_config.dtype
+        return {**info, "top_k": top_k, "gemm_flops_per_s": gemm_rate(), "gemm_dtype": "bf16",
+                "activation_dtype": dtype_name(dtype), "activation_bytes": torch.empty((), dtype=dtype).element_size(),
+                "layers": layers, "cache": cache, "hidden_size": hidden}
 
 
 TOP_K_KEYS = ["num_experts_per_tok", "moe_top_k", "num_experts_per_token", "top_k"]
@@ -86,22 +104,33 @@ def layer_list(model: torch.nn.Module, skip: set[int]) -> list[dict]:
                            "top_k": getattr(module, "top_k", None)})  # fmt: skip
         elif ("LinearBase" in bases or "ParallelLMHead" in bases) and params:
             kind = "lm_head" if "ParallelLMHead" in bases else "linear"
-            result.append({"name": name, "kind": kind, "bytes": sum(p.nbytes for p in params),
-                           "elems": sum(p.numel() for p in params)})  # fmt: skip
+            record = {"name": name, "kind": kind, "bytes": sum(p.nbytes for p in params), "elems": sum(p.numel() for p in params)}
+            inputs = getattr(module, "input_size_per_partition", getattr(module, "input_size", None))
+            outputs = getattr(module, "output_size_per_partition", getattr(module, "output_size", None))
+            if inputs is not None and outputs is not None:
+                record.update(input_size=int(inputs), output_size=int(outputs), logical_elems=int(inputs) * int(outputs))
+            record["weight_dtype"] = dtype_name(params[0].dtype)
+            record["compute_dtype"] = record["weight_dtype"]  # Quantized weights require their own declared ceiling.
+            result.append(record)
     return result
 
 
-def cache_layers(spec: dict, target_modules: set[str]) -> list[dict]:
+def cache_layers(spec: dict, target_modules: set[str], modules: dict | None = None) -> list[dict]:
     """Attention layers with their KV bytes per token, recurrent layers with their conv and SSM state bytes."""
     result = []
     for name, layer in spec.items():
         owner = "target" if name in target_modules else "draft"
         if hasattr(layer, "shapes"):
             sizes = [math.prod(s) * torch.empty(0, dtype=d).element_size() for s, d in zip(layer.shapes, layer.dtypes)]
-            result.append({"name": name, "owner": owner, "kind": "state", "conv_bytes": sizes[0], "ssm_bytes": sum(sizes[1:])})
+            result.append({"name": name, "owner": owner, "kind": "state", "conv_bytes": sizes[0], "ssm_bytes": sum(sizes[1:]),
+                           "state_shapes": [list(shape) for shape in layer.shapes], "state_dtypes": [dtype_name(dtype) for dtype in layer.dtypes]})
         else:
             page = getattr(layer, "real_page_size_bytes", layer.page_size_bytes)
-            result.append({"name": name, "owner": owner, "kind": "attention", "kv_bytes_per_token": page / layer.block_size})
+            module = (modules or {}).get(name)
+            result.append({"name": name, "owner": owner, "kind": "attention", "kv_bytes_per_token": page / layer.block_size,
+                           "layout": type(layer).__name__, "kv_heads": getattr(layer, "num_kv_heads", None),
+                           "query_heads": getattr(module, "num_heads", None), "head_dim": getattr(layer, "head_size", None),
+                           "kv_element_bytes": torch.empty((), dtype=layer.dtype).element_size() if hasattr(layer, "dtype") else None})
     return result
 
 
@@ -147,17 +176,55 @@ def wrap(cls: type, name: str) -> str | None:
 
     @functools.wraps(original)
     def call(obj, *args, **kwargs):
+        if name == "capture_model" and os.environ.get("SOL_NSYS_SHAPES") == "1" and not getattr(obj, "_sol_shape_capture_started", False):
+            torch.cuda.profiler.start()
+            obj._sol_shape_capture_started = True
         if mark:
             step_mark(args[0] if args else kwargs.get("scheduler_output"))
         torch.cuda.nvtx.range_push(f"sol/{label}")
         try:
-            return original(obj, *args, **kwargs)
+            result = original(obj, *args, **kwargs)
+            if name in ("prepare_inputs", "_prepare_inputs"):
+                execution_mark(result, getattr(obj, "adaptive_verification", None) is not None)
+            return result
         finally:
             torch.cuda.nvtx.range_pop()
 
     call._sol_wrapped = True
     setattr(cls, name, call)
     return label
+
+
+def execution_mark(batch, adaptive: bool) -> None:
+    """Host metadata only. Never synchronize or copy GPU query lengths into the profiling critical path."""
+    if not hasattr(batch, "num_tokens") or not hasattr(batch, "num_tokens_after_padding"):
+        return  # Older runners return tuples. Their execution shape remains explicitly unavailable.
+    try:
+        shape = prepared_shape(batch, adaptive)
+    except (AttributeError, TypeError, ValueError):
+        return
+    torch.cuda.nvtx.mark("sol/execution " + json.dumps(shape, separators=(",", ":")))
+
+
+def prepared_shape(batch, adaptive: bool) -> dict:
+    tokens = int(batch.num_tokens)
+    query_lengths = None
+    if batch.num_reqs == 1:
+        query_lengths = [tokens]
+    elif not adaptive and hasattr(batch, "query_start_loc_np"):
+        starts = batch.query_start_loc_np[: batch.num_reqs + 1].tolist()
+        lengths = [int(b - a) for a, b in zip(starts, starts[1:])]
+        if sum(lengths) == tokens:
+            query_lengths = lengths
+    contexts = getattr(batch, "num_computed_tokens_np", None)
+    return {"actual_tokens": tokens, "padded_tokens": int(batch.num_tokens_after_padding),
+            "query_lengths": query_lengths, "context_lengths": contexts[:batch.num_reqs].tolist() if contexts is not None else None,
+            "logits_tokens": int(batch.logits_indices.shape[0]) if hasattr(batch, "logits_indices") else None,
+            "query_lengths_source": "unavailable (GPU AV allocation)" if query_lengths is None else "host execution metadata"}
+
+
+def dtype_name(dtype) -> str:
+    return {torch.bfloat16: "bf16", torch.float16: "fp16", torch.float32: "fp32", torch.float64: "fp64"}.get(dtype, str(dtype).removeprefix("torch."))
 
 
 def step_mark(scheduler_output) -> None:

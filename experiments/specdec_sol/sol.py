@@ -1,9 +1,7 @@
-"""SOL waterfall of steady-state spec-decode steps, from the nsys sqlite export and the ncu raw CSV of one run.
+"""Measured spec-decode timelines with semantic roofline references and separate NCU replay diagnostics.
 
-Every GPU op of a step gets a time cost: its busy time plus the GPU idle gap before it. The waterfall splits the
-mean step cost into per-kernel SOL, kernel inefficiency, busy time without a SOL estimate, and idle gaps by cause.
-A kernel's SOL comes from the first source in SOL_SOURCES that knows it. Today that is ncu's busiest-unit
-throughput, which needs no model of the operation. Op models (FLOPs and bytes from shapes) can be added as sources.
+Each GPU op is charged its busy time and preceding idle gap. Unknown work remains unknown, and assumptions,
+execution-shape provenance and separate memory/compute bounds accompany supported estimates.
 """
 
 import argparse
@@ -17,7 +15,9 @@ import duckdb
 import pandas as pd
 import yaml
 
-from kernel_models import classification_name, kernel_models
+from kernel_models import classification_name, estimate_record, hardware_profile, kernel_models, query_tokens, shape_models
+from benchmarking.nsys_shapes import annotate_shapes
+from benchmarking.roofline import Estimate, Work, estimate, price
 
 KERNEL_CATEGORIES = [  # first match wins, matched against the lowercase short name
     ("communication", r"nccl|allreduce|all_reduce|allgather|reduce_scatter|cross_device|custom_ar"),
@@ -39,31 +39,49 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("run_dir", type=Path, help="one concurrency directory, with nsys/ and optionally ncu/")
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--ncu", type=Path, help="ncu CSV to use, e.g. from another run of the same workload")
+    parser.add_argument("--ncu", type=Path, action="append", help="ncu CSV to reuse, repeat for additional profiles from the same GPU type")
     parser.add_argument("--trace-steps", type=int, default=3)
+    parser.add_argument("--shape-dtype", help="explicit uniform operand precision assumption for shape estimates, e.g. bf16")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     hw = hardware(args.run_dir / "nsys/trace.sqlite") | {"world_size": world_size(args.run_dir.parent / "config.yaml")}
     db = duckdb.connect()
     db.execute(f"ATTACH '{args.run_dir / 'nsys/trace.sqlite'}' AS t (TYPE sqlite, READ_ONLY)")
     ops = timeline(db)
-    ops = match_ncu(ops, ncu_sol(args.ncu or args.run_dir / "ncu/kernels.csv", hw))
+    ops, annotations = annotate_shapes(db, ops)
+    ncu_paths = args.ncu or [args.run_dir / "ncu/kernels.csv"]
+    previous_meta = args.output / "meta.json"
+    shape_dtype = args.shape_dtype
+    if shape_dtype is None and previous_meta.exists():
+        shape_dtype = json.loads(previous_meta.read_text()).get("shape_dtype_assumption")
+    if args.ncu is None and not any(path.exists() for path in ncu_paths) and previous_meta.exists():
+        saved = json.loads(previous_meta.read_text())
+        sources = saved.get("ncu_sources") or ([saved["ncu_source"]] if saved.get("ncu_source") else [])
+        ncu_paths = [Path(source) for source in sources] or ncu_paths
+    ops = match_ncu(ops, ncu_profiles(ncu_paths, hw))
     ops = add_costs(ops, hw)
     steps, steady_rule = step_table(db, ops)
+    steps, steady_rule = measured_steps(db, steps, steady_rule)
+    steps = execution_shapes(db, steps, args.run_dir.parent / "config.yaml")
     info = model_info(args.run_dir / "nsys/model-info.json")
     steps = analytic_sol(steps, ops, info, hw)
     with_layers = info and "layers" in info  # runs from before the probe reported its layer inventory have none
     ops, mapping = kernel_models(ops, steps, info, hw) if with_layers else (ops.assign(model_sol_ns=float("nan"), model_family=None), {})
+    ops = shape_models(ops, info or {}, hw, shape_dtype)
     sol_sources(ops, hw)
     steady = steps[steps.steady]
     steady_ops = ops[ops.step.isin(steady.step)]
     ops.to_parquet(args.output / "ops.parquet")
     steps.to_parquet(args.output / "steps.parquet")
+    annotations.to_parquet(args.output / "operators.parquet")
     summary = waterfall(steady_ops, steady, hw)
     (args.output / "summary.md").write_text(summary)
     shown = representative_steps(steps, args.trace_steps)
     cpu_ranges(db, ops[ops.step.isin(shown)]).to_parquet(args.output / "ranges.parquet")
-    meta = {"hw": hw, "shown_steps": shown, "checks": checks(db, ops, steady_ops, steps, steady_rule) | mapping}
+    meta = {"hw": hw, "shown_steps": shown, "ncu_sources": [str(path) for path in ncu_paths if path.exists()],
+            "shape_dtype_assumption": shape_dtype, "operator_annotations": len(annotations),
+            "shape_diagnostic": "annotated measurement window" in steady_rule,
+            "checks": checks(db, ops, steady_ops, steps, steady_rule) | mapping}
     (args.output / "meta.json").write_text(json.dumps(meta, indent=2, default=lambda value: value.item()))
     trace = perfetto_trace(db, ops, shown)
     (args.output / "steps.perfetto.json").write_text(json.dumps(trace, default=lambda value: value.item()))  # numpy scalars
@@ -81,27 +99,41 @@ def checks(db: duckdb.DuckDBPyConnection, ops: pd.DataFrame, steady_ops: pd.Data
         "busy time with a SOL estimate": f"{steady_ops.busy_ns[steady_ops.sol_ns.notna()].sum() / busy:.1%}",
         "ops with a CPU phase": f"{(~steady_ops.phase.str.startswith('(')).mean():.1%}",
         "ops with an inferred launch": f"{steady_ops.inferred_launch.mean():.1%}",
+        "query shape sources": ", ".join(sorted(steps[steps.steady].query_shape_source.unique())),
+        "estimate sources": ", ".join(sorted(steady_ops.sol_source.dropna().unique())),
+        "busy time with NSYS input shapes": f"{steady_ops.busy_ns[steady_ops.operator_name.notna()].sum() / busy:.1%}",
+        "busy time with NSYS shape estimates": f"{steady_ops.busy_ns[steady_ops.operator_shape_estimate].sum() / busy:.1%}",
+        "kernel bounds above measured duration": int(((steady_ops.kind == "kernel") & (steady_ops.sol_ns > steady_ops.dur_ns)).sum()),
+        "steady steps with a GPU stall": stall_check(steps[steps.steady], host_gaps(steady_ops)),
     }
 
 
 # --- Inputs -----------------------------------------------------------------------------------------------------
 
 
+NVLINK_BYTES_PER_S = 900e9  # NVLink 5 (B200/B300) per direction and GPU, nsys does not record it
+
+
 def hardware(trace: Path) -> dict:
     """ncu percentages are relative to the same peaks, nsys records the DRAM peak for copies."""
     with sqlite3.connect(trace) as db:
         name, peak_bw = db.execute("SELECT name, max(memoryBandwidth) FROM TARGET_INFO_GPU").fetchone()
-    return {"bw": peak_bw, "gpu": name}
+    return {"bw": peak_bw, "gpu": name, "link_bytes_per_s": NVLINK_BYTES_PER_S}
 
 
 def ncu_sol(path: Path, hw: dict) -> pd.DataFrame:
     """Per kernel signature: time at the SOL of its busiest unit, measured DRAM bytes, and the SOL percentage."""
     if not path.exists():
-        print(f"no ncu CSV at {path}, kernels get no SOL")
-        columns = ["ncu_ns", "sol_pct", "kernel_sol_ns", "dram_bytes", "dram_sol_ns"]
-        return pd.DataFrame({"signature": pd.Series(dtype=str), **{c: pd.Series(dtype=float) for c in columns}})
-    rows = list(csv.DictReader(path.open()))
+        print(f"no ncu CSV at {path}, only semantic estimates available")
+        columns = ["ncu_ns", "sm_pct", "mem_pct", "sol_pct", "kernel_sol_ns", "dram_bytes", "dram_sol_ns"]
+        return pd.DataFrame({"signature": pd.Series(dtype=str), "ncu_source": pd.Series(dtype=str),
+                             **{c: pd.Series(dtype=float) for c in columns}})
+    with path.open() as stream:
+        rows = list(csv.DictReader(stream))
     rows = [r for r in rows[1:] if r.get("ID", "").strip().isdigit()]  # row 0 holds the units
+    devices = {row.get("device__attribute_display_name") for row in rows} - {None, ""}
+    if hw.get("gpu") and devices and devices != {hw["gpu"]}:
+        raise ValueError(f"NCU GPU mismatch in {path}: {devices}, expected {hw['gpu']}")
     frame = pd.DataFrame(
         {
             "signature": [f"{r['Kernel Name']}|{r['Grid Size']}|{r['Block Size']}" for r in rows],
@@ -114,8 +146,15 @@ def ncu_sol(path: Path, hw: dict) -> pd.DataFrame:
     frame["sol_pct"] = frame[["sm_pct", "mem_pct"]].max(axis=1)
     frame["kernel_sol_ns"] = frame.ncu_ns * frame.sol_pct / 100
     frame["dram_sol_ns"] = frame.dram_bytes / hw["bw"] * 1e9
-    columns = ["ncu_ns", "sol_pct", "kernel_sol_ns", "dram_bytes", "dram_sol_ns"]
-    return frame.groupby("signature", as_index=False)[columns].median().assign(ncu_samples=frame.groupby("signature").size().values)
+    columns = ["ncu_ns", "sm_pct", "mem_pct", "sol_pct", "kernel_sol_ns", "dram_bytes", "dram_sol_ns"]
+    return frame.groupby("signature", as_index=False)[columns].median().assign(
+        ncu_samples=frame.groupby("signature").size().values, ncu_source=str(path))
+
+
+def ncu_profiles(paths: list[Path], hw: dict) -> pd.DataFrame:
+    """Reuse measured signatures across workloads on the same GPU type, preferring earlier profiles."""
+    profiles = [ncu_sol(path, hw).assign(ncu_priority=priority) for priority, path in enumerate(paths)]
+    return pd.concat(profiles, ignore_index=True).drop_duplicates("signature", keep="first")
 
 
 def match_ncu(ops: pd.DataFrame, ncu: pd.DataFrame) -> pd.DataFrame:
@@ -123,11 +162,19 @@ def match_ncu(ops: pd.DataFrame, ncu: pd.DataFrame) -> pd.DataFrame:
     per-step token counts with AV) rarely repeat a grid, those take the median SOL % of the same kernel and block
     size, applied to their own duration (ncu_match = "other grid")."""
     ops = ops.merge(ncu, on="signature", how="left")
-    by_kernel = ncu.assign(kernel=ncu.signature.map(kernel_key)).groupby("kernel").sol_pct.median()
+    candidates = ncu.assign(kernel=ncu.signature.map(kernel_key))
+    if "ncu_priority" in candidates:
+        candidates = candidates[candidates.ncu_priority == candidates.groupby("kernel").ncu_priority.transform("min")]
+    by_kernel = candidates.groupby("kernel")[["sol_pct", "sm_pct", "mem_pct"]].median()
     other = ops.sol_pct.isna() & (ops.kind == "kernel")
     ops["ncu_match"] = None
     ops.loc[ops.sol_pct.notna(), "ncu_match"] = "exact"
-    ops.loc[other, "sol_pct"] = ops.signature[other].map(kernel_key).map(by_kernel)
+    for column in ("sol_pct", "sm_pct", "mem_pct"):
+        ops.loc[other, column] = ops.signature[other].map(kernel_key).map(by_kernel[column])
+    if "ncu_source" in ncu:
+        sources = candidates.groupby("kernel").ncu_source.agg(lambda values: ", ".join(dict.fromkeys(values)))
+        ops["ncu_source"] = ops["ncu_source"].astype(object)  # unmapped kernels leave NA, which an arrow string column rejects
+        ops.loc[other, "ncu_source"] = ops.signature[other].map(kernel_key).map(sources)
     ops.loc[other & ops.sol_pct.notna(), "ncu_match"] = "other grid"
     return ops
 
@@ -149,13 +196,14 @@ def timeline(db: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     """GPU ops of the worker with their launch call, CPU phase path and step, plus the idle gap before each op."""
     db.execute(PHASE_SQL)
     tables = set(db.execute("SELECT table_name FROM information_schema.tables WHERE table_catalog = 't'").df().table_name)
-    copies = "".join(COPY_SQL.format(kind=kind) for kind in ["memcpy", "memset"] if COPY_TABLE.format(kind=kind.upper()) in tables)
+    copies = "".join(COPY_SQL.format(kind=kind, copy_kind="copyKind" if kind == "memcpy" else "NULL::INT")
+                     for kind in ["memcpy", "memset"] if COPY_TABLE.format(kind=kind.upper()) in tables)
     return db.execute(TIMELINE_SQL.replace("{copies}", copies)).df()
 
 
 COPY_TABLE = "CUPTI_ACTIVITY_KIND_{kind}"  # nsys omits the table when there was no such op
 COPY_SQL = """
-    UNION ALL SELECT start, "end", deviceId, streamId, correlationId, globalPid, graphNodeId, '{kind}', '{kind}', '{kind}', bytes
+    UNION ALL SELECT start, "end", deviceId, streamId, correlationId, globalPid, graphNodeId, '{kind}', '{kind}', '{kind}', bytes, {copy_kind} AS copy_kind
     FROM t.CUPTI_ACTIVITY_KIND_{kind}"""
 
 
@@ -191,7 +239,7 @@ WITH worker AS (SELECT DISTINCT globalTid, globalTid // 16777216 * 16777216 AS g
 ops AS (
     SELECT k.start, k."end", k.deviceId, k.streamId, k.correlationId, k.globalPid, k.graphNodeId, 'kernel' AS kind,
            sn.value AS name, mn.value || '|(' || k.gridX || ', ' || k.gridY || ', ' || k.gridZ || ')|('
-               || k.blockX || ', ' || k.blockY || ', ' || k.blockZ || ')' AS signature, NULL::BIGINT AS bytes
+               || k.blockX || ', ' || k.blockY || ', ' || k.blockZ || ')' AS signature, NULL::BIGINT AS bytes, NULL::INT AS copy_kind
     FROM t.CUPTI_ACTIVITY_KIND_KERNEL k JOIN t.StringIds sn ON sn.id = k.shortName JOIN t.StringIds mn ON mn.id = k.mangledName
     {copies}
 ),
@@ -257,25 +305,53 @@ def add_costs(ops: pd.DataFrame, hw: dict) -> pd.DataFrame:
 
 
 def sol_sources(ops: pd.DataFrame, hw: dict) -> None:
-    """Fills sol_ns and sol_source from the first estimate that knows the op. An op without any keeps sol_ns NaN
-    and shows up as "without a SOL estimate".
+    """Prefer semantic bounds, then profiler resource-demand references with explicit match quality.
 
-    1. copies: bytes / peak DRAM bandwidth.
-    2. kernels: the analytic model of kernel_models.py, from the layer it belongs to and the step's shape.
-    3. kernels: ncu duration x max(SM %, memory %), the time at the peak of the kernel's busiest unit (measured
-       under ncu replay). It needs no model, but cannot tell redundant work from useful work.
+    D2D copies read and write the payload. Host transfers need a host-link profile, not HBM bandwidth.
+    Bounds stay unclipped so inconsistent assumptions remain visible instead of being forced to measured time.
     """
     copies = ops.kind != "kernel"
-    ops.loc[copies, "kernel_sol_ns"] = ops.bytes[copies] / hw["bw"] * 1e9
-    other_grid = ops.ncu_match == "other grid"
-    ops.loc[other_grid, "kernel_sol_ns"] = ops.dur_ns[other_grid] * ops.sol_pct[other_grid] / 100
-    modeled = ~copies & ops.model_sol_ns.notna()
+    defaults = {"model_quality": "unsupported", "model_reason": "no semantic mapping", "model_assumptions": "[]", "model_flops": "{}",
+                "model_memory_ns": float("nan"), "model_compute_ns": float("nan"), "model_read_bytes": float("nan"), "model_write_bytes": float("nan")}
+    for field, value in defaults.items():
+        if field not in ops:
+            ops[field] = value
     ops["sol_source"] = None
-    ops.loc[copies & ops.kernel_sol_ns.notna(), "sol_source"] = "bytes / peak DRAM BW"
-    ops.loc[~copies & ops.kernel_sol_ns.notna(), "sol_source"] = "ncu busiest unit"
-    ops.loc[other_grid & ops.kernel_sol_ns.notna(), "sol_source"] = "ncu busiest unit, same kernel with another grid"
-    ops.loc[modeled, "sol_source"] = "analytic: " + ops.model_family[modeled]
-    ops["sol_ns"] = ops.model_sol_ns.where(modeled, ops.kernel_sol_ns).clip(upper=ops.busy_ns)
+    modeled = ~copies & (ops.model_sol_ns > 0)
+    ops["sol_ns"] = ops.model_sol_ns.where(modeled)
+    ops.loc[modeled, "sol_source"] = "semantic: " + ops.model_family[modeled]
+    if "copy_kind" not in ops:
+        ops["copy_kind"] = float("nan")
+    for (kind, direction, payload), group in ops[copies].groupby(["kind", "copy_kind", "bytes"], dropna=False):
+        operation = "memset" if kind == "memset" else "device_to_device" if direction == 8 else "unknown_link"
+        value = estimate("copy", {"kind": operation, "bytes": payload}, hardware_profile({}, hw))
+        for field, entry in estimate_record(value).items():
+            ops.loc[group.index, field] = entry
+        ops.loc[group.index, "sol_ns"] = value.bound_ns
+        if value.bound_ns is not None:
+            ops.loc[group.index, "sol_source"] = "semantic: " + operation
+    ops["sol_quality"] = ops.model_quality
+    ops["sol_reason"] = ops.model_reason
+    ops["sol_assumptions"] = ops.model_assumptions
+    ops["sol_memory_ns"] = ops.model_memory_ns
+    ops["sol_compute_ns"] = ops.model_compute_ns
+    exact = ops.get("ncu_match", pd.Series(None, index=ops.index)).eq("exact")
+    missing = pd.Series(float("nan"), index=ops.index)
+    duration = ops.get("ncu_ns", missing).where(exact, ops.dur_ns)
+    # Vectorize the counter reference over large traces. The scalar policy is tested in benchmarking.roofline.
+    compute = duration * ops.get("sm_pct", missing) / 100
+    memory = duration * ops.get("mem_pct", missing) / 100
+    reference = pd.concat([compute.where(compute > 0), memory.where(memory > 0)], axis=1).max(axis=1)
+    fallback = (ops.kind == "kernel") & ops.sol_ns.isna() & (duration > 0) & (reference > 0)
+    ops.loc[fallback, "sol_ns"] = reference[fallback]
+    ops.loc[fallback, "sol_memory_ns"] = memory[fallback]
+    ops.loc[fallback, "sol_compute_ns"] = compute[fallback]
+    for is_exact, quality in ((True, "counter-reference"), (False, "inferred-counter-reference")):
+        selected = fallback & (exact == is_exact)
+        ops.loc[selected, "sol_source"] = "ncu reference: exact signature" if is_exact else "ncu reference: transferred utilization (other grid)"
+        ops.loc[selected, "sol_quality"] = quality
+        ops.loc[selected, "sol_reason"] = "resource-demand reference for measured work, excludes latency"
+        ops.loc[selected, "sol_assumptions"] = json.dumps(["separate NCU replay, cache and launch conditions can differ"] + ([] if is_exact else ["same kernel and block, utilization transferred to this duration"]))
 
 
 def category(name: str, signature: str = "") -> str:
@@ -306,6 +382,37 @@ def step_table(db: duckdb.DuckDBPyConnection, ops: pd.DataFrame) -> tuple[pd.Dat
     return steps, f"pure decode steps with {mode_reqs} requests"
 
 
+def measured_steps(db: duckdb.DuckDBPyConnection, steps: pd.DataFrame, rule: str) -> tuple[pd.DataFrame, str]:
+    """Shape traces include startup for graph provenance, while reported timings use the explicit workload window."""
+    start, end = db.execute("""SELECT min(start) FILTER (WHERE text='sol/measurement_start'),
+        max(start) FILTER (WHERE text='sol/measurement_end') FROM nvtx
+        WHERE globalTid // 16777216 IN (SELECT DISTINCT globalTid // 16777216 FROM steps)""").fetchone()
+    if start is None and end is None:
+        return steps, rule
+    if start is None or end is None or start >= end:
+        raise ValueError("incomplete NSYS shape measurement window")
+    result = steps.copy()
+    result["steady"] = result.steady & (result.cpu_start >= start) & (result.cpu_end <= end)
+    if not result.steady.any():
+        raise ValueError("no steady steps inside the NSYS shape measurement window")
+    return result, rule + ", inside annotated measurement window"
+
+
+def execution_shapes(db: duckdb.DuckDBPyConnection, steps: pd.DataFrame, config: Path) -> pd.DataFrame:
+    """Execution marks come after input preparation. Old traces retain scheduled counts and declare the gap."""
+    spec = yaml.safe_load(config.read_text()).get("serve_args", []) if config.exists() else []
+    av = any('"enable_adaptive_verification":true' in arg.replace(" ", "").lower() for arg in spec)
+    marks = db.execute("""SELECT s.step, substr(n.text, 15) AS payload FROM nvtx n JOIN steps s
+        ON n.globalTid=s.globalTid AND n.start>=s.start AND n.start<s.next_start WHERE n.text LIKE 'sol/execution %'""").df()
+    records = {row.step: json.loads(row.payload) for row in marks.itertuples()}
+    result = steps.copy()
+    for field in ("actual_tokens", "padded_tokens", "query_lengths", "context_lengths", "logits_tokens"):
+        result[field] = [records.get(step, {}).get(field) for step in result.step]
+    result["av_enabled"] = av
+    result["query_shape_source"] = ["recorded execution" if step in records else "unrecorded AV execution" if av else "scheduler" for step in result.step]
+    return result
+
+
 # --- Analytic SOL -----------------------------------------------------------------------------------------------
 
 
@@ -320,7 +427,14 @@ def model_info(path: Path) -> dict | None:
         return None
     info = json.loads(path.read_text())["results"][0]
     if "target" not in info:  # the first probe version had another layout
-        return None
+        if "target_weight_bytes" not in info:
+            return None
+        weights = lambda owner: {"dense_bytes": info[f"{owner}_weight_bytes"], "dense_elems": info[f"{owner}_weight_elems"],
+                                 "expert_bytes": 0, "expert_elems": 0, "num_experts": 0}
+        return {"target": weights("target"), "draft": weights("draft"), "top_k": 0,
+                "target_kv_bytes_per_token": info["target_kv_bytes_per_token"],
+                "draft_kv_bytes_per_token": info["draft_kv_bytes_per_token"],
+                "target_state_bytes_per_req": 0, "draft_state_bytes_per_req": 0}
     return without_non_text(info)
 
 
@@ -338,42 +452,57 @@ def without_non_text(info: dict) -> dict:
     for owner, kept in layers.items():
         dense = [l for l in kept if l["kind"] in ("linear", "lm_head")]
         if info[owner] is not None:
-            info[owner] = info[owner] | {"dense_bytes": sum(l["bytes"] for l in dense), "dense_elems": sum(l["elems"] for l in dense)}
+            info[owner] = info[owner] | {"dense_bytes": sum(l["bytes"] for l in dense), "dense_elems": sum(l.get("logical_elems", l["elems"]) for l in dense)}
     return info | {"layers": layers}
 
 
 def analytic_sol(steps: pd.DataFrame, ops: pd.DataFrame, info: dict | None, hw: dict) -> pd.DataFrame:
-    """A lower bound per step that needs no profiler: every forward moves at least its weights, its KV and recurrent
-    state, and does 2 x active params x tokens FLOPs, at peak DRAM bandwidth or the measured BF16 GEMM rate.
+    """Partial work reference per forward, retaining separate roofs and declared assumptions.
 
-    - target: one forward over the step's tokens (verify).
-    - draft: one forward per CUDA graph replay launched inside propose() (at least one), each priced like a forward
-      over all the step's tokens, which overstates draft FLOPs, but decode is bound by bytes.
-    - MoE: a step reads only the experts its requests route to, E * (1 - (1 - k/E)^R) for R requests under uniform
-      routing. The verified and draft tokens of one request route alike, counting them separately overshoots.
-    Activations and attention FLOPs are left out, so the bound is optimistic.
+    Target queries use recorded execution sizes when available. Draft queries are never borrowed from the target.
+    Intermediate materialization and checkpoint writes are excluded, and MoE routing is an explicit assumption.
     """
     if info is None:
         return steps
     replays = ops[ops.phase.str.contains("propose") & ops.phase.str.contains("CUDAGraph.replay|>graph", regex=True)]
     forwards = replays.groupby("step").launch_start.nunique()
     draft_forwards = steps.step.map(forwards).fillna(1).clip(lower=1)
-    target = forward_sol(info["target"], info, "target", steps, hw)
-    draft = forward_sol(info["draft"], info, "draft", steps, hw) * draft_forwards if info["draft"] else 0
-    return steps.assign(target_sol_ns=target, draft_sol_ns=draft, analytic_sol_ns=target + draft, draft_forwards=draft_forwards)
+    target = [forward_estimate(info["target"], info, "target", row, hw) for row in steps.itertuples()]
+    draft = [forward_estimate(info["draft"], info, "draft", row, hw) if info["draft"] else price("empty", Work(0), hardware_profile(info, hw)) for row in steps.itertuples()]
+    result = steps.assign(target_sol_ns=[value.bound_ns for value in target],
+                          draft_sol_ns=[value.bound_ns * count for value, count in zip(draft, draft_forwards)], draft_forwards=draft_forwards)
+    result["analytic_sol_ns"] = result.target_sol_ns + result.draft_sol_ns
+    result["analytic_memory_ns"] = [t.memory_ns + d.memory_ns * count for t, d, count in zip(target, draft, draft_forwards)]
+    result["analytic_compute_ns"] = [t.compute_ns + d.compute_ns * count if t.compute_ns is not None and d.compute_ns is not None else None for t, d, count in zip(target, draft, draft_forwards)]
+    result["analytic_quality"] = ["partial" if "partial" in (t.quality, d.quality) else "assumed" for t, d in zip(target, draft)]
+    result["analytic_assumptions"] = [json.dumps(sorted(set(t.work.assumptions + d.work.assumptions))) for t, d in zip(target, draft)]
+    return result
 
 
 def forward_sol(weights: dict, info: dict, owner: str, steps: pd.DataFrame, hw: dict) -> pd.Series:
-    """ns per forward for every step, the larger of the byte time and the FLOP time."""
+    return pd.Series([forward_estimate(weights, info, owner, row, hw).bound_ns for row in steps.itertuples()], index=steps.index)
+
+
+def forward_estimate(weights: dict, info: dict, owner: str, step, hw: dict) -> Estimate:
+    """Optimistic per-forward work reference. State persistence and unknown draft shapes are explicit."""
     moe = next((layer for layer in info.get("layers", {}).get(owner, []) if layer["kind"] == "moe"), {})
     k = moe.get("top_k") or info["top_k"] or 0
     experts = moe.get("global_experts") or weights["num_experts"]  # with expert parallelism the rank holds a share
-    touched = 1 - (1 - k / experts) ** steps.reqs if experts and k else 1.0  # fraction of experts read
+    requests = float(step.reqs) if pd.notna(step.reqs) else 0
+    touched = 1 - (1 - k / experts) ** requests if experts and k else 1.0  # fraction of experts read
     active = k / experts if experts and k else 1.0  # fraction of expert FLOPs per token
-    state = info[f"{owner}_kv_bytes_per_token"] * (steps.context + steps.tokens) + 2 * info[f"{owner}_state_bytes_per_req"] * steps.reqs
-    memory = (weights["dense_bytes"] + weights["expert_bytes"] * touched + state) / hw["bw"]
-    compute = 2 * (weights["dense_elems"] + weights["expert_elems"] * active) * steps.tokens / info["gemm_flops_per_s"]
-    return pd.concat([memory, compute], axis=1).max(axis=1) * 1e9
+    tokens = query_tokens(step, owner)
+    context = float(step.context) if pd.notna(step.context) else 0
+    kv = info[f"{owner}_kv_bytes_per_token"] * (context + (tokens or 0))
+    state = info.get(f"{owner}_state_bytes_per_req", 0) * requests
+    reads = weights["dense_bytes"] + weights["expert_bytes"] * touched + kv + state
+    flops = {info.get("activation_dtype", "bf16"): 2 * (weights["dense_elems"] + weights["expert_elems"] * active) * tokens} if tokens is not None else {}
+    assumptions = ["weights and existing KV/state read once from device memory", "intermediate activations and checkpoint writes excluded",
+                   "attention, recurrence and nonlinear arithmetic excluded"]
+    assumptions.append("query shape unavailable, query-dependent work excluded" if tokens is None else "query-dependent work uses " + str(getattr(step, "query_shape_source", "scheduler")))
+    if experts:
+        assumptions.append("uniform expert routing, drafts of one request share experts")
+    return price("forward", Work(reads, flops=flops, assumptions=tuple(assumptions), complete=False), hardware_profile(info, hw))
 
 
 # --- Report -----------------------------------------------------------------------------------------------------
@@ -400,10 +529,10 @@ def waterfall_rows(ops: pd.DataFrame, steps: pd.DataFrame) -> list[tuple[str, fl
         # Per-kernel SOL splits the time above the analytic floor only when it covers (nearly) every kernel,
         # otherwise the two sums are not comparable and the busy time stays one block.
         analytic = steps.analytic_sol_ns.mean() / 1e3
-        complete = ops.busy_ns[known].sum() >= 0.99 * ops.busy_ns.sum()
+        complete = ops.busy_ns[known].sum() >= 0.99 * ops.busy_ns.sum() and analytic <= sol <= per_step(ops.busy_ns.sum())
         split = [("Per-kernel SOL above analytic (fusion, extra traffic, small kernels)", sol - analytic)] + rows[1:2]
         whole = [("Busy time above analytic SOL", per_step(ops.busy_ns.sum()) - analytic)]
-        rows = [("Analytic SOL (weights, KV and state once per forward)", analytic)] + (split if complete else whole)
+        rows = [("Analytic SOL (optimistic work reference)", analytic)] + (split if complete else whole)
     return rows + [(f"Idle: {kind}", per_step(group.gap_ns.sum())) for kind, group in ops.groupby("gap_kind")]
 
 
@@ -419,12 +548,16 @@ def waterfall(ops: pd.DataFrame, steps: pd.DataFrame, hw: dict) -> str:
     rows = waterfall_rows(ops, steps)
     total = steps.cost_ns.mean() / 1e3
     floor = sol_floor(ops, steps)
+    drafts = steps.tokens.sum() / steps.reqs.sum() - 1
     lines = [
-        f"# SOL waterfall, {n} steady steps, {steps.reqs.mean():.0f} reqs x {steps.tokens.mean():.0f} tokens on average",
+        f"# SOL waterfall, {n} steady steps, {steps.reqs.mean():.0f} reqs x {steps.tokens.sum() / steps.reqs.sum():.0f} "
+        f"scheduled tokens on average ({drafts:.0f} drafts + 1 verify)",
         "",
         f"- GPU: {hw['gpu']}, peak DRAM BW {hw['bw'] / 1e12:.2f} TB/s",
         f"- Mean step cost {total:.1f} µs (median {steps.cost_ns.median() / 1e3:.1f} µs)"
-        + (f", {total / floor[1]:.2f}x {floor[0]} ({floor[1]:.1f} µs)" if floor else ", no SOL estimate"),
+        + (f", {total / floor[1]:.2f}x {floor[0]} ({floor[1]:.1f} µs)" if floor else ", no SOL estimate")
+        + (f", median step {steps.cost_ns.median() / 1e3 / floor[1]:.2f}x" if floor else ""),
+        *stall_lines(steps, floor, host_gaps(ops)),
         "",
         "| Component | µs/step | share |",
         "|---|---:|---:|",
@@ -450,32 +583,84 @@ def waterfall(ops: pd.DataFrame, steps: pd.DataFrame, hw: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+STALL_MIN_NS = 1e6  # a launch gap is microseconds, so 1 ms of idle means the queue ran dry
+
+
+def host_gaps(ops: pd.DataFrame) -> pd.Series:
+    """GPU idle the host caused, per step, without the in-graph and launch gaps every step has."""
+    return ops[ops.gap_kind == "host"].groupby("step").gap_ns.sum()
+
+
+def stall_summary(steps: pd.DataFrame, host: pd.Series | None = None) -> dict | None:
+    """Steps where the host left the GPU idle long enough that the pipeline, not the kernel work, set the step cost."""
+    idle = steps.gap_ns if host is None else host.reindex(steps.step).fillna(0).to_numpy()
+    threshold = max(STALL_MIN_NS, 5 * float(pd.Series(idle).median()))
+    stalled = idle > threshold
+    if not stalled.any():
+        return None
+    rest = steps.cost_ns[~stalled]
+    return {
+        "count": int(stalled.sum()),
+        "steps": len(steps),
+        "threshold_us": threshold / 1e3,
+        "time_share": float(steps.cost_ns[stalled].sum() / steps.cost_ns.sum()),
+        "mean_cost_ns": float(rest.mean()) if len(rest) else float("nan"),
+    }
+
+
+def stall_check(steps: pd.DataFrame, host: pd.Series | None = None) -> str:
+    stall = stall_summary(steps, host)
+    if not stall:
+        return "none"
+    over_half = ", over half the steady steps" if stall["count"] * 2 > stall["steps"] else ""
+    return (f"{stall['count']} of {stall['steps']} ({stall['time_share']:.1%} of the time, "
+            f"host gap above {stall['threshold_us'] / 1e3:g} ms{over_half})")
+
+
+def stall_lines(steps: pd.DataFrame, floor: tuple[str, float] | None, host: pd.Series | None = None) -> list[str]:
+    """Markdown bullets that keep the all-steps mean honest: how much of it stalls, and the mean without."""
+    stall = stall_summary(steps, host)
+    if not stall:
+        return []
+    text = (f"- Stalls: {stall['count']} of {stall['steps']} steady steps leave the GPU idle above {stall['threshold_us'] / 1e3:g} ms "
+            f"on the host and hold {stall['time_share']:.1%} of the measured time, where the pipeline, not the kernels, sets the step cost")  # fmt: skip
+    if floor and not pd.isna(stall["mean_cost_ns"]):
+        text += f". Without them the mean step is {stall['mean_cost_ns'] / 1e3:.1f} µs ({stall['mean_cost_ns'] / 1e3 / floor[1]:.2f}x {floor[0]})"
+    return [text]
+
+
 def breakdown_table(ops: pd.DataFrame, by, n: int, limit: int | None = None) -> pd.DataFrame:
-    """Per-step us by group, sorted by lost time. Ops without ncu data count as running at SOL."""
-    frame = ops.assign(cost=ops.busy_ns + ops.gap_ns, sol=ops.sol_ns.fillna(ops.busy_ns))
+    """Unknown operations never masquerade as running at SOL. Incomplete groups retain measured times only."""
+    frame = ops.assign(cost=ops.busy_ns + ops.gap_ns, sol=ops.sol_ns, known=ops.sol_ns.notna())
     table = frame.groupby(by).agg(ops=("start", "size"), cost=("cost", "sum"), busy=("busy_ns", "sum"),
-                                  sol=("sol", "sum"), idle=("gap_ns", "sum"))  # fmt: skip
+                                  sol=("sol", "sum"), idle=("gap_ns", "sum"), known=("known", "sum"))  # fmt: skip
+    mapped = frame[frame.known].groupby(by).busy_ns.sum().reindex(table.index).fillna(0) / table.busy
+    table.loc[table.known != table.ops, "sol"] = float("nan")
+    table = table.drop(columns="known")
     table = table / [n, 1e3 * n, 1e3 * n, 1e3 * n, 1e3 * n]
     table["lost"] = table.cost - table.sol
     table["x_sol"] = table.cost / table.sol
-    return table.sort_values("lost", ascending=False).head(limit)
+    table["mapped"] = mapped
+    return table.assign(rank_cost=table.cost - table.sol.fillna(0)).sort_values("rank_cost", ascending=False).head(limit)
 
 
 def breakdown(ops: pd.DataFrame, by, n: int, limit: int | None = None) -> str:
     table = breakdown_table(ops, by, n, limit)
-    header = "| " + " | ".join(table.index.names) + " | ops/step | cost us | busy us | SOL us | idle us | lost us | x SOL |"
-    lines = [header, "|" + "---|" * len(table.index.names) + "---:|" * 7]
+    header = "| " + " | ".join(table.index.names) + " | ops/step | cost us | busy us | SOL us | idle us | lost us | x SOL | SOL coverage |"
+    lines = [header, "|" + "---|" * len(table.index.names) + "---:|" * 8]
     for key, row in table.iterrows():
         keys = key if isinstance(key, tuple) else (key,)
-        values = f"{row.ops:.1f} | {row.cost:.1f} | {row.busy:.1f} | {row.sol:.1f} | {row.idle:.1f} | {row.lost:.1f} | {min(row.x_sol, 99):.1f}"  # >99x only for tiny copies
-        lines.append("| " + " | ".join(str(k)[:80] for k in keys) + f" | {values} |")
+        x_sol = row.x_sol if pd.isna(row.x_sol) else min(row.x_sol, 99)  # >99x only for tiny copies, NA stays NA
+        values = " | ".join(f"{value:.1f}" if pd.notna(value) else "n/a" for value in (row.ops, row.cost, row.busy, row.sol, row.idle, row.lost, x_sol))
+        lines.append("| " + " | ".join(str(k)[:80] for k in keys) + f" | {values} | {int(row.mapped * 100)}% |")
     return "\n".join(lines)
 
 
 def host_breakdown(ops: pd.DataFrame, n: int) -> str:
     host = ops[ops.host_gap_ns > 0].groupby("phase").host_gap_ns.agg(["size", "sum"]).sort_values("sum", ascending=False)
-    lines = ["| phase | gaps/step | us/step |", "|---|---:|---:|"]
+    lines = ["| phase | gaps/step | host-bound us/step |", "|---|---:|---:|"]
     lines += [f"| {phase} | {row['size'] / n:.1f} | {row['sum'] / n / 1e3:.1f} |" for phase, row in host.iterrows()]
+    lines += ["", "Host-bound idle is the attributable part of every gap kind, so it is not the waterfall's `Idle: host` bucket."]
     return "\n".join(lines)
 
 
@@ -506,7 +691,7 @@ def perfetto_trace(db: duckdb.DuckDBPyConnection, ops: pd.DataFrame, step_ids: l
     events += [slice_event(1, 1, r.label, r.start - t0, r.end - r.start, {}) for r in ranges.itertuples()]
     events += [slice_event(1, 2, r.api, r.start - t0, r.end - r.start, {}) for r in runtime_calls(db, window)]
     for op in selected.itertuples():
-        x_sol = op.busy_ns / op.sol_ns if op.sol_ns > 0 else None  # NaN compares False
+        x_sol = op.dur_ns / op.sol_ns if op.sol_ns > 0 else None  # NaN compares False
         args = {"phase": op.phase, "step": op.step, "category": op.category, "busy_us": op.busy_ns / 1e3,
                 "sol_us": none_if_nan(op.sol_ns, 1e3), "x_sol": x_sol, "sol_pct": none_if_nan(op.sol_pct, 1)}  # fmt: skip
         color = next(c for limit, c in SOL_COLORS if x_sol < limit) if x_sol else "grey"

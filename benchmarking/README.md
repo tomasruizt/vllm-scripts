@@ -11,6 +11,9 @@ Use this layer before adding experiment-specific copies. Run scripts from a chec
 | Server counter totals and gauge statistics | `benchmarking.aiperf.server_total()`, `server_stat()` |
 | Completion, error, preemption, saturation and queueing gates | `benchmarking.aiperf.gates(row, min_window_s=5, saturation_ratio=0.9)` |
 | JSONL, CSV and Parquet | `benchmarking.artifacts.read_jsonl()`, `write_csv()`, `write_parquet()` |
+| Semantic work and roofline estimates | `benchmarking.roofline.estimate(operation, metadata, hardware)` |
+| Profiler resource-demand reference | `benchmarking.roofline.utilization_reference(duration_ns, compute_pct, memory_pct)` |
+| Native NSYS operator-shape associations | `benchmarking.nsys_shapes.annotate_shapes(db, ops)` |
 | AV off/on SPEED-Bench report | `reporting.aiperf_report.main(ReportConfig(...))` |
 | Plotting and offline report composition | `reporting/plots.py`, `reporting/model_tabs.py`, `reporting/b200-theme.css` |
 
@@ -43,6 +46,12 @@ This report builder is for the existing fixed-request SPEED-Bench AV off/on prot
 When deploying remotely, preserve the package layout by copying `benchmarking/*.py`, `reporting/*.py` and `reporting/b200-theme.css` alongside the experiment tree, or use a complete checkout. The Qwen `make report` target does this. Generic metric ingestion and artifact exports do not import Matplotlib.
 
 ## Extend and verify
+
+`roofline.py` keeps logical work separate from hardware pricing. Its registry covers projections, matmul, dense ragged attention, convolution, pointwise operations, reductions, stateful work and transfers. A new model supplies dimensions and dtypes through the same metadata interface. Add a cost model only for a new semantic operation, never a profiler kernel name. Estimates retain read/write traffic, per-precision FLOPs, separate memory/compute bounds, assumptions and quality (`specified`, `assumed`, `partial`, `unsupported`). Missing compute ceilings leave a partial memory bound. Unknown operations have no estimate. Stateful work takes an explicit amortized checkpoint-write budget, defaulting to an optimistic zero, independent of the number of draft tokens.
+
+`utilization_reference()` provides a separate `counter-reference` for measured implementation work when semantic metadata is unavailable. It retains no fabricated byte/FLOP counts and excludes latency. Callers must disclose replay conditions and any transfer of utilization between execution shapes.
+
+`nsys_shapes.py` reads native PyTorch input-size annotations from an attached NSYS SQLite export (`t`). It associates eager launches through enclosing CPU annotations and graph replays through process-scoped node identities and clone links. Capturing graph construction is required for graph provenance. `estimate_shapes()` prices supported operator semantics only with a declared operand precision. Unknown dtypes, operations or ambiguous associations remain unsupported. This module requires DuckDB and pandas, the pure roofline module does not.
 
 Add generic operations here and keep experiment-specific decisions at the call site. Prefer small functions and explicit policies. The current layer does not provide remote scheduling, server lifecycle, workload planning, statistical comparisons or profiler ingestion. Search existing experiments before implementing these and extract shared code when adding a second consumer.
 

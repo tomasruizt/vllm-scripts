@@ -23,7 +23,7 @@ DEFAULTS = {
     "gpus": 1, "concurrencies": [1, 32], "passes": ["nsys", "ncu"], "env": {}, "timeout": "3h",
     "python": "~/.venv/bin/python", "aiperf": "~/aiperf-venv/bin/aiperf", "request_extra": {},
     "max_completion_tokens": 1024, "capture_seconds": 3, "ncu_idle_seconds": 120, "ncu_max_seconds": 1800,
-    "ncu_gpu_memory_utilization": 0.3,
+    "ncu_gpu_memory_utilization": 0.3, "nsys_shapes": False,
     # ncu >= 2026.1, for --communicator with TP>1, e.g. from NVIDIA's conda channel (nsight-compute package)
     "ncu": "~/opt/ncu-2026.2.1/nsight-compute-2026.2.1/ncu",
 }  # fmt: skip
@@ -43,6 +43,11 @@ NCU = [
     # the first launch of every (mangled name, grid, block, shared memory), i.e. once per signature sol.py matches on
     "--filter-mode", "per-launch-config", "--kernel-name-base", "mangled", "--kernel-id", "::regex:.*:1",
 ]  # fmt: skip
+
+
+def nsys_command(config: dict, output: Path) -> list[str]:
+    annotations = ["--pytorch", "autograd-shapes-nvtx"] if config.get("nsys_shapes") else []
+    return NSYS[:-1] + annotations + ["--output", str(output)]
 
 
 def main() -> None:
@@ -115,14 +120,25 @@ class Level:
             (directory / "exit-code.txt").write_text(str(exit_code))
 
     def nsys_pass(self, directory: Path) -> None:
-        self.start_server(NSYS + [str(directory / "trace")], directory, self.config["serve_args"])
+        self.start_server(nsys_command(self.config, directory / "trace"), directory, self.config["serve_args"])
+        if self.config.get("nsys_shapes"):
+            status = self.rpc("sol_shape_capture_status").get("results", [])
+            if not status or not all(status):
+                raise RuntimeError("shape capture did not start before CUDA graph construction, check the worker extension startup hook")
         (directory / "model-info.json").write_text(json.dumps(self.rpc("sol_model_info"), indent=2))
-        self.aiperf(directory, "reference", duration=30).wait()
+        if not self.config.get("nsys_shapes"):
+            self.aiperf(directory, "reference", duration=30).wait()
         client = self.aiperf(directory, "capture", duration=25)
         time.sleep(12)
-        self.post("/start_profile")
+        if self.config.get("nsys_shapes"):
+            self.rpc("sol_start_shape_measurement")
+        else:
+            self.post("/start_profile")
         time.sleep(self.config["capture_seconds"])
-        self.post("/stop_profile")
+        if self.config.get("nsys_shapes"):
+            self.rpc("sol_stop_shape_measurement")
+        else:
+            self.post("/stop_profile")
         client.wait()
         self.stop_server()
 
@@ -176,6 +192,8 @@ class Level:
         venv = os.path.dirname(os.path.expanduser(self.config["python"]))  # like an activated venv, e.g. for ninja
         env["PATH"] = f"{venv}:{env['PATH']}:/usr/local/cuda/bin"  # last, /usr/local/cuda/bin holds an nsys stub
         env["TMPDIR"] = str(self.root / "tmp")  # nsys fails when /tmp/nvidia belongs to another user
+        if self.config.get("nsys_shapes"):
+            env["SOL_NSYS_SHAPES"] = "1"
         (self.root / "tmp").mkdir(exist_ok=True)
         return env
 
