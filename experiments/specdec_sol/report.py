@@ -130,6 +130,17 @@ if (!window.detailTip) {
     view.measure.b = timeAt(view, event);
     drawMeasure(view);
   });
+  // Every kernel box carries both colors and both hover texts pre-computed; the toggle just repaints and
+  // switches which text the mousemove handler below reads, it never refetches or recomputes.
+  window.ncuMode = true;
+  document.addEventListener("change", (event) => {
+    if (!event.target.matches?.(".sol-mode-toggle")) return;
+    window.ncuMode = event.target.checked;
+    for (const el of document.querySelectorAll("[data-color-analytic]")) {
+      el.querySelector("rect")?.setAttribute("fill", window.ncuMode ? el.dataset.colorNcu : el.dataset.colorAnalytic);
+    }
+    for (const box of document.querySelectorAll(".sol-mode-toggle")) box.checked = window.ncuMode;
+  });
   document.addEventListener("copy", (event) => {
     const view = window.measuredView;
     if (!view?.measure || !view.scroller.clientWidth || window.measuring || !event.clipboardData) return;
@@ -214,10 +225,10 @@ if (!window.detailTip) {
   document.body.appendChild(tip);
   window.detailTip = tip;
   document.addEventListener("mousemove", (event) => {
-    const hit = !window.measuring && event.target.closest && event.target.closest("[data-detail]");
+    const hit = !window.measuring && event.target.closest && event.target.closest("[data-detail], [data-detail-ncu]");
     tip.hidden = !hit;
     if (!hit) return;
-    tip.textContent = hit.dataset.detail;
+    tip.textContent = hit.dataset.detail ?? (window.ncuMode ? hit.dataset.detailNcu : hit.dataset.detailAnalytic);
     const left = Math.min(event.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
     const top = event.clientY + 16 + tip.offsetHeight > window.innerHeight ? event.clientY - tip.offsetHeight - 12 : event.clientY + 16;
     tip.style.left = left + "px";
@@ -268,14 +279,12 @@ def page(report_dir: Path, run_dir: Path, run: dict) -> str:
         "" if has_sol else NO_KERNEL_SOL_NOTE,
         "<h2>Timeline</h2>",
         timeline(ops[ops.step == shown_step], ranges, steps.set_index("step").loc[shown_step]),
+        f"<h2>Top kernels by {'lost time' if has_sol else 'cost'}</h2>",
+        table_html(top.head(25), has_sol),
         "<h2>Performance</h2>",
         performance(steady_ops, steady),
         "<h2>By CPU phase of the launch</h2>",
         table_html(breakdown_table(steady_ops, "phase", n), has_sol),
-        "<h2>By kernel category</h2>",
-        table_html(breakdown_table(steady_ops, "category", n), has_sol),
-        f"<h2>Top kernels by {'lost time' if has_sol else 'cost'}</h2>",
-        table_html(top.head(25), has_sol),
         "<h2>Overview</h2>",
         overview(run_dir, steady, steady_ops, meta, run),
         footer(),
@@ -488,17 +497,22 @@ def timeline(ops: pd.DataFrame, ranges: pd.DataFrame, step: pd.Series) -> str:
     note = ("<p class=\"metric-note\">One steady step with the median cost. Cmd + scroll to zoom, scroll sideways to pan, drag to measure time and highlight overlapping GPU kernels, Cmd+C to copy their list, hover a box for details. The CPU lanes "
             "show this step's calls, from execute_model() to the next one. Its GPU work starts later, because with async scheduling the GPU is still busy with the previous step.</p>")  # fmt: skip
     legend += '<span style="--c:#9ca3af">GPU idle</span>'
-    return f'{view}{TIMELINE_SCRIPT}<div class="legend">{legend}</div>{note}'
+    mode_toggle = ('<label style="margin-left:1em"><input type="checkbox" class="sol-mode-toggle" checked> '
+                   "color by NCU-measured utilization (off: analytic estimate)</label>") if has_kernel_sol(ops) else ""
+    return f'{view}{TIMELINE_SCRIPT}<div class="legend">{legend}{mode_toggle}</div>{note}'
 
 
 def table_html(table: pd.DataFrame, has_sol: bool) -> str:
     """Without ncu data, the SOL columns are dropped and rows are sorted by cost."""
     keys = list(table.index.names)
     columns = ["ops/step", "cost µs", "busy µs", "SOL µs", "idle µs", "lost µs", "x SOL"]
+    titles = {"SOL µs": "analytic estimate, or NCU measured where no estimate applies, see the timeline toggle for either on its own",
+             "x SOL": "cost / SOL, same combined source as the SOL column"}  # fmt: skip
     if not has_sol:
         table = table.sort_values("cost", ascending=False)
         columns = ["ops/step", "cost µs", "busy µs", "idle µs"]
-    head = "".join(f'<th class="name">{k}</th>' for k in keys) + "".join(f"<th>{c}</th>" for c in columns)
+    head = "".join(f'<th class="name">{k}</th>' for k in keys) + "".join(
+        f'<th title="{titles[c]}">{c}</th>' if c in titles else f"<th>{c}</th>" for c in columns)
     rows = []
     for key, row in table.iterrows():
         cells = zip(keys, key if isinstance(key, tuple) else (key,))
@@ -544,26 +558,11 @@ def footer() -> str:
 def kernel_box(op, us, y: float) -> str:
     a = us(op.start)
     b = us(op.end)
-    has_sol = op.sol_ns > 0  # NaN compares False
-    x_sol = op.dur_ns / op.sol_ns if has_sol else math.nan
+    has_sol = op.sol_ns > 0  # NaN compares False, drives only the dark SOL-time inset below
     kernel_id = f"step{op.step}-op{op.Index}"
-    # Two unrelated claims: an analytic estimate (assumption-based floor) and an NCU measurement
-    # (this kernel's own achieved utilization). Label which one SOL is, below, so they're never
-    # read as the same number disagreeing with itself.
     has_ncu = pd.notna(op.sol_pct)
     busiest = "bandwidth" if has_ncu and pd.notna(op.mem_pct) and op.mem_pct >= op.sm_pct else "compute"
-    measured = has_sol and str(op.sol_source).startswith("ncu reference")
-    if measured:
-        sol_line = f"SOL (NCU measured): {op.sol_ns / 1e3:.1f} µs, this kernel ran at {op.sol_pct:.0f}% of peak {busiest} throughput"
-        slower_line = f"duration is {x_sol:.1f}x the measured-peak time" if x_sol < 100 else "duration is >99x the measured-peak time"
-    elif has_sol:
-        sol_line = f"SOL (analytic estimate): {op.sol_ns / 1e3:.1f} µs, from {op.sol_source}"
-        slower_line = f"duration is {x_sol:.1f}x the analytic estimate" if x_sol < 100 else "duration is >99x the analytic estimate"
-    else:
-        sol_line, slower_line = "SOL: no estimate for this kernel", ""
-    cross_check = (f"separately, NCU measured this kernel at {op.sol_pct:.0f}% of peak {busiest} throughput for the work it "
-                   "actually does, independent of the SOL estimate above, the two need not agree") if has_ncu and not measured else ""
-    lines = [
+    common = [
         f"phase: {op.phase}",
         f"name: {op.name}",
         f"operator: {op.operator_name}" if pd.notna(getattr(op, "operator_name", None)) else "",
@@ -572,26 +571,67 @@ def kernel_box(op, us, y: float) -> str:
         f"duration: {op.dur_ns / 1e3:.1f} µs",
         f"category: {op.category}",
         f"busy: {op.busy_ns / 1e3:.1f} µs",
-        f"bandwidth SOL: {op.sol_memory_ns / 1e3:.1f} µs" if pd.notna(getattr(op, "sol_memory_ns", None)) else "",
-        f"compute SOL: {op.sol_compute_ns / 1e3:.1f} µs" if pd.notna(getattr(op, "sol_compute_ns", None)) else "",
-        sol_line,
-        slower_line,
-        f"estimate confidence: {getattr(op, 'sol_quality', getattr(op, 'model_quality', 'unsupported'))}",
-        f"why: {getattr(op, 'sol_reason', getattr(op, 'model_reason', ''))}",
-        "assuming: " + ", ".join(json.loads(getattr(op, "sol_assumptions", getattr(op, "model_assumptions", "[]")))),
-        cross_check,
+    ]
+    tail = [
         "launch: inferred (no CUPTI launch record)" if op.inferred_launch else "",
         f"idle before launch: {op.gap_ns / 1e3:.1f} µs ({op.gap_kind})" if op.gap_ns > 0 else "",
     ]
+    # The color toggle swaps the fill; the hover panel must swap with it, so each mode gets its own full detail
+    # text instead of one static tooltip that would stop matching whichever color is currently shown.
+    analytic_detail = "\n".join(filter(None, common + sol_mode_lines(op, "analytic", busiest) + tail))
+    ncu_detail = "\n".join(filter(None, common + sol_mode_lines(op, "ncu", busiest) + tail))
+    x_sol_analytic = ratio(op.dur_ns, getattr(op, "sol_ns_analytic", math.nan))
+    x_sol_ncu = ratio(op.dur_ns, getattr(op, "sol_ns_ncu", math.nan))
+    color_analytic = sol_color(x_sol_analytic) if pd.notna(x_sol_analytic) else "#d1d5db"
+    color_ncu = sol_color(x_sol_ncu) if pd.notna(x_sol_ncu) else "#d1d5db"
+    attrs = f' data-color-analytic="{color_analytic}" data-color-ncu="{color_ncu}"' if op.kind == "kernel" else ""
+    attrs += f' data-detail-analytic="{html.escape(analytic_detail)}" data-detail-ncu="{html.escape(ncu_detail)}"'
     inset = ""
     if has_sol:
         inset = rect(a, min(b, a + op.sol_ns / 1e3), y + LANE * 0.65, LANE * 0.35, "#1f2937", ' opacity=".55"')
-    attrs = ""
     if op.kind == "kernel":
         record = {"id": kernel_id, "device": op.deviceId, "stream": op.streamId, "start_us": f"{a:.1f}",
                   "duration_us": f"{op.dur_ns / 1e3:.1f}", "start_ns": str(op.start), "name": op.name}
-        attrs = f' data-a="{a:.3f}" data-b="{b:.3f}" data-kernel="{html.escape(json.dumps(record))}"'
-    return box(a, y, b, sol_color(x_sol) if has_sol else "#d1d5db", "\n".join(filter(None, lines)), extra=inset, attrs=attrs)
+        attrs += f' data-a="{a:.3f}" data-b="{b:.3f}" data-kernel="{html.escape(json.dumps(record))}"'
+    default_color = color_ncu if op.kind == "kernel" else color_analytic  # NCU on by default, copies have no NCU reference
+    return box(a, y, b, default_color, "", extra=inset, attrs=attrs)
+
+
+def sol_mode_lines(op, mode: str, busiest: str) -> list[str]:
+    """The SOL-related tooltip lines for one hover mode ('analytic' or 'ncu'), plus a labeled cross-check to the
+    other mode's number so the two are never read as the same claim disagreeing with itself."""
+    sol_ns = getattr(op, f"sol_ns_{mode}", math.nan)
+    memory_ns = getattr(op, f"sol_memory_ns_{mode}", math.nan)
+    compute_ns = getattr(op, f"sol_compute_ns_{mode}", math.nan)
+    has = pd.notna(sol_ns) and sol_ns > 0
+    x_sol = op.dur_ns / sol_ns if has else math.nan
+    other = "ncu" if mode == "analytic" else "analytic"
+    other_ns = getattr(op, f"sol_ns_{other}", math.nan)
+    has_other = pd.notna(other_ns) and other_ns > 0
+    if mode == "ncu":
+        exact = has and op.ncu_match == "exact"
+        by_size = has and str(op.ncu_match).startswith("matched by work size")
+        subject = "a same-sized GEMM" if by_size else "this kernel"
+        sol_line = (f"SOL (NCU measured): {sol_ns / 1e3:.1f} µs, {subject} ran at {op.sol_pct:.0f}% of peak {busiest} throughput"
+                    if has else "SOL (NCU measured): no NCU measurement for this operation")
+        slower_line = (f"duration is {x_sol:.1f}x the measured-peak time" if x_sol < 100 else "duration is >99x the measured-peak time") if has else ""
+        confidence = ("counter-reference" if exact else "inferred-counter-reference") if has else "unsupported"
+        cross_check = (f"separately, the analytic estimate for this operation is {other_ns / 1e3:.1f} µs, independent of the "
+                       "SOL measurement above, the two need not agree") if has_other else ""  # fmt: skip
+    else:
+        sol_line = f"SOL (analytic estimate): {sol_ns / 1e3:.1f} µs, from {op.sol_source}" if has else "SOL (analytic estimate): no estimate for this operation"
+        slower_line = (f"duration is {x_sol:.1f}x the analytic estimate" if x_sol < 100 else "duration is >99x the analytic estimate") if has else ""
+        confidence = getattr(op, "sol_quality", "unsupported") if has else "unsupported"
+        cross_check = (f"separately, NCU measured this operation at {op.sol_pct:.0f}% of peak {busiest} throughput for the work it "
+                       "actually does, independent of the SOL estimate above, the two need not agree") if has_other else ""  # fmt: skip
+    return [
+        f"bandwidth SOL: {memory_ns / 1e3:.1f} µs" if pd.notna(memory_ns) else "",
+        f"compute SOL: {compute_ns / 1e3:.1f} µs" if pd.notna(compute_ns) else "",
+        sol_line,
+        slower_line,
+        f"estimate confidence: {confidence}",
+        cross_check,
+    ]
 
 
 def box(a: float, y: float, b: float, color: str, tip: str, label: str = "", extra: str = "", attrs: str = "") -> str:
@@ -599,7 +639,8 @@ def box(a: float, y: float, b: float, color: str, tip: str, label: str = "", ext
     text = ""
     if label:
         text = f'<text x="{a + 2:.2f}" y="{y + LANE // 2 + 4}" font-size="10" data-a="{a:.3f}" data-b="{b:.3f}">{html.escape(label)}</text>'
-    return f'<g class="hit" data-detail="{html.escape(tip)}"{attrs}>{rect(a, b, y, LANE, color)}{extra}{text}</g>'
+    detail = f' data-detail="{html.escape(tip)}"' if tip else ""  # kernel_box supplies data-detail-analytic/-ncu instead
+    return f'<g class="hit"{detail}{attrs}>{rect(a, b, y, LANE, color)}{extra}{text}</g>'
 
 
 def rect(a: float, b: float, y: float, height: float, color: str, attrs: str = "") -> str:
@@ -627,6 +668,10 @@ def component_color(label: str) -> str:
 def lost_color(fraction: float) -> str:
     """Red with opacity proportional to the lost time, as a fraction of the largest in the table."""
     return f"rgba(220, 38, 38, {0.85 * max(fraction, 0):.2f})"
+
+
+def ratio(dur_ns: float, sol_ns: float) -> float:
+    return dur_ns / sol_ns if pd.notna(sol_ns) and sol_ns > 0 else math.nan
 
 
 def sol_color(x_sol: float) -> str:

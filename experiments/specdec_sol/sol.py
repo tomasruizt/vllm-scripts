@@ -7,6 +7,7 @@ execution-shape provenance and separate memory/compute bounds accompany supporte
 import argparse
 import csv
 import json
+import math
 import re
 import sqlite3
 from pathlib import Path
@@ -15,7 +16,7 @@ import duckdb
 import pandas as pd
 import yaml
 
-from kernel_models import classification_name, estimate_record, hardware_profile, kernel_models, query_tokens, shape_models
+from kernel_models import classification_name, estimate_record, family, hardware_profile, kernel_models, query_tokens, shape_models
 from benchmarking.nsys_shapes import annotate_shapes
 from benchmarking.roofline import Estimate, Work, estimate, price
 
@@ -59,7 +60,8 @@ def main() -> None:
         saved = json.loads(previous_meta.read_text())
         sources = saved.get("ncu_sources") or ([saved["ncu_source"]] if saved.get("ncu_source") else [])
         ncu_paths = [Path(source) for source in sources] or ncu_paths
-    ops = match_ncu(ops, ncu_profiles(ncu_paths, hw))
+    ncu = ncu_profiles(ncu_paths, hw)
+    ops = match_ncu(ops, ncu)
     ops = add_costs(ops, hw)
     steps, steady_rule = step_table(db, ops)
     steps, steady_rule = measured_steps(db, steps, steady_rule, args.run_dir.name)
@@ -68,6 +70,8 @@ def main() -> None:
     steps = analytic_sol(steps, ops, info, hw)
     with_layers = info and "layers" in info  # runs from before the probe reported its layer inventory have none
     ops, mapping = kernel_models(ops, steps, info, hw) if with_layers else (ops.assign(model_sol_ns=float("nan"), model_family=None), {})
+    if with_layers:
+        ops = match_by_work_size(ops, ncu)  # the semantic byte estimate from kernel_models() is only available now
     ops = shape_models(ops, info or {}, hw, shape_dtype)
     sol_sources(ops, hw)
     steady = steps[steps.steady]
@@ -184,6 +188,39 @@ def kernel_key(signature: str) -> str:
     """Mangled name and block size, without the grid."""
     name, _, block = signature.split("|")
     return f"{name}|{block}"
+
+
+GEMM_FAMILIES = {"gemm", "expert_gemm", "activation_gemm"}
+
+
+def match_by_work_size(ops: pd.DataFrame, ncu: pd.DataFrame) -> pd.DataFrame:
+    """A GEMM's compiled kernel can differ between the nsys and NCU passes: two separate server launches whose
+    autotuners need not pick the identical tile or cluster variant for the same logical operation (e.g. the LM
+    head GEMM), leaving no exact or same-name match even though the work is well understood. For GEMM-family
+    kernels with a semantic byte estimate, match instead on work size against any NCU-profiled GEMM, accepted
+    only within 2x either way so a same-sized but unrelated kernel is not mistaken for this one.
+    """
+    pool = ncu.assign(family=[family(signature.split("|", 1)[0]) for signature in ncu.signature])
+    pool = pool[pool.family.isin(GEMM_FAMILIES) & pool.dram_bytes.notna() & (pool.dram_bytes > 0)]
+    model_bytes = ops.model_read_bytes.fillna(0) + ops.model_write_bytes.fillna(0)
+    unmatched = ops.index[(ops.kind == "kernel") & ops.ncu_match.isna() & ops.model_family.isin(GEMM_FAMILIES) & (model_bytes > 0)]
+    if pool.empty or unmatched.empty:
+        return ops
+    for i in unmatched:
+        candidates = pool[pool.family == ops.at[i, "model_family"]]
+        if candidates.empty:
+            continue
+        log_ratio = (candidates.dram_bytes / model_bytes[i]).map(math.log2).abs()
+        closest = log_ratio.idxmin()
+        if log_ratio[closest] > 1:  # more than 2x off either way, not a trustworthy stand-in
+            continue
+        row = candidates.loc[closest]
+        for column in ("sol_pct", "sm_pct", "mem_pct"):
+            ops.at[i, column] = row[column]
+        if "ncu_source" in ops.columns:
+            ops.at[i, "ncu_source"] = row.get("ncu_source")
+        ops.at[i, "ncu_match"] = "matched by work size: different compiled kernel, same GEMM family"
+    return ops
 
 
 def number(text: str) -> float:
@@ -336,6 +373,11 @@ def sol_sources(ops: pd.DataFrame, hw: dict) -> None:
     ops["sol_assumptions"] = ops.model_assumptions
     ops["sol_memory_ns"] = ops.model_memory_ns
     ops["sol_compute_ns"] = ops.model_compute_ns
+    # Kept alongside the combined sol_ns above (semantic preferred, NCU as fallback) so the report can let a
+    # viewer see either source on its own, without one silently filling the other's gaps.
+    ops["sol_ns_analytic"] = ops["sol_ns"]
+    ops["sol_memory_ns_analytic"] = ops["sol_memory_ns"]
+    ops["sol_compute_ns_analytic"] = ops["sol_compute_ns"]
     exact = ops.get("ncu_match", pd.Series(None, index=ops.index)).eq("exact")
     missing = pd.Series(float("nan"), index=ops.index)
     # NCU's --kernel-id filter keeps only the first launch of each (name, grid, block) signature across the whole
@@ -355,6 +397,10 @@ def sol_sources(ops: pd.DataFrame, hw: dict) -> None:
     compute = duration * ops.get("sm_pct", missing) / 100
     memory = duration * ops.get("mem_pct", missing) / 100
     reference = pd.concat([compute.where(compute > 0), memory.where(memory > 0)], axis=1).max(axis=1)
+    is_kernel = ops.kind == "kernel"
+    ops["sol_ns_ncu"] = reference.where(is_kernel)
+    ops["sol_memory_ns_ncu"] = memory.where(is_kernel)
+    ops["sol_compute_ns_ncu"] = compute.where(is_kernel)
     fallback = (ops.kind == "kernel") & ops.sol_ns.isna() & (duration > 0) & (reference > 0)
     ops.loc[fallback, "sol_ns"] = reference[fallback]
     ops.loc[fallback, "sol_memory_ns"] = memory[fallback]

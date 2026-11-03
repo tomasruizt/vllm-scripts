@@ -196,7 +196,7 @@ class EstimateTests(unittest.TestCase):
         self.assertEqual(probe.prepared_shape(batch, adaptive=False)["query_lengths"], [3, 2])
 
     def test_overlapping_kernel_uses_duration_and_keeps_its_bound(self) -> None:
-        op = SimpleNamespace(Index=1, step=1, start=0, end=1000, dur_ns=1000, busy_ns=0, sol_ns=2000,
+        op = SimpleNamespace(Index=1, step=1, start=0, end=1000, dur_ns=1000, busy_ns=0, sol_ns=2000, sol_ns_analytic=2000,
                              phase="execute", name="gemm", category="gemm", inferred_launch=False,
                              sol_source="semantic: gemm", sol_pct=np.nan, gap_ns=0, kind="kernel", deviceId=0, streamId=7)
         rendered = report.kernel_box(op, lambda time: time / 1000, 0)
