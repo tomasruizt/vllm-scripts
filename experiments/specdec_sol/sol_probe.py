@@ -32,12 +32,17 @@ class SolProbe:
     def sol_shape_capture_status(self) -> bool:
         return bool(getattr(self.model_runner, "_sol_shape_capture_started", False))
 
-    def sol_start_shape_measurement(self) -> None:
-        torch.cuda.nvtx.mark("sol/measurement_start")
+    def sol_start_shape_measurement(self, concurrency: int | None = None) -> None:
+        suffix = f" c={concurrency}" if concurrency is not None else ""
+        torch.cuda.nvtx.mark("sol/measurement_start" + suffix)
 
-    def sol_stop_shape_measurement(self) -> None:
-        torch.cuda.nvtx.mark("sol/measurement_end")
-        torch.cuda.profiler.stop()
+    def sol_stop_shape_measurement(self, concurrency: int | None = None, stop: bool = True) -> None:
+        suffix = f" c={concurrency}" if concurrency is not None else ""
+        torch.cuda.nvtx.mark("sol/measurement_end" + suffix)
+        if stop:
+            if torch.distributed.is_initialized():
+                torch.distributed.barrier()  # Every rank must emit its end marker before collection stops.
+            torch.cuda.profiler.stop()
 
     def sol_model_info(self) -> dict:
         """What the analytic SOL needs: bytes and elements of dense and expert weights, KV bytes per token and

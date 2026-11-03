@@ -138,7 +138,7 @@ if (!window.detailTip) {
     const heading = view.closest(".model-panel")?.querySelector("h1")?.textContent || document.title;
     const rows = view.selectedKernels.map((el) => JSON.parse(el.dataset.kernel));
     const columns = ["id", "device", "stream", "start_us", "duration_us", "start_ns", "name"];
-    const windowLine = `# ${heading}: ${Math.min(m.a, m.b).toFixed(3)}–${Math.max(m.a, m.b).toFixed(3)} µs`;
+    const windowLine = `# ${heading}: ${Math.min(m.a, m.b).toFixed(1)}–${Math.max(m.a, m.b).toFixed(1)} µs`;
     const lines = rows.map((row) => columns.map((key) => row[key]).join("\t"));
     event.clipboardData.setData("text/plain", [windowLine, columns.join("\t"), ...lines].join("\n"));
     event.preventDefault();
@@ -176,7 +176,7 @@ if (!window.detailTip) {
       const text = document.createElementNS(ns, "text");
       text.setAttribute("x", t * scale + 2); text.setAttribute("y", 11);
       text.setAttribute("font-size", 10); text.setAttribute("fill", "#475569");
-      text.textContent = `${+t.toFixed(3)} µs`;
+      text.textContent = `${+t.toFixed(1)} µs`;
       axis.append(line, text);
     }
   };
@@ -521,9 +521,12 @@ def na_cell(mapped: float) -> str:
 def footer() -> str:
     return (
         "<footer><p>Cost of an op = its busy time plus the GPU idle gap before it, so op costs sum to the step time. "
-        "Kernel SOL comes from semantic work with declared shapes, precision ceilings and traffic assumptions. "
-        "When semantic metadata is missing, NCU resource-demand references supply a fallback, with exact and transferred matches labeled. "
-        "These describe measured implementation work, rather than a semantic lower bound. Operations missing both sources are gray. "
+        "Each kernel's SOL is one of two unrelated claims, labeled in its tooltip. Analytic estimate: a floor computed from "
+        "declared shapes, precision ceilings and traffic assumptions, it can be wrong if an assumption does not hold. NCU measured: "
+        "this kernel's own achieved utilization from an NCU profile, used when no analytic estimate applies (exact and transferred "
+        "matches labeled). A kernel can show both: a low analytic estimate does not mean the kernel is inefficient if NCU separately "
+        "measures it near peak utilization, that NCU number describes the real work, the analytic one may have undercounted it. "
+        "Operations missing both sources are gray. "
         "Incomplete table groups show n/a. "
         "D2D copies count a payload read and write, host transfers require a link profile. "
         "The forward reference excludes intermediate materialization and checkpoint writes. Draft query work is excluded when its shape is unknown. "
@@ -544,28 +547,40 @@ def kernel_box(op, us, y: float) -> str:
     has_sol = op.sol_ns > 0  # NaN compares False
     x_sol = op.dur_ns / op.sol_ns if has_sol else math.nan
     kernel_id = f"step{op.step}-op{op.Index}"
-    usage = ""
-    if pd.notna(op.sol_pct):
-        busiest = "bandwidth" if pd.notna(op.mem_pct) and op.mem_pct >= op.sm_pct else "compute"
-        usage = f"ncu {busiest} usage: {op.sol_pct:.0f}% of peak"
+    # Two unrelated claims: an analytic estimate (assumption-based floor) and an NCU measurement
+    # (this kernel's own achieved utilization). Label which one SOL is, below, so they're never
+    # read as the same number disagreeing with itself.
+    has_ncu = pd.notna(op.sol_pct)
+    busiest = "bandwidth" if has_ncu and pd.notna(op.mem_pct) and op.mem_pct >= op.sm_pct else "compute"
+    measured = has_sol and str(op.sol_source).startswith("ncu reference")
+    if measured:
+        sol_line = f"SOL (NCU measured): {op.sol_ns / 1e3:.1f} µs, this kernel ran at {op.sol_pct:.0f}% of peak {busiest} throughput"
+        slower_line = f"duration is {x_sol:.1f}x the measured-peak time" if x_sol < 100 else "duration is >99x the measured-peak time"
+    elif has_sol:
+        sol_line = f"SOL (analytic estimate): {op.sol_ns / 1e3:.1f} µs, from {op.sol_source}"
+        slower_line = f"duration is {x_sol:.1f}x the analytic estimate" if x_sol < 100 else "duration is >99x the analytic estimate"
+    else:
+        sol_line, slower_line = "SOL: no estimate for this kernel", ""
+    cross_check = (f"separately, NCU measured this kernel at {op.sol_pct:.0f}% of peak {busiest} throughput for the work it "
+                   "actually does, independent of the SOL estimate above, the two need not agree") if has_ncu and not measured else ""
     lines = [
         f"phase: {op.phase}",
         f"name: {op.name}",
         f"operator: {op.operator_name}" if pd.notna(getattr(op, "operator_name", None)) else "",
         f"input shapes: {op.operator_input_shapes}" if pd.notna(getattr(op, "operator_input_shapes", None)) else "",
         f"shape estimate: {op.operator_estimate_reason}" if pd.notna(getattr(op, "operator_estimate_reason", None)) and op.operator_estimate_reason else "",
-        f"duration: {op.dur_ns / 1e3:.3f} µs",
+        f"duration: {op.dur_ns / 1e3:.1f} µs",
         f"category: {op.category}",
         f"busy: {op.busy_ns / 1e3:.1f} µs",
-        f"bandwidth SOL: {op.sol_memory_ns / 1e3:.3f} µs" if pd.notna(getattr(op, "sol_memory_ns", None)) else "",
-        f"compute SOL: {op.sol_compute_ns / 1e3:.3f} µs" if pd.notna(getattr(op, "sol_compute_ns", None)) else "",
-        f"SOL: {op.sol_ns / 1e3:.1f} µs, from {op.sol_source}" if has_sol else "SOL: no estimate for this kernel",
-        "" if not has_sol else f"duration is {x_sol:.1f}x SOL" if x_sol < 100 else "duration is >99x SOL",
+        f"bandwidth SOL: {op.sol_memory_ns / 1e3:.1f} µs" if pd.notna(getattr(op, "sol_memory_ns", None)) else "",
+        f"compute SOL: {op.sol_compute_ns / 1e3:.1f} µs" if pd.notna(getattr(op, "sol_compute_ns", None)) else "",
+        sol_line,
+        slower_line,
         f"estimate confidence: {getattr(op, 'sol_quality', getattr(op, 'model_quality', 'unsupported'))}",
         f"why: {getattr(op, 'sol_reason', getattr(op, 'model_reason', ''))}",
         "assuming: " + ", ".join(json.loads(getattr(op, "sol_assumptions", getattr(op, "model_assumptions", "[]")))),
+        cross_check,
         "launch: inferred (no CUPTI launch record)" if op.inferred_launch else "",
-        usage,  # none for copies
         f"idle before launch: {op.gap_ns / 1e3:.1f} µs ({op.gap_kind})" if op.gap_ns > 0 else "",
     ]
     inset = ""
@@ -573,8 +588,8 @@ def kernel_box(op, us, y: float) -> str:
         inset = rect(a, min(b, a + op.sol_ns / 1e3), y + LANE * 0.65, LANE * 0.35, "#1f2937", ' opacity=".55"')
     attrs = ""
     if op.kind == "kernel":
-        record = {"id": kernel_id, "device": op.deviceId, "stream": op.streamId, "start_us": f"{a:.3f}",
-                  "duration_us": f"{op.dur_ns / 1e3:.3f}", "start_ns": str(op.start), "name": op.name}
+        record = {"id": kernel_id, "device": op.deviceId, "stream": op.streamId, "start_us": f"{a:.1f}",
+                  "duration_us": f"{op.dur_ns / 1e3:.1f}", "start_ns": str(op.start), "name": op.name}
         attrs = f' data-a="{a:.3f}" data-b="{b:.3f}" data-kernel="{html.escape(json.dumps(record))}"'
     return box(a, y, b, sol_color(x_sol) if has_sol else "#d1d5db", "\n".join(filter(None, lines)), extra=inset, attrs=attrs)
 

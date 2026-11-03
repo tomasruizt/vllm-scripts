@@ -70,9 +70,16 @@ def launch_all(config: dict, config_path: Path) -> None:
     (root / "config.yaml").write_text(yaml.safe_dump(config, sort_keys=False))
     record_source(config, root)
     passes = config["passes"]
-    jobs = [launch_job(config, config_path, c, p) for c in config["concurrencies"] for p in passes]
+    if config.get("nsys_shared_server") and not config.get("nsys_shapes"):
+        raise ValueError("nsys_shared_server requires nsys_shapes for separate measurement windows")
+    jobs = [launch_job(config, config_path, c, p) for p in passes for c in pass_levels(config, p)]
     codes = [job.wait() for job in jobs]
     (root / "launch-exit-code.txt").write_text(str(max(codes)))
+
+
+def pass_levels(config: dict, pass_name: str) -> list[int]:
+    levels = config["concurrencies"]
+    return [max(levels)] if pass_name == "nsys" and config.get("nsys_shared_server") else levels
 
 
 def launch_job(config: dict, config_path: Path, concurrency: int, pass_name: str) -> subprocess.Popen:
@@ -128,19 +135,36 @@ class Level:
         (directory / "model-info.json").write_text(json.dumps(self.rpc("sol_model_info"), indent=2))
         if not self.config.get("nsys_shapes"):
             self.aiperf(directory, "reference", duration=30).wait()
-        client = self.aiperf(directory, "capture", duration=25)
+        levels = self.config["concurrencies"] if self.config.get("nsys_shared_server") else [self.concurrency]
+        for index, concurrency in enumerate(levels):
+            target = self.root.parent / f"c{concurrency}" / "nsys"
+            target.mkdir(parents=True, exist_ok=True)
+            self.nsys_measurement(target, concurrency, stop=index == len(levels) - 1)
+        self.stop_server()
+        for concurrency in levels:
+            target = self.root.parent / f"c{concurrency}" / "nsys"
+            if target != directory:
+                for name in ("trace.sqlite", "model-info.json", "command.json", "probe.json"):
+                    (target / name).symlink_to(os.path.relpath(directory / name, target))
+                (target / "exit-code.txt").write_text("0")
+
+    def nsys_measurement(self, directory: Path, concurrency: int, stop: bool) -> None:
+        """Each AIPerf workload gets its own artifacts and window, with one shared server when requested."""
+        client = self.aiperf(directory, "capture", duration=25, concurrency=concurrency)
         time.sleep(12)
+        shared = self.config.get("nsys_shared_server")
         if self.config.get("nsys_shapes"):
-            self.rpc("sol_start_shape_measurement")
+            self.rpc("sol_start_shape_measurement", [concurrency] if shared else [])
         else:
             self.post("/start_profile")
+        self.status(f"MEASURING c{concurrency}")
         time.sleep(self.config["capture_seconds"])
         if self.config.get("nsys_shapes"):
-            self.rpc("sol_stop_shape_measurement")
+            self.rpc("sol_stop_shape_measurement", [concurrency, stop] if shared else [])
         else:
             self.post("/stop_profile")
-        client.wait()
-        self.stop_server()
+        if client.wait() != 0:
+            raise RuntimeError(f"AIPerf failed for c{concurrency}, see {directory / 'aiperf-capture.log'}")
 
     def ncu_pass(self, directory: Path) -> None:
         """A small KV pool lets ncu back up device memory on the GPU for kernel replay, not in (much slower) host memory."""
@@ -221,15 +245,15 @@ class Level:
             self.server.wait()
         self.server = None
 
-    def aiperf(self, directory: Path, phase: str, duration: int) -> subprocess.Popen:
+    def aiperf(self, directory: Path, phase: str, duration: int, concurrency: int | None = None) -> subprocess.Popen:
         path = directory / f"aiperf-{phase}.yaml"
-        path.write_text(yaml.safe_dump(self.aiperf_config(directory / f"aiperf-{phase}", duration), sort_keys=False))
+        path.write_text(yaml.safe_dump(self.aiperf_config(directory / f"aiperf-{phase}", duration, concurrency), sort_keys=False))
         log = (directory / f"aiperf-{phase}.log").open("w")
         command = ["env", "TMPDIR=/tmp", os.path.expanduser(self.config["aiperf"]), "profile", "--config", str(path)]
         return subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT)
 
-    def aiperf_config(self, artifacts: Path, duration: int) -> dict:
-        phase = {"name": "profiling", "type": "concurrency", "concurrency": self.concurrency, "duration": duration}
+    def aiperf_config(self, artifacts: Path, duration: int, concurrency: int | None = None) -> dict:
+        phase = {"name": "profiling", "type": "concurrency", "concurrency": concurrency or self.concurrency, "duration": duration}
         phase["grace_period"] = 30
         extra = {"temperature": 0, "max_completion_tokens": self.config["max_completion_tokens"], **self.config["request_extra"]}
         endpoint = {"url": self.url, "type": "chat", "streaming": True, "use_server_token_count": True, "timeout": 7200}
@@ -249,8 +273,8 @@ class Level:
     def post(self, path: str, timeout: float = 600) -> None:
         urllib.request.urlopen(urllib.request.Request(self.url + path, method="POST"), timeout=timeout).read()
 
-    def rpc(self, method: str) -> dict:
-        body = json.dumps({"method": method, "args": [], "timeout": 120}).encode()
+    def rpc(self, method: str, args: list | None = None) -> dict:
+        body = json.dumps({"method": method, "args": args or [], "timeout": 120}).encode()
         headers = {"Content-Type": "application/json"}
         request = urllib.request.Request(self.url + "/collective_rpc", data=body, headers=headers)
         return json.loads(urllib.request.urlopen(request, timeout=150).read())

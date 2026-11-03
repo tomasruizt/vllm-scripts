@@ -49,6 +49,7 @@ def main() -> None:
     db.execute(f"ATTACH '{args.run_dir / 'nsys/trace.sqlite'}' AS t (TYPE sqlite, READ_ONLY)")
     ops = timeline(db)
     ops, annotations = annotate_shapes(db, ops)
+    ops = measurement_ops(db, ops, args.run_dir.name)
     ncu_paths = args.ncu or [args.run_dir / "ncu/kernels.csv"]
     previous_meta = args.output / "meta.json"
     shape_dtype = args.shape_dtype
@@ -61,7 +62,7 @@ def main() -> None:
     ops = match_ncu(ops, ncu_profiles(ncu_paths, hw))
     ops = add_costs(ops, hw)
     steps, steady_rule = step_table(db, ops)
-    steps, steady_rule = measured_steps(db, steps, steady_rule)
+    steps, steady_rule = measured_steps(db, steps, steady_rule, args.run_dir.name)
     steps = execution_shapes(db, steps, args.run_dir.parent / "config.yaml")
     info = model_info(args.run_dir / "nsys/model-info.json")
     steps = analytic_sol(steps, ops, info, hw)
@@ -337,6 +338,18 @@ def sol_sources(ops: pd.DataFrame, hw: dict) -> None:
     ops["sol_compute_ns"] = ops.model_compute_ns
     exact = ops.get("ncu_match", pd.Series(None, index=ops.index)).eq("exact")
     missing = pd.Series(float("nan"), index=ops.index)
+    # NCU's --kernel-id filter keeps only the first launch of each (name, grid, block) signature across the whole
+    # profiled run: a GEMM template reused at very different token counts (persistent-grid kernels do not size
+    # their grid from the problem) broadcasts that one launch's bytes to every later occurrence of the signature.
+    # A measurement that moves far more than our own no-cache ceiling allows is not a slow kernel, it is someone
+    # else's launch, so the match is discarded rather than shown as a cross-check or used as a fallback SOL.
+    model_bytes = ops.model_read_bytes.fillna(0) + ops.model_write_bytes.fillna(0)
+    implausible = exact & (model_bytes > 0) & (ops.get("dram_bytes", missing) > model_bytes * 3)
+    for column in ("sol_pct", "sm_pct", "mem_pct", "dram_bytes", "ncu_ns", "kernel_sol_ns", "dram_sol_ns"):
+        if column in ops:
+            ops.loc[implausible, column] = float("nan")
+    ops.loc[implausible, "ncu_match"] = "exact signature, discarded: implausible vs semantic work"
+    exact = exact & ~implausible
     duration = ops.get("ncu_ns", missing).where(exact, ops.dur_ns)
     # Vectorize the counter reference over large traces. The scalar policy is tested in benchmarking.roofline.
     compute = duration * ops.get("sm_pct", missing) / 100
@@ -382,20 +395,43 @@ def step_table(db: duckdb.DuckDBPyConnection, ops: pd.DataFrame) -> tuple[pd.Dat
     return steps, f"pure decode steps with {mode_reqs} requests"
 
 
-def measured_steps(db: duckdb.DuckDBPyConnection, steps: pd.DataFrame, rule: str) -> tuple[pd.DataFrame, str]:
+def measurement_ops(db: duckdb.DuckDBPyConnection, ops: pd.DataFrame, level: str) -> pd.DataFrame:
+    """Separate workloads from a shared trace before computing the modal request count and steady steps."""
+    bounds = measurement_bounds(db, level)
+    if bounds is None:
+        return ops
+    selected = db.execute("SELECT step FROM steps WHERE start>=? AND next_start<=?", list(bounds)).df().step
+    return ops[ops.step.isin(selected)].copy()
+
+
+def measured_steps(db: duckdb.DuckDBPyConnection, steps: pd.DataFrame, rule: str, level: str | None = None) -> tuple[pd.DataFrame, str]:
     """Shape traces include startup for graph provenance, while reported timings use the explicit workload window."""
-    start, end = db.execute("""SELECT min(start) FILTER (WHERE text='sol/measurement_start'),
-        max(start) FILTER (WHERE text='sol/measurement_end') FROM nvtx
-        WHERE globalTid // 16777216 IN (SELECT DISTINCT globalTid // 16777216 FROM steps)""").fetchone()
-    if start is None and end is None:
+    bounds = measurement_bounds(db, level)
+    if bounds is None:
         return steps, rule
-    if start is None or end is None or start >= end:
-        raise ValueError("incomplete NSYS shape measurement window")
+    start, end = bounds
     result = steps.copy()
     result["steady"] = result.steady & (result.cpu_start >= start) & (result.cpu_end <= end)
     if not result.steady.any():
         raise ValueError("no steady steps inside the NSYS shape measurement window")
     return result, rule + ", inside annotated measurement window"
+
+
+def measurement_bounds(db: duckdb.DuckDBPyConnection, level: str | None = None) -> tuple[int, int] | None:
+    suffix = f" c={int(level[1:])}" if level and re.fullmatch(r"c\d+", level) else ""
+    query = """SELECT min(start) FILTER (WHERE text=?), max(start) FILTER (WHERE text=?) FROM nvtx
+        WHERE globalTid // 16777216 IN (SELECT DISTINCT globalTid // 16777216 FROM steps)"""
+    start, end = db.execute(query, ["sol/measurement_start" + suffix, "sol/measurement_end" + suffix]).fetchone()
+    if start is None and end is None and suffix:
+        start, end = db.execute(query, ["sol/measurement_start", "sol/measurement_end"]).fetchone()
+    if start is None and end is None:
+        tagged = db.execute("SELECT count(*) FROM nvtx WHERE text LIKE 'sol/measurement_start c=%'").fetchone()[0]
+        if tagged:
+            raise ValueError(f"no measurement window for {level}")
+        return None
+    if start is None or end is None or start >= end:
+        raise ValueError("incomplete NSYS shape measurement window")
+    return int(start), int(end)
 
 
 def execution_shapes(db: duckdb.DuckDBPyConnection, steps: pd.DataFrame, config: Path) -> pd.DataFrame:

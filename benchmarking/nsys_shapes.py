@@ -21,12 +21,12 @@ def annotate_shapes(db: duckdb.DuckDBPyConnection, ops: pd.DataFrame) -> tuple[p
                 "operator_shape_source": None, "operator_kernel_count": None}
     for field, value in defaults.items():
         result[field] = value
+    launches = ops.reset_index(names="op_index")
+    db.register("shape_launches", launches)
     annotations = operator_annotations(db)
     if annotations.empty:
         return result, annotations
     db.register("shape_annotations", annotations)
-    launches = ops.reset_index(names="op_index")
-    db.register("shape_launches", launches)
     direct = db.execute(DIRECT_SQL).df()
     direct = direct[direct.groupby("op_index").operator_annotation_id.transform("nunique") == 1]
     direct["shape_invocation"] = 0
@@ -87,7 +87,8 @@ def estimate_shapes(operator: str, shapes: list[list[int]], dtype: str | None, h
 def operator_annotations(db: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     raw = db.execute("""SELECT n.start,n."end",n.globalTid,coalesce(n.text,s.value) AS label
         FROM t.NVTX_EVENTS n LEFT JOIN t.StringIds s ON s.id=n.textId
-        WHERE n."end" IS NOT NULL AND coalesce(n.text,s.value) LIKE '%sizes = [%'""").df()
+        WHERE n."end" IS NOT NULL AND coalesce(n.text,s.value) LIKE '%sizes = [%'
+        AND n.globalTid // 16777216 IN (SELECT DISTINCT globalPid // 16777216 FROM shape_launches)""").df()
     records = []
     for row in raw.itertuples():
         parsed = parse_annotation(row.label)

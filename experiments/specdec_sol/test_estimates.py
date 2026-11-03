@@ -20,6 +20,27 @@ import run as runner
 
 
 class EstimateTests(unittest.TestCase):
+    def test_shared_server_runs_one_nsys_job_and_retains_independent_ncu_jobs(self) -> None:
+        config = dict(concurrencies=[1,32],nsys_shared_server=True)
+        self.assertEqual(runner.pass_levels(config, "nsys"), [32])
+        self.assertEqual(runner.pass_levels(config, "ncu"), [1,32])
+
+    def test_shared_trace_windows_select_their_own_modal_request_count(self) -> None:
+        with duckdb.connect() as db:
+            db.execute('CREATE TABLE steps(step INT,start BIGINT,next_start BIGINT,globalTid BIGINT)')
+            db.execute('INSERT INTO steps SELECT i,i*100,(i+1)*100,16777227 FROM range(1,7) r(i)')
+            db.execute('CREATE TABLE batches AS SELECT step,CASE WHEN step<=3 THEN 1 ELSE 32 END AS reqs,6 AS tokens,1000 AS context,0 AS prefill FROM steps')
+            db.execute('CREATE TABLE nvtx(start BIGINT,globalTid BIGINT,text VARCHAR)')
+            db.execute("INSERT INTO nvtx VALUES (100,16777227,'sol/measurement_start c=1'),(400,16777227,'sol/measurement_end c=1'),(400,16777227,'sol/measurement_start c=32'),(700,16777227,'sol/measurement_end c=32')")
+            ops = pd.DataFrame(dict(step=range(1,7),start=range(1,7),busy_ns=[10]*6,gap_ns=[0]*6))
+            for level, expected in (("c1",1),("c32",32)):
+                selected = sol.measurement_ops(db, ops, level)
+                steps, rule = sol.step_table(db, selected)
+                steps, _ = sol.measured_steps(db, steps, rule, level)
+                self.assertEqual(steps.loc[steps.steady,'reqs'].to_list(), [expected])
+            with self.assertRaisesRegex(ValueError, "no measurement window"):
+                sol.measurement_ops(db, ops, "c8")
+
     def test_shape_capture_is_opt_in_and_keeps_graph_node_tracing(self) -> None:
         normal = runner.nsys_command({}, Path("trace"))
         shapes = runner.nsys_command({"nsys_shapes": True}, Path("trace"))
@@ -103,6 +124,16 @@ class EstimateTests(unittest.TestCase):
         self.assertEqual(result.mem_pct.iloc[0], 10)
         self.assertEqual(result.ncu_source.iloc[0], "primary")
 
+    def test_exact_match_implausibly_above_semantic_work_is_discarded(self) -> None:
+        ops = pd.DataFrame([dict(name="reused_template", kind="kernel", model_sol_ns=np.nan, model_family="gemm",
+                                 model_read_bytes=1000, model_write_bytes=0, dram_bytes=100_000, sol_pct=99,
+                                 sm_pct=1, mem_pct=99, ncu_ns=1000, dur_ns=800, kernel_sol_ns=999, busy_ns=800,
+                                 ncu_match="exact", bytes=None)])
+        sol.sol_sources(ops, {"bw": 1e12})
+        self.assertTrue(pd.isna(ops.sol_ns.iloc[0]))
+        self.assertTrue(pd.isna(ops.sol_pct.iloc[0]))
+        self.assertIn("discarded", ops.ncu_match.iloc[0])
+
     def test_bounds_above_measurement_remain_visible(self) -> None:
         ops = pd.DataFrame([dict(kind="kernel", model_sol_ns=2000, model_family="gemm", busy_ns=1000, dur_ns=1000, bytes=None)])
         sol.sol_sources(ops, {"bw": 1e12})
@@ -169,8 +200,8 @@ class EstimateTests(unittest.TestCase):
                              phase="execute", name="gemm", category="gemm", inferred_launch=False,
                              sol_source="semantic: gemm", sol_pct=np.nan, gap_ns=0, kind="kernel", deviceId=0, streamId=7)
         rendered = report.kernel_box(op, lambda time: time / 1000, 0)
-        self.assertIn("duration is 0.5x SOL", rendered)
-        self.assertIn("SOL: 2.0 µs, from semantic: gemm", rendered)
+        self.assertIn("0.5x", rendered)
+        self.assertIn("2.0 µs, from semantic: gemm", rendered)
         self.assertNotIn('width="inf"', rendered)
 
     def test_stall_summary_separates_pipeline_stalls_from_kernel_cost(self) -> None:
