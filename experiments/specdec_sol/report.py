@@ -264,6 +264,7 @@ def page(report_dir: Path, run_dir: Path, run: dict) -> str:
     top = top if has_sol else top.sort_values("cost", ascending=False)
     sections = [
         f"<h1>{html.escape(run['name'])}, {report_dir.name}</h1>",
+        '<p class="metric-note">NSYS shape diagnostic. Annotation overhead is present, use the normal run for performance comparisons.</p>' if meta.get("shape_diagnostic") else "",
         "" if has_sol else NO_KERNEL_SOL_NOTE,
         "<h2>Timeline</h2>",
         timeline(ops[ops.step == shown_step], ranges, steps.set_index("step").loc[shown_step]),

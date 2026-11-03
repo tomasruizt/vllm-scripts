@@ -180,6 +180,8 @@ class Level:
         command = [str(arg) for arg in command + list(serve_args) + own]
         (directory / "command.json").write_text(json.dumps(command, indent=2))
         env = self.server_env()
+        if self.config.get("nsys_shapes") and profiler[0] == "nsys":
+            env["SOL_NSYS_SHAPES"] = "1"  # Do not start an NCU pass during graph construction.
         log = (directory / "server.log").open("w")
         self.server = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         self.wait_for_health(directory)
@@ -192,8 +194,6 @@ class Level:
         venv = os.path.dirname(os.path.expanduser(self.config["python"]))  # like an activated venv, e.g. for ninja
         env["PATH"] = f"{venv}:{env['PATH']}:/usr/local/cuda/bin"  # last, /usr/local/cuda/bin holds an nsys stub
         env["TMPDIR"] = str(self.root / "tmp")  # nsys fails when /tmp/nvidia belongs to another user
-        if self.config.get("nsys_shapes"):
-            env["SOL_NSYS_SHAPES"] = "1"
         (self.root / "tmp").mkdir(exist_ok=True)
         return env
 
