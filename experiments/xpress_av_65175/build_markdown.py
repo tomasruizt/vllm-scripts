@@ -5,10 +5,11 @@ from pathlib import Path
 import pandas as pd
 
 HERE = Path(__file__).resolve().parent
-LABELS = {
-    "xpress-av-65175-steady-base": "main (`f9db1756e9`)",
-    "xpress-av-65175-steady-pr": "PR (`e2d76c45bf`)",
-}
+
+
+def label(suite: str, commit: str) -> str:
+    side = "PR" if suite.endswith("-pr") else "main"
+    return f"{side} (`{commit[:10]}`)"
 
 
 def main() -> None:
@@ -26,7 +27,7 @@ def side_by_side(suite: str, frame: pd.DataFrame) -> str:
     medians = frame.groupby(["concurrency", "mode"]).agg(
         throughput=("throughput", "median"), tpot=("mean_tpot_ms", "median"),
         al=("acceptance_length", "median"), runs=("repeat", "count")).reset_index()
-    lines = [f"### {LABELS.get(suite, suite)}", "",
+    lines = [f"### {label(suite, frame.commit.iloc[0])}", "",
              "| c | AV off tok/s | AV on tok/s | Δ | AV off TPOT ms | AV on TPOT ms | AL off | AL on | runs off/on |",
              "|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for c, cell in medians.groupby("concurrency"):

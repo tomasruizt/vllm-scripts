@@ -38,20 +38,26 @@ perf-base: TASK := steady
 perf-base: SUFFIX := -base
 perf-base: REPO_NAME := vllm-xpress-av-base
 perf-base: EXPERIMENT := base
-perf-base: CHG_GPUS ?= --gpu-ids 0,6
+perf-base: CHG_GPUS ?= --gpu-ids 0
+perf-base: PORT := 8640
+perf-base: MODES := off on
 perf-base: launch
 
+# Base and PR run at the same time, one GPU each: the AV on/off delta stays within a
+# GPU, and the two run opposite mode orders so an order effect cancels across commits.
 perf-pr: TASK := steady
 perf-pr: SUFFIX := -pr
 perf-pr: REPO_NAME := vllm-xpress-av
 perf-pr: EXPERIMENT := pr
-perf-pr: CHG_GPUS ?= --gpu-ids 0,6
+perf-pr: CHG_GPUS ?= --gpu-ids 6
+perf-pr: PORT := 8641
+perf-pr: MODES := on off
 perf-pr: launch
 
 launch:
-	$(SSH) $(REMOTE) 'mkdir -p "$(REMOTE_ROOT)" && mkdir "$(REMOTE_ROOT)/$(RUN_ID)-$(TASK)$(SUFFIX)"'
+	$(SSH) $(REMOTE) 'cd "$(REMOTE_ROOT)" && mkdir "$(RUN_ID)-$(TASK)$(SUFFIX)"'
 	scp -q launch-task.sh av_e2e.py run-*.sh perf/run-steady.sh perf/steady-speedbench.yaml build_report.py test-overrides.patch $(REMOTE):"$(REMOTE_ROOT)/$(RUN_ID)-$(TASK)$(SUFFIX)/"
-	$(SSH) $(REMOTE) 'cd "$(REMOTE_ROOT)/$(RUN_ID)-$(TASK)$(SUFFIX)" && ROOT=$$PWD TASK=$(TASK) REPO_NAME=$(REPO_NAME) EXPERIMENT=$(EXPERIMENT) PORT=$(PORT) CHG_GPUS="$(CHG_GPUS)" nohup bash launch-task.sh > launch.log 2>&1 < /dev/null & echo launched $(TASK)$(SUFFIX) in $(REMOTE_ROOT)/$(RUN_ID)-$(TASK)$(SUFFIX)'
+	$(SSH) $(REMOTE) 'cd "$(REMOTE_ROOT)/$(RUN_ID)-$(TASK)$(SUFFIX)" && ROOT=$$PWD TASK=$(TASK) REPO_NAME=$(REPO_NAME) EXPERIMENT=$(EXPERIMENT) PORT=$(PORT) MODES="$(MODES)" CHG_GPUS="$(CHG_GPUS)" nohup bash launch-task.sh > launch.log 2>&1 < /dev/null & echo launched $(TASK)$(SUFFIX) in $(REMOTE_ROOT)/$(RUN_ID)-$(TASK)$(SUFFIX)'
 
 watch:
 	$(SSH) $(REMOTE) 'cd "$(REMOTE_ROOT)/$(RUN_ID)-$(TASK)$(SUFFIX)"; timeout 14400 bash -c "until test -f $(DONE_FILE); do sleep 5; done"'
