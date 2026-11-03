@@ -1,0 +1,50 @@
+schemaVersion: "2.0"
+randomSeed: 42
+sweep:
+  type: grid
+  parameters:
+    phases.profiling.concurrency: [1, 8]
+multi_run:
+  num_runs: 3
+  cooldown_seconds: 2
+benchmark:
+  model: qwen
+  endpoint:
+    url: http://127.0.0.1:__PORT__
+    type: chat
+    streaming: true
+    use_server_token_count: true
+    timeout: 600
+    extra:
+      temperature: 0
+      ignore_eos: false
+      max_completion_tokens: 1024
+      chat_template_kwargs:
+        enable_thinking: false
+  tokenizer:
+    name: __TARGET__
+  datasets:
+    - name: main
+      type: file
+      path: __DATA__
+      format: __FORMAT__
+      sampling: shuffle
+      random_seed: 42
+  phases:
+    - name: profiling
+      type: concurrency
+      duration: 30
+      grace_period: 180
+      concurrency: 1
+  server_metrics:
+    enabled: true
+    urls: [http://127.0.0.1:__PORT__/metrics]
+    formats: [json]
+  artifacts:
+    dir: ${QUICK_ARTIFACTS}
+    summary: [json]
+    records: [jsonl]
+    raw: true
+    export_outputs_json: true
+  runtime:
+    ui: none
