@@ -1,0 +1,37 @@
+SHELL := /bin/bash
+.SHELLFLAGS := -eu -o pipefail -c
+REMOTE ?= RH-nm-ore-b300-01
+REMOTE_ROOT ?= runs
+CONFIG ?= $(error set CONFIG, a workload config, see the README)
+RUN_ID ?= $(error set RUN_ID, one per attempt, e.g. RUN_ID=qwen36-dspark-20261103)
+NCU_FROM ?=  # optional results/<RUN_ID> whose ncu CSVs to reuse for a run without the ncu pass
+LOCAL_PYTHON ?= $(HOME)/.venv/bin/python
+SSH := ssh -T -o BatchMode=yes -o ConnectTimeout=10
+RUN_DIR := $(REMOTE_ROOT)/$(RUN_ID)
+
+.PHONY: launch status watch fetch-results analyze report
+# Copies the code and config, then runs every concurrency level in parallel, each in its own chg reservation.
+launch:
+	$(SSH) $(REMOTE) 'mkdir "$(RUN_DIR)"'  # fails if the run exists: pick a new RUN_ID, never delete old runs
+	scp -q run.py sol_probe.py $(REMOTE):"$(RUN_DIR)/"
+	scp -q $(CONFIG) $(REMOTE):"$(RUN_DIR)/config.yaml"
+	$(SSH) $(REMOTE) 'cd "$(RUN_DIR)" && setsid nohup ~/.venv/bin/python run.py config.yaml > launch.log 2>&1 < /dev/null & echo launched'
+
+status:
+	$(SSH) $(REMOTE) 'cd "$(RUN_DIR)"; for f in c*/status.txt; do echo "$$f: $$(tail -n 1 $$f)"; done; tail -n 3 launch.log c*-job.log'
+
+watch:
+	$(SSH) $(REMOTE) 'cd "$(RUN_DIR)"; timeout 14400 bash -c "until test -f launch-exit-code.txt; do sleep 30; done"; cat launch-exit-code.txt'
+
+# The .nsys-rep and .ncu-rep stay remote, the analysis needs only the sqlite export and the ncu CSV.
+fetch-results:
+	mkdir -p results/$(RUN_ID)
+	rsync -az --exclude '*.nsys-rep' --exclude '*.ncu-rep' --exclude '*.qdstrm' --exclude profile_export_raw.jsonl $(REMOTE):$(RUN_DIR)/ results/$(RUN_ID)/
+
+analyze:
+	for d in results/$(RUN_ID)/c*/; do c=$$(basename $$d); \
+	  $(LOCAL_PYTHON) sol.py $$d --output report/$(RUN_ID)/$$c $(if $(NCU_FROM),--ncu $(NCU_FROM)/$$c/ncu/kernels.csv) > /dev/null; done
+
+# Offline HTML with one tab per concurrency level: report/$(RUN_ID)/index.html
+report: fetch-results analyze
+	$(LOCAL_PYTHON) report.py results/$(RUN_ID) report/$(RUN_ID)
