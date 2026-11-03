@@ -73,14 +73,27 @@ def tokens_in_window(record: dict, start: int, end: int) -> float:
 
 
 def gates(row: dict, *, min_window_s: float = 5, saturation_ratio: float = 0.9) -> dict:
-    """A cell is valid only if it measured a saturated, unqueued, fully completed workload."""
-    c = row["concurrency"]
-    checks = dict(all_completed=row["requests"] == row["requests_target"] and row["cancelled"] == 0,
+    """A cell is valid only if it measured a saturated, unqueued, fully completed workload.
+
+    `requests_target` is None for duration-bounded cells, where the client decides how many
+    requests fit and completion is checked by `cancelled` alone.
+    """
+    c, target = row["concurrency"], row["requests_target"]
+    checks = dict(all_completed=(target is None or row["requests"] == target) and row["cancelled"] == 0,
                   no_errors=row["error_rate"] == 0, no_preemptions=row["preemptions"] == 0,
-                  server_saturated=row["server_running_p50"] >= saturation_ratio * c,
+                  server_saturated=row["server_running_p50"] >= saturated_at(c, saturation_ratio),
                   no_queueing=row["server_waiting_p50"] == 0, **{f"window_ge_{min_window_s:g}s": row["window_s"] >= min_window_s})
     failed = [name for name, ok in checks.items() if not ok]
     return dict(valid=not failed, failed_gates=",".join(failed))
+
+
+def saturated_at(concurrency: int, saturation_ratio: float) -> int:
+    """Server gauges are integers, so compare p50 against the nearest whole request.
+
+    Requiring strictly `saturation_ratio * c` at c8 demands 8, one slot above what the
+    gauge reports between a completion and the next send of a closed-loop client.
+    """
+    return max(round(saturation_ratio * concurrency), 1)
 
 
 def server_total(metrics: dict, name: str) -> float:

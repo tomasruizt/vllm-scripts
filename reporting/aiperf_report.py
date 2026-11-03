@@ -3,6 +3,7 @@
 import argparse
 import csv
 from dataclasses import dataclass
+from datetime import datetime
 from hashlib import sha256
 import html
 import json
@@ -89,6 +90,26 @@ def build_run(slug: str, label: str, source: Path, suffix: str, output: Path, co
     return run_panel(slug, label, source, out, rows, suffix, config)
 
 
+def repeat_index(parts: tuple[str, ...]) -> int:
+    """Trial number from an artifact path.
+
+    AIPerf writes `concurrency_8/profile_runs/trial_0002/` for a swept multi-run, the
+    older harness wrote `repeat-2/artifacts-c8/`.
+    """
+    for part in parts:
+        for prefix in ("trial_", "run_", "repeat-"):
+            if part.startswith(prefix):
+                return int(part.removeprefix(prefix))
+    return 1
+
+
+def mode_meta(root: Path, folder: str, parts: tuple[str, ...]) -> Path:
+    """Dir holding gpu.txt and server-command.txt: per mode, or per repeat in the old layout."""
+    candidates = [root / folder]
+    candidates += [root / folder / part for part in parts if part.startswith("repeat-")]
+    return next(path for path in candidates if (path / "gpu.txt").exists())
+
+
 def load_run(path: Path, root: Path, *, suffix: str = "", instrumentation: str = "none") -> dict:
     artifacts = read_artifacts(path)
     data = artifacts.summary
@@ -98,15 +119,18 @@ def load_run(path: Path, root: Path, *, suffix: str = "", instrumentation: str =
     done = artifacts.completed
     lengths = [r["metrics"]["output_sequence_length"]["value"] for r in done]
     phase = next(p for p in data["input_config"]["phases"] if p["name"] == "profiling")
-    folder, repeat_dir, cell_dir = path.relative_to(root).parts[:3]
-    mode = folder.removesuffix(suffix)
-    repeat, cell = int(repeat_dir.removeprefix("repeat-")), "sentinel" if cell_dir.endswith("-end") else "main"
+    parts = path.relative_to(root).parts
+    folder, mode = parts[0], parts[0].removesuffix(suffix)
+    repeat = repeat_index(parts)
+    cell = "sentinel" if any(part.endswith("-end") for part in parts) else "main"
+    meta = mode_meta(root, folder, parts)
     steady = steady_window(done, phase["concurrency"])
-    row = dict(run_id=f"{root.name}/{mode}/{repeat_dir}/{cell_dir}",
+    row = dict(run_id=f"{root.name}/{mode}/{repeat}/{cell}",
                suite=root.name, phase="measurement", mode=mode, cell=cell,
                av_enabled=mode == "on", concurrency=phase["concurrency"], repeat=repeat,
-               gpu=int((root / folder / repeat_dir / "gpu.txt").read_text()),
-               requests_target=phase["requests"], requests=len(done), error_rate=data["request_error_rate"]["avg"],
+               phase_duration=phase.get("duration"),
+               gpu=int((meta / "gpu.txt").read_text()),
+               requests_target=phase.get("requests"), requests=len(done), error_rate=data["request_error_rate"]["avg"],
                cancelled=sum(r["metadata"].get("was_cancelled", False) for r in requests),
                duration_s=data["benchmark_duration"]["avg"], aiperf_throughput=data["output_token_throughput"]["avg"],
                acceptance_length=1 + server_total(metrics, "vllm:spec_decode_num_accepted_tokens") / server_total(metrics, "vllm:spec_decode_num_drafts"),
@@ -120,8 +144,8 @@ def load_run(path: Path, root: Path, *, suffix: str = "", instrumentation: str =
                benchmark_client="AIPerf 0.13.0", natural_eos=True, output_len=1024,
                prefix_caching=False, temperature=0.0, seed=42,
                commit=(root / "commit.txt").read_text().strip(),
-               instrumentation=instrumentation, server_session=f"{mode}/{repeat_dir}",
-               server_command=shlex.split((root / folder / repeat_dir / "server-command.txt").read_text()),
+               instrumentation=instrumentation, server_session=f"{mode}/trial-{repeat}",
+               server_command=shlex.split((meta / "server-command.txt").read_text()),
                aiperf_summary_json=json.dumps(data), aiperf_server_metrics_json=json.dumps(server),
                aiperf_request_records_json=json.dumps(requests), **steady)
     row.update(gates(row))
@@ -138,7 +162,7 @@ def summary(row: dict, extra_fields: tuple[str, ...] = ()) -> dict:
     keys = ["mode", "cell", "concurrency", "repeat", "gpu", "valid", "failed_gates", "requests", "cancelled", "error_rate",
             "duration_s", "window_s", "window_requests", "throughput", "aiperf_throughput", "mean_tpot_ms", "mean_ttft_ms",
             "mean_itl_ms", "acceptance_length", "server_running_p50", "server_waiting_p50", "preemptions",
-            "mean_input_tokens", "mean_output_tokens", "cap_hit_pct", "prompt_set"]
+            "mean_input_tokens", "mean_output_tokens", "cap_hit_pct", "prompt_set", "requests_target", "phase_duration"]
     result = {key: row[key] for key in (*extra_fields, *keys)}
     result["interactivity"] = 1000 / row["mean_tpot_ms"] if row["mean_tpot_ms"] else None
     return result
@@ -172,6 +196,10 @@ def draw(rows: list[dict], output: Path, *, series: list[tuple[str, str, str, st
         scatter_series(ax, runs, "interactivity", "throughput", color=color, marker=marker, alpha=0.4, s=42)
         grouped = aggregate_concurrency(runs, ["interactivity", "throughput"]) if series else [r for r in medians if r["mode"] == mode]
         plot_series(ax, grouped, "interactivity", "throughput", color=color, marker=marker, linewidth=2, label=label)
+        if series:
+            for row in grouped:
+                ax.annotate(f"c{row['concurrency']}", (row["interactivity"], row["throughput"]),
+                            xytext=(7, 8), textcoords="offset points", fontsize=8, color=color)
     for row in medians:
         ax.annotate(f"c{row['concurrency']}", (row["interactivity"], row["throughput"]), xytext=(7, 8), textcoords="offset points", fontsize=9)
     ax.set(xlabel="Interactivity: 1 / mean request TPOT (tok/s/user)", ylabel="Steady-state output throughput (tok/s)", xlim=(0, max(r["interactivity"] for r in valid) * 1.16), ylim=(0, max(r["throughput"] for r in valid) * 1.18))
@@ -235,18 +263,28 @@ def run_panel(slug: str, label: str, source: Path, out: Path, rows: list[dict], 
     shown = "".join(f"<h2>AV {mode}</h2><pre>{html.escape(cmd)}</pre>" for mode, cmd in commands.items())
     count = sum(r["cell"] == "main" for r in rows)
     valid = len(measured(rows))
-    cells = (source / "cells.txt").read_text().strip()
-    body = f'''<p><strong>{capture_note(commands[modes[0]], config.default_capture_note)}</strong> {valid} of {count} measurement cells passed all validity gates (c:requests = <code>{cells}</code>, measured {run_date(source)}).</p>
+    body = f'''<p><strong>{capture_note(commands[modes[0]], config.default_capture_note)}</strong> {valid} of {count} measurement cells passed all validity gates ({workload_note(rows)}, measured {run_date(source)}).</p>
 <section class="card"><figure>{svg}<figcaption>Faint points show individual valid runs. Lines connect medians. Interactivity = 1000 / mean request TPOT in milliseconds.<br><strong>Download figure:</strong> <a href="{slug}/throughput-interactivity.png" download="{config.download_prefix}-{slug}-throughput-interactivity.png">PNG</a> · <a href="{slug}/throughput-interactivity.svg" download="{config.download_prefix}-{slug}-throughput-interactivity.svg">SVG</a></figcaption></figure></section>
 <section class="card"><h2>Metrics</h2>{tables}<p class="metric-note">Values are medians across valid runs. Δ is AV on minus AV off, and Δ% is relative to AV off. <a href="{slug}/concurrency-summary.csv">Median CSV</a> · <a href="{slug}/summary.csv">Run-level CSV</a> · <a href="{slug}/summary.json">Median JSON</a> · <a href="{slug}/throughput-interactivity.svg">SVG</a> · <a href="{slug}/throughput-interactivity.png">PNG</a></p></section>
 <details><summary>Server commands</summary>{shown}</details>'''
     return dict(slug=slug, label=label, source=source, html=body, rules=rules)
 
 
+def workload_note(rows: list[dict]) -> str:
+    """Describe the sweep from the loaded runs, so no side file has to track the yaml."""
+    concurrencies = sorted({row["concurrency"] for row in rows})
+    trials = len({row["repeat"] for row in rows})
+    duration = rows[0].get("phase_duration")
+    shape = f"{duration:g}s cells" if duration else f"{rows[0]['requests_target']} requests"
+    return f"c={','.join(map(str, concurrencies))}, {shape}, {trials} trials"
+
+
 def run_date(source: Path) -> str:
-    """Run dirs end in YYYYMMDD."""
+    """Run dirs may end in YYYYMMDD, otherwise use when the run checked out its commit."""
     stamp = source.name.rsplit("-", 1)[-1]
-    return f"{stamp[:4]}-{stamp[4:6]}-{stamp[6:]}"
+    if len(stamp) == 8 and stamp.isdigit():
+        return f"{stamp[:4]}-{stamp[4:6]}-{stamp[6:]}"
+    return datetime.fromtimestamp((source / "commit.txt").stat().st_mtime).strftime("%Y-%m-%d")
 
 
 def capture_note(command: str, default_note: str) -> str:
