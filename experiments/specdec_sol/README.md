@@ -95,3 +95,31 @@ SELECT phase, model_family, count(*) / (SELECT count(*) FROM s) AS ops_per_step,
 FROM 'report/<RUN_ID>/c1/ops.parquet' WHERE step IN (SELECT step FROM s)
 GROUP BY ALL ORDER BY lost_us_per_step DESC LIMIT 20"
 ```
+
+## Greedy verifier microbenchmark
+
+[bench_greedy_rejection.py](bench_greedy_rejection.py) compares pinned main and PR sampling modules using production UVA metadata, without loading a model. It times the stats, rejection, resample and insert kernel chain together with FlashInfer's CUPTI helper, CUDA graph replay and cold L2. Defaults reproduce the B300/H100 comparison: BF16, vocabulary 248320, 1/32/128 requests, 3/7 drafts plus bonus, three alternating timing calls per case. The masked scenario retains top-20 logits before timing and enables masked-block skipping in both arms. Token IDs and counts must match before timing.
+
+Use a CUDA vLLM environment with the matching Python support modules (including `draft_logits.py`), compiled extensions, FlashInfer and `cupti-python>=13`. Timing fallback raises an error. Both revisions must be available in `VLLM_SOURCE`. Run from this directory on each GPU architecture, using a fresh run ID:
+
+```bash
+VLLM_SOURCE=/path/to/vllm
+MAIN_COMMIT=ca8bd4c0550655b3c15e92b94782c5909da65e6c
+PR_COMMIT=13d298f3555a38d5239bf4e11e9e07953be62aa6
+RUN_ID=greedy-b300-20261104
+mkdir results/$RUN_ID
+git -C "$VLLM_SOURCE" show "$MAIN_COMMIT":vllm/v1/worker/gpu/spec_decode/rejection_sampler_utils.py > results/$RUN_ID/main_utils.py
+git -C "$VLLM_SOURCE" show "$PR_COMMIT":vllm/v1/worker/gpu/spec_decode/rejection_sampler_utils.py > results/$RUN_ID/pr_utils.py
+setsid nohup chg run --gpus 1 --timeout 10m -- ~/.venv/bin/python bench_greedy_rejection.py \
+    --main-module results/$RUN_ID/main_utils.py --pr-module results/$RUN_ID/pr_utils.py \
+    --main-commit "$MAIN_COMMIT" --pr-commit "$PR_COMMIT" --output results/$RUN_ID \
+    > results/$RUN_ID/job.log 2>&1 < /dev/null &
+```
+
+`metadata.json` records versions and source hashes. `measurements.jsonl` contains one row per timing call. `DONE` marks successful completion. Fetch remote outputs with `make fetch-greedy-results REMOTE=<host> RUN_ID=<run>`, then combine runs for the same pinned comparison:
+
+```bash
+make analyze-greedy GREEDY_INPUT='results/greedy-*/measurements.jsonl' GREEDY_OUTPUT=results/greedy-combined
+```
+
+[analyze_greedy_rejection.sql](analyze_greedy_rejection.sql) writes a combined long-format Parquet file and per-case, summary and repeat-range CSVs. Table ranges span accepted-prefix case medians. `avg_delta_us` is the arithmetic mean of `PR - main` case medians, so improvements are negative.

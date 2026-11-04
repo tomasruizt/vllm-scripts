@@ -7,9 +7,11 @@ RUN_ID ?= $(error set RUN_ID, one per attempt, e.g. RUN_ID=qwen36-dspark-2026110
 NCU_FROM ?=  # optional results/<RUN_ID> whose ncu CSVs to reuse for a run without the ncu pass
 LOCAL_PYTHON ?= $(HOME)/.venv/bin/python
 SSH := ssh -T -o BatchMode=yes -o ConnectTimeout=10
-RUN_DIR := $(REMOTE_ROOT)/$(RUN_ID)
+RUN_DIR = $(REMOTE_ROOT)/$(RUN_ID)
+GREEDY_INPUT ?= $(error set GREEDY_INPUT, a glob matching measurements.jsonl for one pinned comparison)
+GREEDY_OUTPUT ?= results/greedy-rejection
 
-.PHONY: launch status watch fetch-results analyze report
+.PHONY: launch status watch fetch-results fetch-greedy-results analyze-greedy analyze report
 # Copies the code and config, then runs every concurrency level in parallel, each in its own chg reservation.
 launch:
 	$(SSH) $(REMOTE) 'mkdir "$(RUN_DIR)"'  # fails if the run exists: pick a new RUN_ID, never delete old runs
@@ -27,6 +29,14 @@ watch:
 fetch-results:
 	mkdir -p results/$(RUN_ID)
 	rsync -az --exclude '*.nsys-rep' --exclude '*.ncu-rep' --exclude '*.qdstrm' --exclude profile_export_raw.jsonl $(REMOTE):$(RUN_DIR)/ results/$(RUN_ID)/
+
+fetch-greedy-results:
+	mkdir -p results/$(RUN_ID)
+	rsync -az --include='*.jsonl' --include='*.json' --include='*.csv' --include='*.log' --include='*exit-code.txt' --exclude='*' $(REMOTE):$(RUN_DIR)/ results/$(RUN_ID)/
+
+analyze-greedy:
+	mkdir -p $(GREEDY_OUTPUT)
+	duckdb -cmd "SET VARIABLE input_glob='$(GREEDY_INPUT)'; SET VARIABLE output_dir='$(GREEDY_OUTPUT)';" < analyze_greedy_rejection.sql
 
 analyze:
 	for d in results/$(RUN_ID)/c*/; do c=$$(basename $$d); \
