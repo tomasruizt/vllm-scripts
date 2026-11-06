@@ -4,6 +4,7 @@ The wrapped methods are found on the live runner, so the probe works with Model 
 Ranges are labeled "sol/<Class>.<method>", they cost ~1 us each and are recorded only inside an nsys capture range.
 """
 
+import contextlib
 import functools
 import json
 import math
@@ -44,6 +45,38 @@ class SolProbe:
                 torch.distributed.barrier()  # Every rank must emit its end marker before collection stops.
             torch.cuda.profiler.stop()
 
+    def sol_replay_shapes(self, shapes: list[dict], profile: bool = False) -> int:
+        """Run the runner's dummy forward (target and draft) once per recorded step shape, so a profiler that cannot
+        reproduce the live workload's shapes (e.g. adaptive verification choosing differently under ncu) still
+        launches their kernels. `shapes`: dicts with reqs, tokens (executed) and context (per request).
+
+        With `profile`, every shape is first run unprofiled (autotuning, compilation), then run again inside one
+        cudaProfilerStart/Stop window, so ncu (profile-from-start off, no launch filter) records every launch of one
+        step per shape. spin_kernel launches mark where each shape begins, ncu has no other way to tell them apart."""
+        for shape in shapes:
+            self.replay_shape(shape)
+        if not profile:
+            return len(shapes)
+        torch.cuda.profiler.start()
+        for shape in shapes:
+            torch.cuda._sleep(1000)  # sentinel
+            self.replay_shape(shape)
+        torch.cuda._sleep(1000)
+        torch.cuda.synchronize()
+        torch.cuda.profiler.stop()
+        return len(shapes)
+
+    def replay_shape(self, shape: dict) -> None:
+        runner = self.model_runner
+        with request_cap(runner, shape["reqs"]), torch.inference_mode():
+            # Random ids and is_profile route the tokens over the experts (zero ids or padding tokens would make MoE
+            # kernels read a handful of experts), valid_dummy_state_slots keeps the GDN layers on their real kernels.
+            _, sample_hidden = runner._dummy_run(shape["tokens"], context_len=shape.get("context", 0), is_profile=True,
+                                                 valid_dummy_state_slots=True, randomize_inputs=True)
+            if sample_hidden is not None:
+                runner._dummy_sampler_run(sample_hidden)  # LM head and sampling, like profile_run() does after the forward
+        torch.cuda.synchronize()
+
     def sol_model_info(self) -> dict:
         """What the analytic SOL needs: bytes and elements of dense and expert weights, KV bytes per token and
         recurrent state bytes per request, for target and draft, plus the measured BF16 GEMM rate of this GPU."""
@@ -69,6 +102,17 @@ class SolProbe:
 
 TOP_K_KEYS = ["num_experts_per_tok", "moe_top_k", "num_experts_per_token", "top_k"]
 EXPERT_PARAM = re.compile(r"experts|\.w13_|\.w2_|\.w1_|\.w3_")
+
+
+@contextlib.contextmanager
+def request_cap(runner, reqs: int):
+    """_dummy_run spreads its tokens over min(tokens, max_num_reqs) requests, so capping max_num_reqs picks the request count."""
+    saved = runner.max_num_reqs
+    runner.max_num_reqs = min(saved, reqs)
+    try:
+        yield
+    finally:
+        runner.max_num_reqs = saved
 
 
 def weights(model: torch.nn.Module, skip: set[int]) -> dict:

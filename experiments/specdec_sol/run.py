@@ -45,6 +45,10 @@ NCU = [
 ]  # fmt: skip
 
 
+# The step pass profiles every launch inside the replay's profiler window, and sol.py matches them by position in the step.
+NCU_STEP = [*NCU[: NCU.index("--filter-mode")], "--kernel-name-base", "mangled"]
+
+
 def nsys_command(config: dict, output: Path) -> list[str]:
     annotations = ["--pytorch", "autograd-shapes-nvtx"] if config.get("nsys_shapes") else []
     return NSYS[:-1] + annotations + ["--output", str(output)]
@@ -54,27 +58,31 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("config", type=Path)
     parser.add_argument("--concurrency", type=int)
-    parser.add_argument("--pass", dest="pass_name", choices=["nsys", "ncu"])
+    parser.add_argument("--pass", dest="pass_name", choices=["nsys", "ncu", "ncu_fill", "ncu_step"])
+    parser.add_argument("--only", nargs="+", help="launch just these passes (e.g. ncu_fill) in an existing run directory")
     args = parser.parse_args()
     config = {**DEFAULTS, **yaml.safe_load(args.config.read_text())}
     if args.concurrency is None:
-        launch_all(config, args.config)
+        launch_all(config, args.config, args.only)
     else:
         Level(config, args.concurrency, args.config.resolve().parent).profile(args.pass_name)
 
 
-def launch_all(config: dict, config_path: Path) -> None:
+def launch_all(config: dict, config_path: Path, only: list[str] | None = None) -> None:
     """The config sits in the run directory. Every (level, pass) gets its own reservation, so all run in parallel,
     and writes into c<N>/<pass>/."""
     root = config_path.resolve().parent  # the run directory
-    (root / "config.yaml").write_text(yaml.safe_dump(config, sort_keys=False))
-    record_source(config, root)
-    passes = config["passes"]
+    passes = only or config["passes"]
+    if not only:
+        (root / "config.yaml").write_text(yaml.safe_dump(config, sort_keys=False))
+        record_source(config, root)
+        record_hardware(root)
     if config.get("nsys_shared_server") and not config.get("nsys_shapes"):
         raise ValueError("nsys_shared_server requires nsys_shapes for separate measurement windows")
     jobs = [launch_job(config, config_path, c, p) for p in passes for c in pass_levels(config, p)]
     codes = [job.wait() for job in jobs]
-    (root / "launch-exit-code.txt").write_text(str(max(codes)))
+    name = "-".join(only) if only else "launch"
+    (root / f"{name}-exit-code.txt").write_text(str(max(codes)))
 
 
 def pass_levels(config: dict, pass_name: str) -> list[int]:
@@ -101,6 +109,13 @@ def record_source(config: dict, root: Path) -> None:
     (root / "source-commit.txt").write_text(log.stdout or f"unknown {source}\n")
     diff = subprocess.run(["git", "-C", source, "diff"], capture_output=True, text=True)
     (root / "source.patch").write_text(diff.stdout)
+
+
+def record_hardware(root: Path) -> None:
+    """Host and GPU model, driver and clocks of the machine the run used, next to the report inputs."""
+    query = ["nvidia-smi", "--query-gpu=index,name,driver_version,memory.total,clocks.max.sm,clocks.max.mem", "--format=csv"]
+    gpus = subprocess.run(query, capture_output=True, text=True).stdout
+    (root / "hardware.txt").write_text(f"host: {socket.gethostname()}\n{gpus}")
 
 
 class Level:
@@ -167,15 +182,41 @@ class Level:
             raise RuntimeError(f"AIPerf failed for c{concurrency}, see {directory / 'aiperf-capture.log'}")
 
     def ncu_pass(self, directory: Path) -> None:
-        """A small KV pool lets ncu back up device memory on the GPU for kernel replay, not in (much slower) host memory."""
-        serve_args = with_flag(self.config["serve_args"], "--gpu-memory-utilization", self.config["ncu_gpu_memory_utilization"])
-        ncu = [os.path.expanduser(self.config["ncu"])] + NCU + lockstep(self.config["gpus"])
-        self.start_server(ncu + ["--export", str(directory / "kernels")], directory, serve_args)
+        self.ncu_server(directory)
         client = self.aiperf(directory, "capture", duration=3600)
         time.sleep(20)
         self.post("/start_profile", timeout=3600)
         self.wait_for_ncu(directory / "server.log")
         client.send_signal(signal.SIGINT)
+        self.ncu_export(directory)
+
+    def ncu_fill_pass(self, directory: Path) -> None:
+        """The live workload need not repeat the shapes of the nsys run (adaptive verification, for one, prices its
+        choices from timings taken at startup, which ncu distorts), so the kernels of the missing shapes never launch.
+        Replay the nsys run's step shapes through the model runner's dummy forward instead."""
+        shapes = json.loads((self.root / "ncu-fill-shapes.json").read_text())
+        self.ncu_server(directory)
+        self.post("/start_profile", timeout=3600)
+        self.status(f"ncu replaying {len(shapes)} step shapes")
+        self.rpc("sol_replay_shapes", [shapes], timeout=3600)
+        self.ncu_export(directory)
+
+    def ncu_step_pass(self, directory: Path) -> None:
+        """Counters for every launch of one step per shape, not one per kernel signature: a signature does not include the
+        problem size, so one launch's counters misdescribe the others that share it (other layers, other shapes)."""
+        shapes = json.loads((self.root / "ncu-fill-shapes.json").read_text())
+        self.ncu_server(directory, NCU_STEP)
+        self.status(f"ncu profiling one step of each of {len(shapes)} shapes")
+        self.rpc("sol_replay_shapes", [shapes, True], timeout=14400)
+        self.ncu_export(directory)
+
+    def ncu_server(self, directory: Path, flags: list[str] = NCU) -> None:
+        """A small KV pool lets ncu back up device memory on the GPU for kernel replay, not in (much slower) host memory."""
+        serve_args = with_flag(self.config["serve_args"], "--gpu-memory-utilization", self.config["ncu_gpu_memory_utilization"])
+        ncu = [os.path.expanduser(self.config["ncu"])] + flags + lockstep(self.config["gpus"])
+        self.start_server(ncu + ["--export", str(directory / "kernels")], directory, serve_args)
+
+    def ncu_export(self, directory: Path) -> None:
         self.stop_server()
         export = [os.path.expanduser(self.config["ncu"]), "--import", str(directory / "kernels.ncu-rep"), "--csv", "--page", "raw"]
         run(export + ["--print-kernel-base", "mangled", "--print-units", "base"], directory / "kernels.csv")
@@ -273,11 +314,11 @@ class Level:
     def post(self, path: str, timeout: float = 600) -> None:
         urllib.request.urlopen(urllib.request.Request(self.url + path, method="POST"), timeout=timeout).read()
 
-    def rpc(self, method: str, args: list | None = None) -> dict:
-        body = json.dumps({"method": method, "args": args or [], "timeout": 120}).encode()
+    def rpc(self, method: str, args: list | None = None, timeout: float = 120) -> dict:
+        body = json.dumps({"method": method, "args": args or [], "timeout": timeout}).encode()
         headers = {"Content-Type": "application/json"}
         request = urllib.request.Request(self.url + "/collective_rpc", data=body, headers=headers)
-        return json.loads(urllib.request.urlopen(request, timeout=150).read())
+        return json.loads(urllib.request.urlopen(request, timeout=timeout + 30).read())
 
     def status(self, message: str) -> None:
         with (self.root / "status.txt").open("a") as stream:

@@ -4,6 +4,7 @@ REMOTE ?= RH-nm-ore-b300-01
 REMOTE_ROOT ?= runs
 CONFIG ?= $(error set CONFIG, a workload config, see the README)
 RUN_ID ?= $(error set RUN_ID, one per attempt, e.g. RUN_ID=qwen36-dspark-20261103)
+ESTIMATES ?=  # set to 1 to also price steps and kernels with the analytic and semantic models (default: NCU measurements only)
 NCU_FROM ?=  # optional results/<RUN_ID> whose ncu CSVs to reuse for a run without the ncu pass
 LOCAL_PYTHON ?= $(HOME)/.venv/bin/python
 SSH := ssh -T -o BatchMode=yes -o ConnectTimeout=10
@@ -11,7 +12,7 @@ RUN_DIR = $(REMOTE_ROOT)/$(RUN_ID)
 GREEDY_INPUT ?= $(error set GREEDY_INPUT, a glob matching measurements.jsonl for one pinned comparison)
 GREEDY_OUTPUT ?= results/greedy-rejection
 
-.PHONY: launch status watch fetch-results fetch-greedy-results analyze-greedy analyze report
+.PHONY: launch status watch fill-ncu watch-fill step-ncu watch-step fetch-results fetch-greedy-results analyze-greedy analyze report
 # Copies the code and config, then runs every concurrency level in parallel, each in its own chg reservation.
 launch:
 	$(SSH) $(REMOTE) 'mkdir "$(RUN_DIR)"'  # fails if the run exists: pick a new RUN_ID, never delete old runs
@@ -25,10 +26,35 @@ status:
 watch:
 	$(SSH) $(REMOTE) 'cd "$(RUN_DIR)"; timeout 14400 bash -c "until test -f launch-exit-code.txt; do sleep 30; done"; cat launch-exit-code.txt'
 
+# The live ncu pass may not launch every kernel of the nsys run. This replays the nsys run's step shapes under ncu into
+# c<N>/ncu_fill/. Needs `make analyze` first (for steps.parquet), then `make fetch-results analyze` to use the new counters.
+fill-ncu:
+	for d in results/$(RUN_ID)/c*/; do c=$$(basename $$d); \
+	  $(LOCAL_PYTHON) fill_shapes.py report/$(RUN_ID)/$$c/steps.parquet results/$(RUN_ID)/$$c/ncu-fill-shapes.json; done
+	$(SSH) $(REMOTE) 'mkdir -p "$(RUN_DIR)/fill"'
+	scp -q run.py sol_probe.py $(REMOTE):"$(RUN_DIR)/fill/"
+	rsync -aq --include='c*/' --include='ncu-fill-shapes.json' --exclude='*' results/$(RUN_ID)/ $(REMOTE):$(RUN_DIR)/
+	$(SSH) $(REMOTE) 'cd "$(RUN_DIR)/fill" && rm -f ../ncu_fill-exit-code.txt && setsid nohup ~/.venv/bin/python run.py ../config.yaml --only ncu_fill > ../fill.log 2>&1 < /dev/null & echo launched'  # cwd first on the server's sys.path, so not the old sol_probe.py of the run directory
+
+# Counters per launch for one step of every shape, matched by position in the step (c<N>/ncu_step/). Needs `make analyze` first.
+step-ncu:
+	for d in results/$(RUN_ID)/c*/; do c=$$(basename $$d); \
+	  $(LOCAL_PYTHON) fill_shapes.py report/$(RUN_ID)/$$c/steps.parquet results/$(RUN_ID)/$$c/ncu-fill-shapes.json; done
+	$(SSH) $(REMOTE) 'mkdir -p "$(RUN_DIR)/fill"'
+	scp -q run.py sol_probe.py $(REMOTE):"$(RUN_DIR)/fill/"
+	rsync -aq --include='c*/' --include='ncu-fill-shapes.json' --exclude='*' results/$(RUN_ID)/ $(REMOTE):$(RUN_DIR)/
+	$(SSH) $(REMOTE) 'cd "$(RUN_DIR)/fill" && rm -f ../ncu_step-exit-code.txt && setsid nohup ~/.venv/bin/python run.py ../config.yaml --only ncu_step > ../step.log 2>&1 < /dev/null & echo launched'
+
+watch-step:
+	$(SSH) $(REMOTE) 'cd "$(RUN_DIR)"; timeout 14400 bash -c "until test -f ncu_step-exit-code.txt; do sleep 30; done"; cat ncu_step-exit-code.txt'
+
+watch-fill:
+	$(SSH) $(REMOTE) 'cd "$(RUN_DIR)"; timeout 14400 bash -c "until test -f ncu_fill-exit-code.txt; do sleep 30; done"; cat ncu_fill-exit-code.txt'
+
 # The .nsys-rep and .ncu-rep stay remote, the analysis needs only the sqlite export and the ncu CSV.
 fetch-results:
 	mkdir -p results/$(RUN_ID)
-	rsync -az --exclude '*.nsys-rep' --exclude '*.ncu-rep' --exclude '*.qdstrm' --exclude profile_export_raw.jsonl $(REMOTE):$(RUN_DIR)/ results/$(RUN_ID)/
+	rsync -az --exclude tmp/ --exclude '*.nsys-rep' --exclude '*.ncu-rep' --exclude '*.qdstrm' --exclude profile_export_raw.jsonl $(REMOTE):$(RUN_DIR)/ results/$(RUN_ID)/
 
 fetch-greedy-results:
 	mkdir -p results/$(RUN_ID)
@@ -40,7 +66,7 @@ analyze-greedy:
 
 analyze:
 	for d in results/$(RUN_ID)/c*/; do c=$$(basename $$d); \
-	  $(LOCAL_PYTHON) sol.py $$d --output report/$(RUN_ID)/$$c $(if $(NCU_FROM),--ncu $(NCU_FROM)/$$c/ncu/kernels.csv) > /dev/null; done
+	  $(LOCAL_PYTHON) sol.py $$d --output report/$(RUN_ID)/$$c $(if $(ESTIMATES),--estimates) $(if $(NCU_FROM),--ncu $(NCU_FROM)/$$c/ncu/kernels.csv) > /dev/null; done
 
 # Offline HTML with one tab per concurrency level: report/$(RUN_ID)/index.html
 report: fetch-results analyze

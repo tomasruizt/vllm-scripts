@@ -79,13 +79,16 @@ if (!window.detailTip) {
     drawAxis(view, svg, scale);
     drawMeasure(view);
   };
-  // Drag on the plot to measure a time span, a click without dragging clears it.
+  // Drag on the plot to select the kernels inside the dragged rectangle (time span x lanes), a click without dragging clears it.
+  // The reported runtime is the horizontal span.
   const drawMeasure = (view) => {
     const m = view.measure;
     const a = m && Math.min(m.a, m.b);
     const b = m && Math.max(m.a, m.b);
+    const top = m && Math.min(m.y0, m.y1);
+    const bottom = m && Math.max(m.y0, m.y1);
     view.selectedKernels = view.kernels.filter((el) => {
-      const selected = !!m && b > a && +el.dataset.b > a && +el.dataset.a < b;
+      const selected = !!m && b > a && +el.dataset.b > a && +el.dataset.a < b && el.laneBottom > top && el.laneTop < bottom;
       el.classList.toggle("selected", selected);
       return selected;
     });
@@ -95,10 +98,14 @@ if (!window.detailTip) {
     const w = (b - a) * view.scale;
     view.measureBox.setAttribute("x", x);
     view.measureBox.setAttribute("width", w);
+    view.measureBox.setAttribute("y", top);
+    view.measureBox.setAttribute("height", bottom - top);
     view.measureText.setAttribute("x", x + w / 2);
+    view.measureText.setAttribute("y", Math.max(top + 14, 12));
     view.measureText.textContent = `${(b - a).toFixed(1)} µs · ${view.selectedKernels.length} kernels · cmd+c to copy`;
   };
   const timeAt = (view, event) => Math.max(0, Math.min(view.span, (event.clientX - view.plot.getBoundingClientRect().left) / view.scale));
+  const heightAt = (view, event) => Math.max(0, Math.min(+view.plot.getAttribute("height"), event.clientY - view.plot.getBoundingClientRect().top));
   const setupMeasure = (view) => {
     const ns = "http://www.w3.org/2000/svg";
     view.plot = view.querySelector(".plot");
@@ -118,7 +125,7 @@ if (!window.detailTip) {
         window.measuredView.measure = null;
         drawMeasure(window.measuredView);
       }
-      view.measure = { a: timeAt(view, event), b: timeAt(view, event) };
+      view.measure = { a: timeAt(view, event), b: timeAt(view, event), y0: heightAt(view, event), y1: heightAt(view, event) };
       window.measuredView = view;
       window.measuring = view;
       drawMeasure(view);
@@ -128,6 +135,7 @@ if (!window.detailTip) {
     const view = window.measuring;
     if (!view) return;
     view.measure.b = timeAt(view, event);
+    view.measure.y1 = heightAt(view, event);
     drawMeasure(view);
   });
   // Every kernel box carries both colors and both hover texts pre-computed; the toggle just repaints and
@@ -198,6 +206,11 @@ if (!window.detailTip) {
     view.boxes = [...view.querySelectorAll("rect[data-a]")];
     view.labels = [...view.querySelectorAll("text[data-a]")];
     view.kernels = [...view.querySelectorAll("[data-kernel]")].sort((a, b) => +a.dataset.a - +b.dataset.a);
+    for (const el of view.kernels) {  // the lane (stream) band of each kernel, for the rectangle selection
+      const box = el.querySelector("rect");
+      el.laneTop = +box.getAttribute("y");
+      el.laneBottom = el.laneTop + +box.getAttribute("height");
+    }
     setupMeasure(view);
     scroller.addEventListener("scroll", () => view.scale && placeLabels(view));
     new ResizeObserver(() => {  // hidden tabs have no width until shown
@@ -336,7 +349,23 @@ def overview(run_dir: Path, steady: pd.DataFrame, steady_ops: pd.DataFrame, meta
         items.append("Estimate assumptions: " + ". ".join(assumptions))
     items = "".join(f"<li>{item}</li>" for item in items)
     command_html = html.escape(shell_lines(server))
-    return f'<div class="card"><ul>{items}</ul><details><summary>vllm serve command</summary><pre>{command_html}</pre></details></div>'
+    serve = f"<details><summary>vllm serve command</summary><pre>{command_html}</pre></details>"
+    return f'<div class="card"><ul>{items}</ul>{serve}{aiperf_details(run_dir)}</div>'
+
+
+def aiperf_details(run_dir: Path) -> str:
+    """The client config of the unprofiled reference run, without local paths. The capture run under nsys differs only in duration."""
+    config = yaml.safe_load((run_dir / "nsys/aiperf-reference.yaml").read_text())
+    bench = config["benchmark"]
+    bench["endpoint"]["url"] = "http://127.0.0.1:8000"
+    bench["server_metrics"]["urls"] = ["http://127.0.0.1:8000/metrics"]
+    bench["artifacts"]["dir"] = "artifacts"
+    for dataset in bench["datasets"]:
+        dataset["path"] = Path(dataset["path"]).name
+    capture = yaml.safe_load((run_dir / "nsys/aiperf-capture.yaml").read_text())["benchmark"]["phases"][0]["duration"]
+    text = f"aiperf profile --config aiperf.yaml\n\n# aiperf.yaml\n{yaml.safe_dump(config, sort_keys=False)}"
+    note = f"The throughput above is from this run. The profiled capture under nsys uses the same config with duration {capture}."
+    return f"<details><summary>AIPerf command and config</summary><p>{note}</p><pre>{html.escape(text)}</pre></details>"
 
 
 def shell_lines(command: list[str]) -> str:
@@ -381,8 +410,10 @@ def reference(artifacts: Path) -> dict:
 def batch_line(steady: pd.DataFrame) -> str:
     """The batch shape. `tokens` is the scheduled verify batch, not the tokens the step generates."""
     per_request = steady.tokens.sum() / steady.reqs.sum()
+    executed = steady.actual_tokens.sum() / steady.reqs.sum() if "actual_tokens" in steady and steady.actual_tokens.notna().all() else None
+    trimmed = f", {executed:.1f} executed after verification trimming" if executed is not None and executed < per_request - 0.05 else ""
     return (f"Steady steps: {len(steady)}, on average {steady.reqs.mean():.1f} requests x {per_request:.1f} scheduled tokens per request "
-            f"({per_request - 1:.1f} drafts + 1 verify), {steady.context.mean() / steady.reqs.mean():.0f} context tokens per request")
+            f"({per_request - 1:.1f} drafts + 1 verify){trimmed}, {steady.context.mean() / steady.reqs.mean():.0f} context tokens per request")
 
 
 def step_cost_line(total: float, median: float, floor: tuple[str, float] | None) -> str:
@@ -480,8 +511,10 @@ def timeline(ops: pd.DataFrame, ranges: pd.DataFrame, step: pd.Series) -> str:
     for r, depth in zip(ranges.itertuples(), depths):
         tip = f"CPU phase: {r.label}\nstart: {us(r.start):+.1f} µs\nduration: {(r.end - r.start) / 1e3:.1f} µs"
         shapes.append(box(us(max(r.start, t0)), lane_y[f"CPU depth {depth}"], us(min(r.end, t1)), "#cbd5e1", tip, r.label))
+    runtime = ops.groupby("name").dur_ns.sum()
+    total_ns = ops.dur_ns.sum()  # kernel durations add up across streams, so this can exceed the step's wall time
     for op in ops.itertuples():
-        shapes.append(kernel_box(op, us, lane_y[f"stream {op.streamId}"]))
+        shapes.append(kernel_box(op, us, lane_y[f"stream {op.streamId}"], runtime[op.name], total_ns))
         if op.gap_ns > 0 and op.prev_end >= t0:
             tip = (f"phase: {op.phase}\nGPU idle before: {op.name}\nkind: {op.gap_kind}\n"
                    f"duration: {op.gap_ns / 1e3:.1f} µs\nhost-bound: {op.host_gap_ns / 1e3:.1f} µs")  # fmt: skip
@@ -497,8 +530,9 @@ def timeline(ops: pd.DataFrame, ranges: pd.DataFrame, step: pd.Series) -> str:
     note = ("<p class=\"metric-note\">One steady step with the median cost. Cmd + scroll to zoom, scroll sideways to pan, drag to measure time and highlight overlapping GPU kernels, Cmd+C to copy their list, hover a box for details. The CPU lanes "
             "show this step's calls, from execute_model() to the next one. Its GPU work starts later, because with async scheduling the GPU is still busy with the previous step.</p>")  # fmt: skip
     legend += '<span style="--c:#9ca3af">GPU idle</span>'
+    estimated = ops.get("sol_ns_analytic", pd.Series(dtype=float)).notna().any()  # only runs analyzed with --estimates
     mode_toggle = ('<label style="margin-left:1em"><input type="checkbox" class="sol-mode-toggle" checked> '
-                   "color by NCU-measured utilization (off: analytic estimate)</label>") if has_kernel_sol(ops) else ""
+                   "color by NCU-measured utilization (off: analytic estimate)</label>") if has_kernel_sol(ops) and estimated else ""
     return f'{view}{TIMELINE_SCRIPT}<div class="legend">{legend}{mode_toggle}</div>{note}'
 
 
@@ -506,8 +540,8 @@ def table_html(table: pd.DataFrame, has_sol: bool) -> str:
     """Without ncu data, the SOL columns are dropped and rows are sorted by cost."""
     keys = list(table.index.names)
     columns = ["ops/step", "cost µs", "busy µs", "SOL µs", "idle µs", "lost µs", "x SOL"]
-    titles = {"SOL µs": "analytic estimate, or NCU measured where no estimate applies, see the timeline toggle for either on its own",
-             "x SOL": "cost / SOL, same combined source as the SOL column"}  # fmt: skip
+    titles = {"SOL µs": "NCU reference: kernel duration x its busiest unit's utilization (analytic estimate first, if the run used --estimates)",
+             "x SOL": "cost / SOL, same source as the SOL column"}  # fmt: skip
     if not has_sol:
         table = table.sort_values("cost", ascending=False)
         columns = ["ops/step", "cost µs", "busy µs", "idle µs"]
@@ -535,12 +569,9 @@ def na_cell(mapped: float) -> str:
 def footer() -> str:
     return (
         "<footer><p>Cost of an op = its busy time plus the GPU idle gap before it, so op costs sum to the step time. "
-        "Each kernel's SOL is one of two unrelated claims, labeled in its tooltip. Analytic estimate: a floor computed from "
-        "declared shapes, precision ceilings and traffic assumptions, it can be wrong if an assumption does not hold. NCU measured: "
-        "this kernel's own achieved utilization from an NCU profile, used when no analytic estimate applies (exact and transferred "
-        "matches labeled). A kernel can show both: a low analytic estimate does not mean the kernel is inefficient if NCU separately "
-        "measures it near peak utilization, that NCU number describes the real work, the analytic one may have undercounted it. "
-        "Operations missing both sources are gray. "
+        "Each kernel's SOL is its NCU reference: its own achieved utilization from an NCU profile, applied to its duration (exact and "
+        "transferred matches labeled in the tooltip). Operations without an NCU row are gray. Runs analyzed with --estimates also show analytic "
+        "estimates, floors computed from declared shapes, precision ceilings and traffic assumptions, which can be wrong if an assumption does not hold. "
         "Incomplete table groups show n/a. "
         "D2D copies count a payload read and write, host transfers require a link profile. "
         "The forward reference excludes intermediate materialization and checkpoint writes. Draft query work is excluded when its shape is unknown. "
@@ -555,7 +586,7 @@ def footer() -> str:
 # --- SVG helpers ------------------------------------------------------------------------------------------------
 
 
-def kernel_box(op, us, y: float) -> str:
+def kernel_box(op, us, y: float, name_ns: float, total_ns: float) -> str:
     a = us(op.start)
     b = us(op.end)
     has_sol = op.sol_ns > 0  # NaN compares False, drives only the dark SOL-time inset below
@@ -571,6 +602,7 @@ def kernel_box(op, us, y: float) -> str:
         f"duration: {op.dur_ns / 1e3:.1f} µs",
         f"category: {op.category}",
         f"busy: {op.busy_ns / 1e3:.1f} µs",
+        f"total GPU runtime: {name_ns / 1e3:.1f} out of {total_ns / 1e3:.1f} µs ({name_ns / total_ns:.1%})",  # all launches of this kernel in the shown step
     ]
     tail = [
         "launch: inferred (no CUPTI launch record)" if op.inferred_launch else "",
@@ -609,9 +641,9 @@ def sol_mode_lines(op, mode: str, busiest: str) -> list[str]:
     other_ns = getattr(op, f"sol_ns_{other}", math.nan)
     has_other = pd.notna(other_ns) and other_ns > 0
     if mode == "ncu":
-        exact = has and op.ncu_match == "exact"
+        exact = has and op.ncu_match in ("exact", "step launch")
         by_size = has and str(op.ncu_match).startswith("matched by work size")
-        subject = "a same-sized GEMM" if by_size else "this kernel"
+        subject = "a same-sized GEMM" if by_size else "this launch, profiled in a replay of the same step," if has and op.ncu_match == "step launch" else "this kernel"
         sol_line = (f"SOL (NCU measured): {sol_ns / 1e3:.1f} µs, {subject} ran at {op.sol_pct:.0f}% of peak {busiest} throughput"
                     if has else "SOL (NCU measured): no NCU measurement for this operation")
         slower_line = (f"duration is {x_sol:.1f}x the measured-peak time" if x_sol < 100 else "duration is >99x the measured-peak time") if has else ""

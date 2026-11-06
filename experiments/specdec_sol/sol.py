@@ -41,6 +41,7 @@ def main() -> None:
     parser.add_argument("run_dir", type=Path, help="one concurrency directory, with nsys/ and optionally ncu/")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--ncu", type=Path, action="append", help="ncu CSV to reuse, repeat for additional profiles from the same GPU type")
+    parser.add_argument("--estimates", action="store_true", help="also price kernels and steps with the analytic and semantic models (default: NCU measurements only)")
     parser.add_argument("--trace-steps", type=int, default=3)
     parser.add_argument("--shape-dtype", help="explicit uniform operand precision assumption for shape estimates, e.g. bf16")
     args = parser.parse_args()
@@ -51,7 +52,7 @@ def main() -> None:
     ops = timeline(db)
     ops, annotations = annotate_shapes(db, ops)
     ops = measurement_ops(db, ops, args.run_dir.name)
-    ncu_paths = args.ncu or [args.run_dir / "ncu/kernels.csv"]
+    ncu_paths = args.ncu or [args.run_dir / "ncu/kernels.csv", args.run_dir / "ncu_fill/kernels.csv"]  # live workload first, then replayed shapes
     previous_meta = args.output / "meta.json"
     shape_dtype = args.shape_dtype
     if shape_dtype is None and previous_meta.exists():
@@ -66,14 +67,10 @@ def main() -> None:
     steps, steady_rule = step_table(db, ops)
     steps, steady_rule = measured_steps(db, steps, steady_rule, args.run_dir.name)
     steps = execution_shapes(db, steps, args.run_dir.parent / "config.yaml")
+    ops = apply_step_profile(ops, steps, args.run_dir, hw)
     info = model_info(args.run_dir / "nsys/model-info.json")
-    steps = analytic_sol(steps, ops, info, hw)
-    with_layers = info and "layers" in info  # runs from before the probe reported its layer inventory have none
-    ops, mapping = kernel_models(ops, steps, info, hw) if with_layers else (ops.assign(model_sol_ns=float("nan"), model_family=None), {})
-    if with_layers:
-        ops = match_by_work_size(ops, ncu)  # the semantic byte estimate from kernel_models() is only available now
-    ops = shape_models(ops, info or {}, hw, shape_dtype)
-    sol_sources(ops, hw)
+    ops, steps, mapping = price_with_models(ops, steps, info, hw, ncu, shape_dtype) if args.estimates else (ops.assign(model_sol_ns=float("nan"), model_family=None), steps, {})
+    sol_sources(ops, hw, args.estimates)
     steady = steps[steps.steady]
     steady_ops = ops[ops.step.isin(steady.step)]
     ops.to_parquet(args.output / "ops.parquet")
@@ -84,33 +81,67 @@ def main() -> None:
     shown = representative_steps(steps, args.trace_steps)
     cpu_ranges(db, ops[ops.step.isin(shown)]).to_parquet(args.output / "ranges.parquet")
     meta = {"hw": hw, "shown_steps": shown, "ncu_sources": [str(path) for path in ncu_paths if path.exists()],
-            "shape_dtype_assumption": shape_dtype, "operator_annotations": len(annotations),
+            "estimates": args.estimates, "shape_dtype_assumption": shape_dtype, "operator_annotations": len(annotations),
             "shape_diagnostic": "annotated measurement window" in steady_rule,
-            "checks": checks(db, ops, steady_ops, steps, steady_rule) | mapping}
+            "checks": checks(db, ops, steady_ops, steps, steady_rule, args.estimates) | mapping}
     (args.output / "meta.json").write_text(json.dumps(meta, indent=2, default=lambda value: value.item()))
     trace = perfetto_trace(db, ops, shown)
     (args.output / "steps.perfetto.json").write_text(json.dumps(trace, default=lambda value: value.item()))  # numpy scalars
     print(summary)
 
 
-def checks(db: duckdb.DuckDBPyConnection, ops: pd.DataFrame, steady_ops: pd.DataFrame, steps: pd.DataFrame, steady_rule: str) -> dict:
+def apply_step_profile(ops: pd.DataFrame, steps: pd.DataFrame, run_dir: Path, hw: dict) -> pd.DataFrame:
+    """Per-launch counters from the step pass (`make step-ncu`), when the run has them, replace the per-signature ones."""
+    path, shapes_path = run_dir / "ncu_step/kernels.csv", run_dir / "ncu-fill-shapes.json"
+    if not (path.exists() and shapes_path.exists()):
+        return ops
+    shapes = json.loads(shapes_path.read_text())
+    launches = step_launches(path, shapes, hw)
+    return match_step_launches(ops, steps, launches, shapes, path) if len(launches) else ops
+
+
+def price_with_models(ops: pd.DataFrame, steps: pd.DataFrame, info: dict | None, hw: dict, ncu: pd.DataFrame, shape_dtype: str | None) -> tuple:
+    """The analytic step SOL and the semantic kernel models, off by default: they are estimates, not measurements."""
+    steps = analytic_sol(steps, ops, info, hw)
+    with_layers = info and "layers" in info  # runs from before the probe reported its layer inventory have none
+    ops, mapping = kernel_models(ops, steps, info, hw) if with_layers else (ops.assign(model_sol_ns=float("nan"), model_family=None), {})
+    if with_layers:
+        ops = match_by_work_size(ops, ncu)  # the semantic byte estimate from kernel_models() is only available now
+    return shape_models(ops, info or {}, hw, shape_dtype), steps, mapping
+
+
+def checks(db: duckdb.DuckDBPyConnection, ops: pd.DataFrame, steady_ops: pd.DataFrame, steps: pd.DataFrame, steady_rule: str, estimates: bool) -> dict:
     """What the report rests on, so a run that went wrong is visible in the report itself."""
     busy = steady_ops.busy_ns.sum()
-    return {
+    result = {
         "steps": len(steps),
         "steady steps": int(steps.steady.sum()),
         "steady rule": steady_rule,
         "workers in trace": int(db.execute("SELECT count(DISTINCT globalTid) FROM steps").fetchone()[0]),
-        "busy time with a SOL estimate": f"{steady_ops.busy_ns[steady_ops.sol_ns.notna()].sum() / busy:.1%}",
+        "kernel time without an NCU row": missing_ncu_share(steady_ops),
         "ops with a CPU phase": f"{(~steady_ops.phase.str.startswith('(')).mean():.1%}",
         "ops with an inferred launch": f"{steady_ops.inferred_launch.mean():.1%}",
         "query shape sources": ", ".join(sorted(steps[steps.steady].query_shape_source.unique())),
+        "steady steps with a GPU stall": stall_check(steps[steps.steady], host_gaps(steady_ops)),
+    }
+    if not estimates:
+        return result
+    return result | {
+        "busy time with a SOL estimate": f"{steady_ops.busy_ns[steady_ops.sol_ns.notna()].sum() / busy:.1%}",
         "estimate sources": ", ".join(sorted(steady_ops.sol_source.dropna().unique())),
         "busy time with NSYS input shapes": f"{steady_ops.busy_ns[steady_ops.operator_name.notna()].sum() / busy:.1%}",
         "busy time with NSYS shape estimates": f"{steady_ops.busy_ns[steady_ops.operator_shape_estimate].sum() / busy:.1%}",
         "kernel bounds above measured duration": int(((steady_ops.kind == "kernel") & (steady_ops.sol_ns > steady_ops.dur_ns)).sum()),
-        "steady steps with a GPU stall": stall_check(steps[steps.steady], host_gaps(steady_ops)),
     }
+
+
+def missing_ncu_share(steady_ops: pd.DataFrame) -> str:
+    """Kernels no NCU pass launched (not even with another grid) cannot show counters. `make fill-ncu` replays the nsys run's shapes."""
+    kernels = steady_ops[steady_ops.kind == "kernel"]
+    if "sol_pct" not in kernels:
+        return "n/a (no NCU data)"
+    missing = kernels.sol_pct.isna() & kernels.ncu_match.isna()
+    return f"{kernels.busy_ns[missing].sum() / kernels.busy_ns.sum():.1%}"
 
 
 # --- Inputs -----------------------------------------------------------------------------------------------------
@@ -133,6 +164,14 @@ def ncu_sol(path: Path, hw: dict) -> pd.DataFrame:
         columns = ["ncu_ns", "sm_pct", "mem_pct", "sol_pct", "kernel_sol_ns", "dram_bytes", "dram_sol_ns"]
         return pd.DataFrame({"signature": pd.Series(dtype=str), "ncu_source": pd.Series(dtype=str),
                              **{c: pd.Series(dtype=float) for c in columns}})
+    frame = ncu_launches(path, hw)
+    columns = ["ncu_ns", "sm_pct", "mem_pct", "sol_pct", "kernel_sol_ns", "dram_bytes", "dram_sol_ns"]
+    return frame.groupby("signature", as_index=False)[columns].median().assign(
+        ncu_samples=frame.groupby("signature").size().values, ncu_source=str(path))
+
+
+def ncu_launches(path: Path, hw: dict) -> pd.DataFrame:
+    """One row per profiled launch, in launch order: signature, duration, throughputs, DRAM bytes."""
     with path.open() as stream:
         rows = list(csv.DictReader(stream))
     rows = [r for r in rows[1:] if r.get("ID", "").strip().isdigit()]  # row 0 holds the units
@@ -151,9 +190,42 @@ def ncu_sol(path: Path, hw: dict) -> pd.DataFrame:
     frame["sol_pct"] = frame[["sm_pct", "mem_pct"]].max(axis=1)
     frame["kernel_sol_ns"] = frame.ncu_ns * frame.sol_pct / 100
     frame["dram_sol_ns"] = frame.dram_bytes / hw["bw"] * 1e9
-    columns = ["ncu_ns", "sm_pct", "mem_pct", "sol_pct", "kernel_sol_ns", "dram_bytes", "dram_sol_ns"]
-    return frame.groupby("signature", as_index=False)[columns].median().assign(
-        ncu_samples=frame.groupby("signature").size().values, ncu_source=str(path))
+    return frame
+
+
+STEP_COLUMNS = ["ncu_ns", "sm_pct", "mem_pct", "sol_pct", "kernel_sol_ns", "dram_bytes", "dram_sol_ns"]
+SENTINEL = "spin_kernel"  # sol_replay_shapes() launches one before each shape and one at the end
+
+
+def step_launches(path: Path, shapes: list[dict], hw: dict) -> pd.DataFrame:
+    """The launches of the step profiled for each shape, with the shape index and the occurrence number of the
+    launch's signature within its step. The replay separates shapes with sentinel kernels."""
+    launches = ncu_launches(path, hw)
+    sentinel = launches.signature.str.contains(SENTINEL)
+    if sentinel.sum() != len(shapes) + 1:
+        print(f"{path}: {sentinel.sum()} sentinel launches for {len(shapes)} shapes, ignoring the step profile")
+        return launches.iloc[0:0].assign(shape=pd.Series(dtype=int), occurrence=pd.Series(dtype=int))
+    launches["shape"] = sentinel.cumsum() - 1
+    launches = launches[~sentinel & (launches["shape"] < len(shapes))]
+    return launches.assign(occurrence=launches.groupby(["shape", "signature"]).cumcount())
+
+
+def match_step_launches(ops: pd.DataFrame, steps: pd.DataFrame, launches: pd.DataFrame, shapes: list[dict], source: Path) -> pd.DataFrame:
+    """Counters of the k-th launch of a signature in a replayed step for the k-th launch of that signature in an nsys step of the
+    same shape. Unlike a match on the signature alone, this reaches each layer's own problem size."""
+    keys = {(shape["reqs"], shape["padded"]): index for index, shape in enumerate(shapes)}
+    shape_of = pd.Series([keys.get((r, p)) for r, p in zip(steps.reqs, steps.padded_tokens)], index=steps.step).dropna().astype(int)
+    kernels = ops[(ops.kind == "kernel") & ops.step.isin(shape_of.index)].sort_values("start")
+    keyed = pd.DataFrame({"shape": kernels.step.map(shape_of), "signature": kernels.signature}, index=kernels.index)
+    keyed["occurrence"] = keyed.groupby([kernels.step, "signature"]).cumcount()
+    matched = keyed.reset_index().merge(launches[["shape", "signature", "occurrence", *STEP_COLUMNS]],
+                                        on=["shape", "signature", "occurrence"], how="inner").set_index("index")
+    ops = ops.copy()
+    for column in STEP_COLUMNS:
+        ops.loc[matched.index, column] = matched[column]
+    ops.loc[matched.index, "ncu_match"] = "step launch"
+    ops.loc[matched.index, "ncu_source"] = str(source)
+    return ops
 
 
 def ncu_profiles(paths: list[Path], hw: dict) -> pd.DataFrame:
@@ -342,13 +414,13 @@ def add_costs(ops: pd.DataFrame, hw: dict) -> pd.DataFrame:
     return ops
 
 
-def sol_sources(ops: pd.DataFrame, hw: dict) -> None:
+def sol_sources(ops: pd.DataFrame, hw: dict, estimates: bool = True) -> None:
     """Prefer semantic bounds, then profiler resource-demand references with explicit match quality.
 
     D2D copies read and write the payload. Host transfers need a host-link profile, not HBM bandwidth.
     Bounds stay unclipped so inconsistent assumptions remain visible instead of being forced to measured time.
     """
-    copies = ops.kind != "kernel"
+    copies = (ops.kind != "kernel") & estimates  # without estimates, copies have no measurement to show
     defaults = {"model_quality": "unsupported", "model_reason": "no semantic mapping", "model_assumptions": "[]", "model_flops": "{}",
                 "model_memory_ns": float("nan"), "model_compute_ns": float("nan"), "model_read_bytes": float("nan"), "model_write_bytes": float("nan")}
     for field, value in defaults.items():
@@ -378,7 +450,7 @@ def sol_sources(ops: pd.DataFrame, hw: dict) -> None:
     ops["sol_ns_analytic"] = ops["sol_ns"]
     ops["sol_memory_ns_analytic"] = ops["sol_memory_ns"]
     ops["sol_compute_ns_analytic"] = ops["sol_compute_ns"]
-    exact = ops.get("ncu_match", pd.Series(None, index=ops.index)).eq("exact")
+    exact = ops.get("ncu_match", pd.Series(None, index=ops.index)).isin(["exact", "step launch"])
     missing = pd.Series(float("nan"), index=ops.index)
     # NCU's --kernel-id filter keeps only the first launch of each (name, grid, block) signature across the whole
     # profiled run: a GEMM template reused at very different token counts (persistent-grid kernels do not size
@@ -408,6 +480,7 @@ def sol_sources(ops: pd.DataFrame, hw: dict) -> None:
     for is_exact, quality in ((True, "counter-reference"), (False, "inferred-counter-reference")):
         selected = fallback & (exact == is_exact)
         ops.loc[selected, "sol_source"] = "ncu reference: exact signature" if is_exact else "ncu reference: transferred utilization (other grid)"
+        ops.loc[selected & ops.ncu_match.eq("step launch"), "sol_source"] = "ncu reference: profiled launch of the same step"
         ops.loc[selected, "sol_quality"] = quality
         ops.loc[selected, "sol_reason"] = "resource-demand reference for measured work, excludes latency"
         ops.loc[selected, "sol_assumptions"] = json.dumps(["separate NCU replay, cache and launch conditions can differ"] + ([] if is_exact else ["same kernel and block, utilization transferred to this duration"]))
