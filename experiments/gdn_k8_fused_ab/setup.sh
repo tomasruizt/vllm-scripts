@@ -22,7 +22,9 @@ setup_main() {
     cd "$MAIN"
     git fetch -q "$FORK" $FETCH
     git checkout -q --detach 5225a1f17f
-    [[ -x .venv/bin/python ]] || uv venv -q --python 3.12 .venv
+    # Install once: reinstalling rewrites main's .so files, which crashes servers running from main.
+    [[ ! -x .venv/bin/python ]] || return 0
+    uv venv -q --python 3.12 .venv
     VLLM_USE_PRECOMPILED=1 VLLM_MAIN_CUDA_VERSION=13.0 uv pip install -q --python .venv/bin/python -e . --torch-backend=auto
     uv pip install -q --python .venv/bin/python -r requirements/test/cuda.in cmake ninja
 }

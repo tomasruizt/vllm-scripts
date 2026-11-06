@@ -12,6 +12,8 @@ Import reusable code from these packages. Do not copy a report builder or import
 
 If a shared helper almost fits, extend it with explicit parameters and migrate the caller. Keep model settings, workload policy, architecture-specific checks and report wording in the experiment. Check existing runners before creating lifecycle, remote-job, workload-planning or profiler helpers, these are not yet covered by the shared packages.
 
+Record host CPU load in every serving benchmark with `benchmarking/host_load.sh` and gate cells on it (`gates(..., max_host_load=...)`). Never build, compile or run other heavy CPU work on a host while one of its GPUs is benchmarking, since contention silently lowers throughput.
+
 Preserve metric definitions when migrating code. Distinguish whole-cell and steady-window metrics, mean and median aggregation, and paired gains and ratios of aggregates. Keep validity thresholds explicit. Verify numerical equivalence on saved artifacts when available, without starting a GPU job.
 
 Run `~/.venv/bin/python -m unittest discover -s benchmarking/tests` after changing metric or export behavior. Read [reporting/AGENTS.md](reporting/AGENTS.md) before changing a report. Deploy the shared packages with scripts that import them, rather than copying a standalone experiment entry point.

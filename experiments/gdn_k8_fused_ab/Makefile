@@ -16,11 +16,11 @@ HOST_ENV := MODEL=RedHatAI/Qwen3.6-35B-A3B-FP8 MAIN=$$HOME/code/gdn-k8-verify-h1
 endif
 CHG := chg run --gpus 1 --timeout 240m
 
-.PHONY: launch validate status watch fetch-results summarize
+.PHONY: launch validate ncu status watch fetch-results summarize
 # One chg reservation (1 GPU) per variant, all in parallel (or one reservation for all when SEQUENTIAL=1).
 launch:
 	$(SSH) $(REMOTE) 'mkdir "$(RUN_DIR)"'
-	scp -q run.sh benchmark.yaml "$(REMOTE):$(RUN_DIR)/"
+	scp -q run.sh benchmark.yaml ../../benchmarking/host_load.sh "$(REMOTE):$(RUN_DIR)/"
 ifeq ($(SEQUENTIAL),1)
 	$(SSH) $(REMOTE) 'cd "$(RUN_DIR)" && setsid nohup $(CHG) --note "GDN K8 fused A/B" -- bash -c "for v in $(VARIANTS); do env $(HOST_ENV) $(EXTRA_ENV) bash run.sh \$$v > \$$v-job.log 2>&1; done" > job.log 2>&1 < /dev/null & echo launched'
 else
@@ -32,6 +32,12 @@ validate:
 	$(SSH) $(REMOTE) 'mkdir "$(RUN_DIR)"'
 	scp -q validate.sh kernel_bench.py "$(REMOTE):$(RUN_DIR)/"
 	$(SSH) $(REMOTE) 'cd "$(RUN_DIR)" && setsid nohup $(CHG) --note "GDN K8 kernel validation" -- env $(HOST_ENV) $(EXTRA_ENV) LABELS="$(LABELS)" BENCH_LABELS="$(BENCH_LABELS)" BENCH_TOKENS="$(BENCH_TOKENS)" bash validate.sh > validate.log 2>&1 < /dev/null & echo launched'
+
+# NCU full set of the fused kernel per label, e.g. NCU_ARGS="--batch 16 --tokens 4".
+ncu:
+	$(SSH) $(REMOTE) 'mkdir "$(RUN_DIR)"'
+	scp -q ncu.sh ncu_profile.py kernel_bench.py "$(REMOTE):$(RUN_DIR)/"
+	$(SSH) $(REMOTE) 'cd "$(RUN_DIR)" && setsid nohup $(CHG) --note "GDN NCU" -- env $(HOST_ENV) $(EXTRA_ENV) LABELS="$(LABELS)" bash ncu.sh $(NCU_ARGS) > ncu.log 2>&1 < /dev/null & echo launched'
 
 status:
 	$(SSH) $(REMOTE) 'cd "$(RUN_DIR)"; for f in *.log; do echo "$$f: $$(tail -n 1 $$f)"; done'

@@ -10,6 +10,7 @@ Use this layer before adding experiment-specific copies. Run scripts from a chec
 | Streamed output tokens inside a window | `benchmarking.aiperf.tokens_in_window(record, start, end)` |
 | Server counter totals and gauge statistics | `benchmarking.aiperf.server_total()`, `server_stat()` |
 | Completion, error, preemption, saturation and queueing gates | `benchmarking.aiperf.gates(row, min_window_s=5, saturation_ratio=0.9)` |
+| Host CPU load sampler and per-cell peak (rejects cells under CPU contention) | `benchmarking/host_load.sh`, `benchmarking.host_load.peak_load()`, `gates(..., max_host_load=...)` |
 | JSONL, CSV and Parquet | `benchmarking.artifacts.read_jsonl()`, `write_csv()`, `write_parquet()` |
 | Semantic work and roofline estimates | `benchmarking.roofline.estimate(operation, metadata, hardware)` |
 | Profiler resource-demand reference | `benchmarking.roofline.utilization_reference(duration_ns, compute_pct, memory_pct)` |
@@ -34,6 +35,8 @@ The window opens at the concurrency-th completion and closes at the last request
 `read_artifacts()` expects sibling `server_metrics_export.json` and `profile_export.jsonl` files. Selecting a phase filters request records and selects its summary when separate phase summaries exist. Server metrics remain whole-cell exports. `server_total()` sums series, `server_stat()` takes the maximum series statistic, neither silently treats missing metrics as zero.
 
 `gates()` requires `concurrency`, `requests`, `requests_target`, `cancelled`, `error_rate`, `preemptions`, `server_running_p50`, `server_waiting_p50` and `window_s`. It returns `valid` and comma-separated `failed_gates`. The default thresholds preserve the existing 5-second SPEED-Bench report policy. Experiments may choose different thresholds explicitly.
+
+Record host CPU load during every serving benchmark: start `host_load.sh OUT` next to the server and kill it on cleanup (copy it with the runner when deploying). It logs the busy CPU cores of each 5-second interval from `/proc/stat`. CPU contention on the host, e.g. a `ninja -j64` build of another worktree, slows the server's scheduling and lowered throughput by up to 20% in `experiments/gdn_k8_fused_ab` without failing any other gate. Put `host_load_peak = peak_load(read_host_load(path), *cell_span(requests))` in the row and pass `max_host_load` to `gates()`, which then fails a cell above the threshold or without samples. Older logs without busy cores fall back to the 1-minute load average, which lags and decays slowly, so it may also reject clean cells right after a busy period.
 
 Artifact writers expect an existing output directory and nonempty rows. CSV uses the first row's fields. Parquet preserves nested fields through DuckDB JSON inference and uses a temporary staging directory, leaving existing JSONL artifacts intact. Query the resulting Parquet directly with the DuckDB CLI.
 

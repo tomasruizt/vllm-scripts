@@ -72,17 +72,25 @@ def tokens_in_window(record: dict, start: int, end: int) -> float:
     return per_chunk * np.count_nonzero((times >= start) & (times < end))
 
 
-def gates(row: dict, *, min_window_s: float = 5, saturation_ratio: float = 0.9) -> dict:
+def gates(row: dict, *, min_window_s: float = 5, saturation_ratio: float = 0.9,
+          require_saturation: bool = True, max_host_load: float | None = None) -> dict:
     """A cell is valid only if it measured a saturated, unqueued, fully completed workload.
 
     `requests_target` is None for duration-bounded cells, where the client decides how many
-    requests fit and completion is checked by `cancelled` alone.
+    requests fit and completion is checked by `cancelled` alone. Fixed-work closed-loop cells
+    drain by design, so their whole-cell running gauge is not a saturation signal.
+    With `max_host_load`, the cell's `host_load_peak` (see `benchmarking.host_load`) must exist
+    and stay at or below it, which rejects cells measured under CPU contention.
     """
     c, target = row["concurrency"], row["requests_target"]
+    saturation = {"server_saturated": row["server_running_p50"] >= saturated_at(c, saturation_ratio)}
+    host = {} if max_host_load is None else {
+        "host_quiet": row["host_load_peak"] is not None and row["host_load_peak"] <= max_host_load}
     checks = dict(all_completed=(target is None or row["requests"] == target) and row["cancelled"] == 0,
                   no_errors=row["error_rate"] == 0, no_preemptions=row["preemptions"] == 0,
-                  server_saturated=row["server_running_p50"] >= saturated_at(c, saturation_ratio),
-                  no_queueing=row["server_waiting_p50"] == 0, **{f"window_ge_{min_window_s:g}s": row["window_s"] >= min_window_s})
+                  **(saturation if require_saturation else {}),
+                  no_queueing=row["server_waiting_p50"] == 0, **{f"window_ge_{min_window_s:g}s": row["window_s"] >= min_window_s},
+                  **host)
     failed = [name for name, ok in checks.items() if not ok]
     return dict(valid=not failed, failed_gates=",".join(failed))
 

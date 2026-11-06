@@ -35,7 +35,7 @@ main() {
     nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,temperature.gpu,power.draw,utilization.gpu --format=csv \
         -l 5 -i "${CUDA_VISIBLE_DEVICES:-0}" > "$variant/gpu-telemetry.csv" 2>&1 &
     TELEMETRY_PID=$!
-    (while sleep 5; do echo "$(date -u +%T) $(cat /proc/loadavg)"; done) > "$variant/host-load.txt" 2>&1 &
+    bash host_load.sh "$variant/host-load.txt" &  # read by summarize.py for the host_quiet gate
     LOAD_PID=$!
     start_server "$variant" "$port"
     date -u +%FT%TZ > "$variant/ready.txt"

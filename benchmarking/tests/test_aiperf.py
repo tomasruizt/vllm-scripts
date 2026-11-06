@@ -41,7 +41,16 @@ class AIPerfTests(unittest.TestCase):
         self.assertTrue(gates(row)["valid"])
         self.assertEqual(gates(row, min_window_s=10)["failed_gates"], "window_ge_10s")
         self.assertEqual(gates(row, saturation_ratio=1)["failed_gates"], "server_saturated")
+        self.assertTrue(gates(row, saturation_ratio=1, require_saturation=False)["valid"])
         self.assertEqual(gates(row | {"cancelled": 1, "preemptions": 1})["failed_gates"], "all_completed,no_preemptions")
+
+    def test_host_load_gate_is_opt_in_and_fails_closed(self) -> None:
+        row = dict(concurrency=10, requests=20, requests_target=20, cancelled=0, error_rate=0,
+                   preemptions=0, server_running_p50=9, server_waiting_p50=0, window_s=7)
+        self.assertTrue(gates(row | {"host_load_peak": 190})["valid"])
+        self.assertTrue(gates(row | {"host_load_peak": 12}, max_host_load=40)["valid"])
+        self.assertEqual(gates(row | {"host_load_peak": 190}, max_host_load=40)["failed_gates"], "host_quiet")
+        self.assertEqual(gates(row | {"host_load_peak": None}, max_host_load=40)["failed_gates"], "host_quiet")
 
     def test_phase_selection_preserves_whole_cell_server_metrics(self) -> None:
         with TemporaryDirectory() as directory:

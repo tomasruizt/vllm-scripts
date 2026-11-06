@@ -2,6 +2,7 @@
 
 import argparse
 from collections import Counter
+from datetime import date
 import json
 from pathlib import Path
 import re
@@ -11,6 +12,9 @@ import duckdb
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from benchmarking.aiperf import gates, read_artifacts, server_stat, server_total, steady_window
+from benchmarking.host_load import cell_span, peak_load, read_host_load
+
+MAX_HOST_LOAD = 40  # busy CPU cores (idle B300/H100: 3 to 7), or 1-min load average in old logs (idle: 10 to 20)
 
 
 def main() -> None:
@@ -39,9 +43,20 @@ def load_cell(path: Path, root: Path) -> dict:
                server_waiting_p50=server_stat(metrics, "vllm:num_requests_waiting", "p50"),
                acceptance_length=1 + accepted / drafts if drafts else None,
                aiperf_output_tps=artifacts.summary["output_token_throughput"]["avg"],
-               commit=(root / variant / "commit.txt").read_text().strip(),
+               commit=(root / variant / "commit.txt").read_text().strip(), host_load_peak=host_load_peak(root / variant, artifacts),
                **steady_window(artifacts.completed, concurrency))
-    return row | gates(row) | graph_modes((root / variant / "server.log").read_text()) | session_info(root / variant)
+    # Sessions from before host-load.txt existed keep the earlier gates. Newer sessions fail closed without samples.
+    max_host_load = MAX_HOST_LOAD if (root / variant / "host-load.txt").exists() else None
+    return row | gates(row, max_host_load=max_host_load) | graph_modes((root / variant / "server.log").read_text()) | session_info(root / variant)
+
+
+def host_load_peak(variant_dir: Path, artifacts) -> float | None:
+    """Peak host load of the cell. Older sessions logged bare HH:MM:SS, dated by start.txt."""
+    samples = variant_dir / "host-load.txt"
+    if not samples.exists() or not artifacts.requests:
+        return None
+    day = date.fromisoformat((variant_dir / "start.txt").read_text()[:10])
+    return peak_load(read_host_load(samples, day), *cell_span(artifacts.requests))
 
 
 def session_info(variant_dir: Path) -> dict:
