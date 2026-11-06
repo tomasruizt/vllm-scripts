@@ -9,15 +9,15 @@ import matplotlib.pyplot as plt
 from benchmarking.artifacts import write_csv
 
 
-def aggregate_concurrency(rows, metrics):
-    """Average repeated runs at each concurrency, without changing the metric."""
+def aggregate_concurrency(rows, metrics, statistic=mean):
+    """Aggregate repeated runs at each concurrency (mean by default), without changing the metric."""
     grouped = defaultdict(list)
     for row in rows:
         grouped[row["concurrency"]].append(row)
     return [
         {
             "concurrency": concurrency,
-            **{key: mean(row[key] for row in runs) for key in metrics},
+            **{key: statistic([row[key] for row in runs]) for key in metrics},
         }
         for concurrency, runs in sorted(grouped.items())
     ]
