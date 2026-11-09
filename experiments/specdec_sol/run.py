@@ -23,7 +23,7 @@ DEFAULTS = {
     "gpus": 1, "concurrencies": [1, 32], "passes": ["nsys", "ncu"], "env": {}, "timeout": "3h",
     "python": "~/.venv/bin/python", "aiperf": "~/aiperf-venv/bin/aiperf", "request_extra": {},
     "max_completion_tokens": 1024, "capture_seconds": 3, "ncu_idle_seconds": 120, "ncu_max_seconds": 1800,
-    "ncu_gpu_memory_utilization": 0.3, "nsys_shapes": False,
+    "ncu_gpu_memory_utilization": 0.3, "nsys_shapes": False, "serve_repeats": 3, "serve_seconds": 120,
     # ncu >= 2026.1, for --communicator with TP>1, e.g. from NVIDIA's conda channel (nsight-compute package)
     "ncu": "~/opt/ncu-2026.2.1/nsight-compute-2026.2.1/ncu",
 }  # fmt: skip
@@ -58,7 +58,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("config", type=Path)
     parser.add_argument("--concurrency", type=int)
-    parser.add_argument("--pass", dest="pass_name", choices=["nsys", "ncu", "ncu_fill", "ncu_step"])
+    parser.add_argument("--pass", dest="pass_name", choices=["nsys", "ncu", "ncu_fill", "ncu_step", "serve"])
     parser.add_argument("--only", nargs="+", help="launch just these passes (e.g. ncu_fill) in an existing run directory")
     args = parser.parse_args()
     config = {**DEFAULTS, **yaml.safe_load(args.config.read_text())}
@@ -79,20 +79,23 @@ def launch_all(config: dict, config_path: Path, only: list[str] | None = None) -
         record_hardware(root)
     if config.get("nsys_shared_server") and not config.get("nsys_shapes"):
         raise ValueError("nsys_shared_server requires nsys_shapes for separate measurement windows")
+    load = subprocess.Popen(["bash", str(HERE / "host_load.sh"), str(root / "host-load.txt")])
     jobs = [launch_job(config, config_path, c, p) for p in passes for c in pass_levels(config, p)]
     codes = [job.wait() for job in jobs]
+    load.terminate()
     name = "-".join(only) if only else "launch"
     (root / f"{name}-exit-code.txt").write_text(str(max(codes)))
 
 
 def pass_levels(config: dict, pass_name: str) -> list[int]:
     levels = config["concurrencies"]
-    return [max(levels)] if pass_name == "nsys" and config.get("nsys_shared_server") else levels
+    return [max(levels)] if config.get(f"{pass_name}_shared_server") else levels
 
 
 def launch_job(config: dict, config_path: Path, concurrency: int, pass_name: str) -> subprocess.Popen:
     note = f"specdec SOL c{concurrency} {pass_name}"
-    reserve = ["chg", "run", "--gpus", str(config["gpus"]), "--timeout", config["timeout"], "--note", note]
+    gpus = ["--gpu-ids", str(config["gpu_ids"])] if config.get("gpu_ids") else ["--gpus", str(config["gpus"])]  # pin to separate GPU effects
+    reserve = ["chg", "run", *gpus, "--timeout", config["timeout"], "--note", note]
     level = ["--concurrency", str(concurrency), "--pass", pass_name]
     command = reserve + ["--", sys.executable, str(HERE / "run.py"), str(config_path.resolve())] + level
     log = (config_path.resolve().parent / f"c{concurrency}-{pass_name}-job.log").open("w")
@@ -148,6 +151,7 @@ class Level:
             if not status or not all(status):
                 raise RuntimeError("shape capture did not start before CUDA graph construction, check the worker extension startup hook")
         (directory / "model-info.json").write_text(json.dumps(self.rpc("sol_model_info"), indent=2))
+        (directory / "av-costs.json").write_text(json.dumps(self.rpc("sol_av_costs")))
         if not self.config.get("nsys_shapes"):
             self.aiperf(directory, "reference", duration=30).wait()
         levels = self.config["concurrencies"] if self.config.get("nsys_shared_server") else [self.concurrency]
@@ -180,6 +184,22 @@ class Level:
             self.post("/stop_profile")
         if client.wait() != 0:
             raise RuntimeError(f"AIPerf failed for c{concurrency}, see {directory / 'aiperf-capture.log'}")
+
+    def serve_pass(self, directory: Path) -> None:
+        """Throughput without a profiler: one server, serve_repeats AIPerf runs, and AV's startup cost tables.
+        With serve_shared_server, the one server measures every level into c<N>/serve/."""
+        self.start_server([], directory, self.config["serve_args"])
+        (directory / "av-costs.json").write_text(json.dumps(self.rpc("sol_av_costs")))
+        levels = self.config["concurrencies"] if self.config.get("serve_shared_server") else [self.concurrency]
+        for concurrency in levels:
+            self.serve_level(self.root.parent / f"c{concurrency}" / "serve", concurrency)
+
+    def serve_level(self, directory: Path, concurrency: int) -> None:
+        directory.mkdir(parents=True, exist_ok=True)
+        for repeat in range(self.config["serve_repeats"]):
+            self.status(f"c{concurrency} repeat {repeat}")
+            if self.aiperf(directory, f"r{repeat}", self.config["serve_seconds"], concurrency).wait() != 0:
+                raise RuntimeError(f"AIPerf failed, see {directory / f'aiperf-r{repeat}.log'}")
 
     def ncu_pass(self, directory: Path) -> None:
         self.ncu_server(directory)
@@ -239,7 +259,7 @@ class Level:
 
     def start_server(self, profiler: list[str], directory: Path, serve_args: list) -> None:
         python = os.path.expanduser(self.config["python"])
-        own = ["--port", self.port, "--host", "127.0.0.1", "--max-num-seqs", self.concurrency,
+        own = ["--port", self.port, "--host", "127.0.0.1", "--max-num-seqs", self.config.get("max_num_seqs", self.concurrency),
                "--worker-extension-cls", "sol_probe.SolProbe", "--profiler-config", '{"profiler":"cuda"}']  # fmt: skip
         command = profiler + [python, "-m", "vllm.entrypoints.openai.api_server", "--model", self.config["model"]]
         command = [str(arg) for arg in command + list(serve_args) + own]

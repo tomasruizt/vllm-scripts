@@ -12,11 +12,11 @@ RUN_DIR = $(REMOTE_ROOT)/$(RUN_ID)
 GREEDY_INPUT ?= $(error set GREEDY_INPUT, a glob matching measurements.jsonl for one pinned comparison)
 GREEDY_OUTPUT ?= results/greedy-rejection
 
-.PHONY: launch status watch fill-ncu watch-fill step-ncu watch-step fetch-results fetch-greedy-results analyze-greedy analyze report
+.PHONY: plot-pareto launch status watch fill-ncu watch-fill step-ncu watch-step fetch-results fetch-greedy-results analyze-greedy analyze report
 # Copies the code and config, then runs every concurrency level in parallel, each in its own chg reservation.
 launch:
 	$(SSH) $(REMOTE) 'mkdir "$(RUN_DIR)"'  # fails if the run exists: pick a new RUN_ID, never delete old runs
-	scp -q run.py sol_probe.py $(REMOTE):"$(RUN_DIR)/"
+	scp -q run.py sol_probe.py ../../benchmarking/host_load.sh $(REMOTE):"$(RUN_DIR)/"
 	scp -q $(CONFIG) $(REMOTE):"$(RUN_DIR)/config.yaml"
 	$(SSH) $(REMOTE) 'cd "$(RUN_DIR)" && setsid nohup ~/.venv/bin/python run.py config.yaml > launch.log 2>&1 < /dev/null & echo launched'
 
@@ -71,3 +71,14 @@ analyze:
 # Offline HTML with one tab per concurrency level: report/$(RUN_ID)/index.html
 report: fetch-results analyze
 	$(LOCAL_PYTHON) report.py results/$(RUN_ID) report/$(RUN_ID)
+
+# Throughput-interactivity curves of the serve-pass sweep runs (one server per arm), via the shared AIPerf plotter.
+SWEEP_GLOB ?= results/gemma4-sweep-*-2026110*
+SWEEP_OUT ?= results/gemma4-sweep-analysis
+plot-pareto:
+	$(LOCAL_PYTHON) serve_metrics.py '$(SWEEP_GLOB)' $(SWEEP_OUT)
+	duckdb -c "COPY (SELECT arm AS mode, concurrency, throughput, 1000 / mean_tpot_ms AS interactivity FROM read_parquet('$(SWEEP_OUT)/metrics.parquet')) TO '$(SWEEP_OUT)/plot-runs.csv' (HEADER);"
+	$(LOCAL_PYTHON) ../qwen_dflash_av_60229/build_report.py --plot-csv $(SWEEP_OUT)/plot-runs.csv --output plots/gemma4-sweep --figsize 9 6.4 \
+	  --title 'Gemma4-31B-it + DFlash2 · 1× H200 · HumanEval' --series 'baseline:Target only:#898781:s' \
+	  --series 'fixed-k3:Fixed K=3:#86b6ef:o' --series 'fixed-k5:Fixed K=5:#2a78d6:o' --series 'fixed-k7:Fixed K=7:#104281:o' \
+	  --series 'av-k7:AV K=7, limit 512 (default):#eb6834:D' --series 'av-k7-cap1536:AV K=7, limit 1024:#1baf7a:D'

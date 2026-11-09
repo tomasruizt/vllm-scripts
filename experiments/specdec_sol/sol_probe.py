@@ -30,6 +30,14 @@ class SolProbe:
         targets.append((torch.cuda.CUDAGraph, "replay"))
         return [label for cls, name in targets if (label := wrap(cls, name))]
 
+    def sol_av_costs(self) -> dict | None:
+        """Adaptive verification's startup cost tables in ms, indexed by requests (draft) and tokens (verify)."""
+        av = getattr(self.model_runner, "adaptive_verification", None)
+        if av is None or av.cost_tables is None:
+            return None
+        draft, verify = av.cost_tables
+        return {"draft_ms": draft.tolist(), "verify_ms": verify[:4097].tolist(), "cudagraph_limit": av._cudagraph_limit}
+
     def sol_shape_capture_status(self) -> bool:
         return bool(getattr(self.model_runner, "_sol_shape_capture_started", False))
 
