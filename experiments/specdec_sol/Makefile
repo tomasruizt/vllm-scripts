@@ -72,12 +72,12 @@ analyze:
 report: fetch-results analyze
 	$(LOCAL_PYTHON) report.py results/$(RUN_ID) report/$(RUN_ID)
 
-# Throughput-interactivity curves of the serve-pass sweep runs (one server per arm), via the shared AIPerf plotter.
-SWEEP_GLOB ?= results/gemma4-sweep-*-2026110*
+# Throughput-interactivity curves of the serve-pass runs, via the shared AIPerf plotter. Arms pinned to GPUs (-g<N>) pool into one curve.
+SWEEP_GLOB ?= results/gemma4-*-20261109*
 SWEEP_OUT ?= results/gemma4-sweep-analysis
 plot-pareto:
 	$(LOCAL_PYTHON) serve_metrics.py '$(SWEEP_GLOB)' $(SWEEP_OUT)
-	duckdb -c "COPY (SELECT arm AS mode, concurrency, throughput, 1000 / mean_tpot_ms AS interactivity FROM read_parquet('$(SWEEP_OUT)/metrics.parquet')) TO '$(SWEEP_OUT)/plot-runs.csv' (HEADER);"
+	duckdb -c "COPY (SELECT regexp_replace(arm, '-g[0-9]+$$', '') AS mode, concurrency, throughput, 1000 / mean_tpot_ms AS interactivity FROM read_parquet('$(SWEEP_OUT)/metrics.parquet')) TO '$(SWEEP_OUT)/plot-runs.csv' (HEADER);"
 	$(LOCAL_PYTHON) ../qwen_dflash_av_60229/build_report.py --plot-csv $(SWEEP_OUT)/plot-runs.csv --output plots/gemma4-sweep --figsize 9 6.4 \
 	  --title 'Gemma4-31B-it + DFlash2 · 1× H200 · HumanEval' --series 'baseline:Target only:#898781:s' \
 	  --series 'fixed-k3:Fixed K=3:#86b6ef:o' --series 'fixed-k5:Fixed K=5:#2a78d6:o' --series 'fixed-k7:Fixed K=7:#104281:o' \
