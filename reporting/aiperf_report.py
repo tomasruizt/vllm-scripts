@@ -44,6 +44,8 @@ def main(config: ReportConfig) -> None:
     parser.add_argument("--plot-csv", type=Path, help="Plot saved run-level mode/concurrency/interactivity/throughput rows")
     parser.add_argument("--series", action="append", help="mode:label:color:marker, repeatable for saved-run plots")
     parser.add_argument("--title", help="Title for saved-run plots")
+    parser.add_argument("--svg", action="store_true", help="Saved-run plots: also write an SVG next to the PNG")
+    parser.add_argument("--show-medians", action="store_true", help="Saved-run plots: also mark the medians, not only the run dots")
     parser.add_argument("--figsize", nargs=2, type=float, default=(10.5, 4.5), metavar=("WIDTH", "HEIGHT"))
     parser.add_argument("--mode-suffix", default="", help="run folders are <mode><suffix>, e.g. offcg/oncg with cg")
     parser.add_argument("--run", action="append", default=[],
@@ -54,7 +56,8 @@ def main(config: ReportConfig) -> None:
             rows = [dict(r, concurrency=int(r["concurrency"]), interactivity=float(r["interactivity"]),
                          throughput=float(r["throughput"]), cell="main", valid=True) for r in csv.DictReader(stream)]
         series = [tuple(spec.split(":")) for spec in args.series] if args.series else None
-        draw(rows, args.output, series=series, title=args.title, figsize=tuple(args.figsize), draft_tokens=config.draft_tokens)
+        draw(rows, args.output, series=series, title=args.title, figsize=tuple(args.figsize), draft_tokens=config.draft_tokens,
+             median_markers=args.show_medians, svg=args.svg)
         return
     runs = [parse_run(spec) for spec in args.run] or [("run", "Results", args.source, args.mode_suffix)]
     args.output.mkdir(parents=True, exist_ok=True)
@@ -82,7 +85,7 @@ def build_run(slug: str, label: str, source: Path, suffix: str, output: Path, co
     (source / "quick-result.json").write_text(json.dumps(records) + "\n")
     out = output / slug
     out.mkdir(parents=True, exist_ok=True)
-    draw(rows, out, draft_tokens=config.draft_tokens)
+    draw(rows, out, draft_tokens=config.draft_tokens, svg=True)  # the report embeds the SVG
     write_csv(rows, out / "summary.csv")
     medians = aggregate(rows)
     write_csv(medians, out / "concurrency-summary.csv")
@@ -185,7 +188,8 @@ def aggregate(rows: list[dict]) -> list[dict]:
 
 
 def draw(rows: list[dict], output: Path, *, series: list[tuple[str, str, str, str]] | None = None,
-         title: str | None = None, figsize: tuple[float, float] = (10.5, 4.5), draft_tokens: int = 7) -> None:
+         title: str | None = None, figsize: tuple[float, float] = (10.5, 4.5), draft_tokens: int = 7,
+         median_markers: bool = False, svg: bool = False) -> None:
     plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 11, "svg.fonttype": "none"})
     fig, ax = plt.subplots(figsize=figsize, layout="constrained")
     valid = measured(rows)
@@ -195,7 +199,8 @@ def draw(rows: list[dict], output: Path, *, series: list[tuple[str, str, str, st
         runs = [r for r in valid if r["mode"] == mode]
         scatter_series(ax, runs, "interactivity", "throughput", color=color, marker=marker, alpha=0.4, s=42)
         grouped = aggregate_concurrency(runs, ["interactivity", "throughput"]) if series else [r for r in medians if r["mode"] == mode]
-        plot_series(ax, grouped, "interactivity", "throughput", color=color, marker=marker, linewidth=2, label=label)
+        plot_series(ax, grouped, "interactivity", "throughput", color=color, marker=marker if median_markers else "",
+                    linewidth=2, label=label)
         if series:
             for row in grouped:
                 ax.annotate(f"c{row['concurrency']}", (row["interactivity"], row["throughput"]),
@@ -208,7 +213,7 @@ def draw(rows: list[dict], output: Path, *, series: list[tuple[str, str, str, st
     ax.legend(frameon=False)
     if title:
         ax.set_title(title)
-    save_figure(fig, output / "throughput-interactivity")
+    save_figure(fig, output / "throughput-interactivity", svg=svg)
 
 
 METRICS = [("throughput", "Output tok/s"), ("interactivity", "Tok/s/user"), ("mean_tpot_ms", "TPOT ms"),

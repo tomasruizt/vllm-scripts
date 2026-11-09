@@ -265,7 +265,7 @@ def figure():
 
 
 def save_plot(fig, name):
-    save_figure(fig, HERE / "plots" / name)
+    save_figure(fig, HERE / "plots" / name, svg=True)
 
 
 def plot_frontier(rows, metric, *, runs):

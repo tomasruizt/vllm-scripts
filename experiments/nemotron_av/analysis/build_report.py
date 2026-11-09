@@ -156,7 +156,7 @@ def draw(rows, output, k):
     ax.grid(alpha=0.2)
     ax.spines[["top", "right"]].set_visible(False)
     ax.legend(frameon=False)
-    save_figure(fig, output / f"throughput-interactivity-k{k}")
+    save_figure(fig, output / f"throughput-interactivity-k{k}", svg=True)
 
 
 def render(datasets, rows, output):

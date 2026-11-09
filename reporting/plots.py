@@ -43,9 +43,10 @@ def is_pareto(point, rows, x, y):
     )
 
 
-def save_figure(fig, stem, dpi=180):
+def save_figure(fig, stem, dpi=180, svg=False):
+    """Write <stem>.png, and <stem>.svg only with svg=True (e.g. for reports that embed it)."""
     stem = Path(stem)
     stem.parent.mkdir(parents=True, exist_ok=True)
-    for extension in ("png", "svg"):
+    for extension in ("png", "svg") if svg else ("png",):
         fig.savefig(stem.with_suffix("." + extension), dpi=dpi)
     plt.close(fig)

@@ -46,7 +46,7 @@ def main() -> None:
     ax.legend(loc="upper right", frameon=False)
     fig.supxlabel("Faint points: six individual runs per concurrency. Lines: medians. Higher and farther right is better.",
                   fontsize=9)
-    save_figure(fig, output / "throughput-interactivity")
+    save_figure(fig, output / "throughput-interactivity", svg=True)  # FINDINGS.md links the SVG
     (output / "plotted-values.json").write_text(json.dumps(dict(runs=rows, medians=medians), indent=2))
     print(output / "throughput-interactivity.png")
 
