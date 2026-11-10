@@ -1,4 +1,5 @@
-* Be concise in your answers
+* Be concise in your answers. If you output a wall of text, im likely only going to read the first 2 sentences. Its wasted work.
+* When I tell you to "show me a file", I mean to show a link to a (fully-qualified) local file, so I can inspect with the IDE. Dumping the file content in your output is wasteful and I dont trust it anyway, since it can differ from the actual file.
 * Keep markdown reports / summaries VERY concise and to the point.
 * Configure Codex in `~/.codex/config.toml` with `approval_policy = "on-request"` and `approvals_reviewer = "auto_review"` to route eligible command approvals to an automatic reviewer.
 * Dont use python to make simple file edits. Please use your built in `apply_patch` command, or equivalent, instead.
@@ -16,6 +17,7 @@
 * If you are benchmarking a model with multiple runs, try to spin up the vllm server only once, since starting the server is what takes often most time. However, in these cases we most usually want to disable prefix-caching, because otherwise the second and later runs would be artificially faster.
 * For perf benchmarks prefer to use standard tooling. This includes e.g. ai-perf (https://github.com/ai-dynamo/aiperf). Look through all the options to see if they match what we need, e.g. workload duration, repeated runs, warmups, etc. These tools capture important metrics like TPOT, ITL, etc. If you are writing custom code and forget to capture metrics, we are wasting our fucking time.
 * When summarizing the results of a benchmark, rather than stating in prose the vllm serve parameter, just provide the vllm serve command including all details. Leave out unnecessary args like `--served-model-name` or `--disable-uvicorn-access-log` that have no effect on the numbers. Same for the benchmarking command. Also when summarizing number like total request, output toks, etc, you can use bullet points rather than prose. This structure makes it clear that we are talking about a bunch of metrics/numbers, rather than at context.
+* When we create our own PRs, create dedicated sections for "Microbenchmarks" and "E2E Benchmarks" if applicable and put them right after the "Claims" section.
 * Often the benchmark summaries is meant to share as comments on github. There is no point in referencing runner files or absolute log paths that will not be available on Github. Please inline all relevant information or abstract it away.
 * When presenting benchmark results, the lowest reliably measurable difference that is ~1µs. Therefore, I prefer to keep precision to at most 1 decimal place for µs (e.g. 1.2µs).
 * Sometimes we are trying to narrow down a minimal failure case for a model. It can make sense to keep the server running, and only launch small sets of requests to quickly iterate on a minimal failing workload.
@@ -29,7 +31,7 @@
 * launch workloads on remote machines in asynchronous mode, so your main loop is never blocked, and you can continue to receive instructions and continue to perform other tasks.
 * Keep your diffs small, the code vertically compact, and indentation small. Use functions to get rid of indentation. Use variables to avoid large multi-line calls that. Try to put the bodies of loops in a function to make it ovious what comes out of the loop. Use pure functions when possible. Staircase-shaped code that is with context managers, loops, list and object creations, etc. should be generally avoided. Use type hints whenever you can.
 * in unit tests dont set monkeypatch.setenv("VLLM_USE_V2_MODEL_RUNNER", "1"), this should be set by the caller
-* Don't poll remote jobs with fixed `sleep` calls. Wait on a condition in a single call instead, e.g. `timeout 600 bash -c "until grep -q DONE run.log; do sleep 5; done"`.
+* Don't poll remote jobs with fixed `sleep` calls. Wait on a condition in a single call instead, e.g. `timeout 600 bash -c "until grep -q DONE run.log; do sleep 5; done"`. Run that wait as a background command (e.g. `run_in_background`), so you get notified when it exits and can still receive messages and do other work. Never block in a foreground wait for more than a minute.
 * On remote machines, only inspect logs with a short `tail -n 20` or `grep`. Never `cat` remote files. To analyze results, copy them locally with the experiment's `make fetch-results` target (create it if missing), and query them locally (e.g. with duckdb).
 * When publishing a report (e.g. to my website), only publish the page and the files it links for download. Never publish raw data or log archives, and check every published file for local paths, usernames, hostnames and secrets first.
 * Write generated outputs (reports, plots, CSVs, previews) only to the experiment's git-ignored folders: `results/`, `plots/` and `report/` (one subfolder per variant, e.g. `report/cg/`). Commit only code and docs.
@@ -45,6 +47,13 @@
 * Work items: `bd ready`, `bd show <id>`, `bd create "Title" --type task --priority 2`, `bd update <id> --claim`, `bd close <id>`.
 * Memories: store with `bd remember "..."`, list with `bd memories`. Don't use provider-specific memory files (e.g. Claude's MEMORY.md).
 * Instructions belong in AGENTS.md. Don't create CLAUDE.md or other provider-specific instruction files.
+
+# Kernel dev feedback cycle
+* Write down the acceptance criteria before implementing, including the worst case (e.g. no case >=10% slower than the status quo).
+* Iterate on a fast gate (check) that runs in minutes: eg a dozen representative cases (real workloads plus the known worst cases).
+* Each iteration (edit, build, gate) should take ~10 minutes or less. The faster the better. Use incremental builds. If a compile takes minutes (e.g. a large Triton kernel with many constexpr variants), fix the compile time first.
+* Full suites (all cases, several passes, memcheck, related PRs), E2E runs and report or PR updates only after a design passes the gate. Never reserve GPUs for hours during quick iterations.
+* Scale with subagents, but keep them on short loops so they can be redirected early based on results.
 
 custom commands:
 * vllm-install: install from precompiled wheels
