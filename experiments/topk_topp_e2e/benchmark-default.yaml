@@ -1,0 +1,46 @@
+schemaVersion: "2.0"
+randomSeed: 42
+sweep:
+  type: zip
+  parameters:
+    phases.profiling.concurrency: [__CONCURRENCIES__]
+    phases.profiling.duration: [__DURATIONS__]
+benchmark:
+  model: served
+  endpoint:
+    url: http://127.0.0.1:__PORT__
+    type: chat
+    streaming: true
+    use_server_token_count: true
+    timeout: 120
+    extra:
+      max_completion_tokens: 1024
+      chat_template_kwargs:
+        enable_thinking: false
+  tokenizer:
+    name: Qwen/Qwen3.6-35B-A3B
+  datasets:
+    - name: main
+      type: file
+      path: __DATASET__
+      format: speed_bench_throughput_1k
+      sampling: shuffle
+      random_seed: 42
+  phases:
+    - name: profiling
+      type: concurrency
+      concurrency: 32
+      duration: 30
+      grace_period: 120
+  server_metrics:
+    enabled: true
+    urls: [http://127.0.0.1:__PORT__/metrics]
+    formats: [json]
+  artifacts:
+    dir: __ARTIFACTS__
+    summary: [json]
+    records: [jsonl]
+    raw: true
+    export_outputs_json: true
+  runtime:
+    ui: none
