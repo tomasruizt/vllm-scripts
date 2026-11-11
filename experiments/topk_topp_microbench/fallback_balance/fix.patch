@@ -1,0 +1,157 @@
+--- pr_kernel.py	2026-11-10 19:54:23
++++ fix_kernel.py	2026-11-10 20:17:29
+@@ -188,6 +188,7 @@
+     "more",
+     "span",
+     "above",
++    "queue",
+     "sync",
+ ]
+ 
+@@ -279,7 +280,8 @@
+ def allocate(device: torch.device, rows: int, vocab: int) -> dict[str, torch.Tensor]:
+     """Level 1 and 2 maxima, (max, sum of exp) per split and per row, row states, kept
+     keys, histograms, per-row gather scratch, windows, gather counts and masses, spans
+-    (top, floor, scale, flag) with the count and mass above (and mass below) them, and
++    (top, floor, scale, flag) with the count and mass above (and mass below) them, the
++    rows on the histogram path and those to gather or cut (in the order counted), and
+     the grid barrier (barrier count, exit count, histogram rows per round from 2, rows
+     to cut per round from 8), which is zeroed once and reset by each call."""
+     empty = functools.partial(torch.empty, device=device)
+@@ -299,6 +301,7 @@
+         more=empty(rows * 2, dtype=torch.float64),
+         span=empty(rows * 4, dtype=torch.float32),
+         above=empty(rows * 4, dtype=torch.float64),
++        queue=empty(rows * 2, dtype=torch.int32),
+         sync=_SYNC[device],
+     )
+ 
+@@ -395,6 +398,7 @@
+     more_ptr,
+     span_ptr,
+     above_ptr,
++    queue_ptr,
+     sync_ptr,
+     rows,
+     vocab,
+@@ -434,6 +438,7 @@
+             scratch_ptr,
+             span_ptr,
+             above_ptr,
++            queue_ptr,
+             sync_ptr,
+             row,
+             vocab,
+@@ -462,8 +467,8 @@
+         # Split those rows until there are about HIST_ITEMS items per program.
+         hsplits = tl.minimum(MAX_SPLITS, tl.cdiv(HIST_ITEMS * programs, hist_rows))
+         hchunk = tl.cdiv(tl.cdiv(vocab, hsplits), BLOCK) * BLOCK
+-        for item in range(pid, rows * hsplits, programs):
+-            row = item // hsplits
++        for item in range(pid, hist_rows * hsplits, programs):
++            row = tl.load(queue_ptr + item // hsplits, volatile=True)
+             if tl.load(state_ptr + row, volatile=True) == HIST_C:
+                 _histogram(
+                     logits_ptr + row.to(tl.int64) * stride,
+@@ -496,6 +501,9 @@
+                     above_ptr + 4 * row,
+                     next_rows,
+                     sync_ptr + 8 + r,
++                    row,
++                    queue_ptr,
++                    queue_ptr + rows,
+                     k,
+                     p,
+                     tl.load(row_stats_ptr + 2 * row, volatile=True).to(tl.float32),
+@@ -512,8 +520,8 @@
+         # Rows to gather or cut (else the round skips these phases), and for next round.
+         cut_rows = tl.load(sync_ptr + 8 + r, volatile=True)
+         next_hist_rows = tl.load(next_rows, volatile=True)
+-        for item in range(pid, tl.where(cut_rows != 0, rows * hsplits, 0), programs):
+-            row = item // hsplits
++        for item in range(pid, cut_rows * hsplits, programs):
++            row = tl.load(queue_ptr + rows + item // hsplits, volatile=True)
+             if tl.load(state_ptr + row, volatile=True) == GATHER_C:
+                 _gather_part(
+                     logits_ptr + row.to(tl.int64) * stride,
+@@ -535,7 +543,8 @@
+         if cut_rows != 0:
+             syncs += 1
+             _grid_sync(sync_ptr, syncs * programs)
+-        for row in range(pid, tl.where(cut_rows != 0, rows, 0), programs):
++        for i in range(pid, cut_rows, programs):
++            row = tl.load(queue_ptr + rows + i, volatile=True)
+             state = tl.load(state_ptr + row, volatile=True)
+             if (state == ALONE_C) | (state == GATHER_C):
+                 k, p = _row_params(k_ptr, p_ptr, row, vocab, has_k, has_p)
+@@ -593,6 +602,7 @@
+     scratch_ptr,
+     span_ptr,
+     above_ptr,
++    queue_ptr,
+     sync_ptr,
+     row,
+     vocab,
+@@ -653,7 +663,7 @@
+                 0.0,
+                 BINS,
+             )
+-            tl.atomic_add(sync_ptr + 2, 1, sem="relaxed", scope="gpu")
++            _enqueue(sync_ptr + 2, queue_ptr, row)
+     tl.store(
+         state_ptr + row,
+         tl.where(done, kept, tl.where(no_k & (p >= 1.0), NOOP_C, HIST_C)),
+@@ -874,6 +884,9 @@
+     above_row,
+     next_rows,
+     cut_rows,
++    row,
++    next_list,
++    cut_list,
+     k,
+     p,
+     row_max,
+@@ -1010,24 +1023,24 @@
+         _gather_window(
+             window_row, found_row, more_row, state_row, lo, hi, kb, k_at, WINDOW
+         )
+-        tl.atomic_add(cut_rows, 1, sem="relaxed", scope="gpu")
++        _enqueue(cut_rows, cut_list, row)
+         if (flag == K_FIRST) & (p_row < 1.0) & (last == 0):  # its top-p: next round
+-            tl.atomic_add(next_rows, 1, sem="relaxed", scope="gpu")
++            _enqueue(next_rows, next_list, row)
+     elif last | ((final == BINS - 1) & (floor == -float("inf"))):
+         tl.store(state_row, ALONE_C)  # last round, or the open last bin
+-        tl.atomic_add(cut_rows, 1, sem="relaxed", scope="gpu")
++        _enqueue(cut_rows, cut_list, row)
+     elif apart & (in_kb <= WINDOW):
+         tl.store(span_row + 3, K_FIRST * 1.0)
+         k_at = k - 1 - at_kb
+         _gather_window(
+             window_row, found_row, more_row, state_row, kb, kb, kb, k_at, WINDOW
+         )
+-        tl.atomic_add(cut_rows, 1, sem="relaxed", scope="gpu")
+-        tl.atomic_add(next_rows, 1, sem="relaxed", scope="gpu")  # its top-p
++        _enqueue(cut_rows, cut_list, row)
++        _enqueue(next_rows, next_list, row)  # its top-p
+     else:
+         new_top = top - (first - 0.5) / scale  # half a bin wider on each side
+         new_floor = top - (final + 1.5) / scale
+-        tl.atomic_add(next_rows, 1, sem="relaxed", scope="gpu")
++        _enqueue(next_rows, next_list, row)
+         _start_span(
+             hist_row,
+             span_row,
+@@ -1038,6 +1051,12 @@
+             tl.where(apart, K_FIRST * 1.0, flag),
+             BINS,
+         )
++
++
++@triton.jit
++def _enqueue(count_ptr, list_ptr, row):
++    """Count the row, and list it at the slot its count took."""
++    tl.store(list_ptr + tl.atomic_add(count_ptr, 1, sem="relaxed", scope="gpu"), row)
+ 
+ 
+ @triton.jit

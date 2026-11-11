@@ -1,0 +1,4 @@
+#!/bin/bash
+# Run a python command on the B200 host under chg (1 GPU) in the background, log to ~/code/sm120-$1.log with an EXIT line.
+name=$1; shift
+ssh RH-nm-ohio-b200-01 "cd ~/code/topk-core-dev && nohup bash -c 'export PATH=\$HOME/code/topk-cuda-main/.venv/bin:\$PATH PYTHONPATH=\$HOME/code/topk-core-dev:\$HOME/code/sm120-scripts; chg run --gpus 1 --timeout 30m --note sm120-$name -- bash -c \"$*\" > ~/code/sm120-$name.log 2>&1; echo EXIT \$? >> ~/code/sm120-$name.log' > /dev/null 2>&1 < /dev/null &"

@@ -1,0 +1,10 @@
+--- a/vllm/v1/sample/ops/topk_topp_triton.py	2026-11-10 19:52:36
++++ b/vllm/v1/sample/ops/topk_topp_triton.py	2026-11-10 19:52:36
+@@ -463,6 +463,7 @@
+         hsplits = tl.minimum(MAX_SPLITS, tl.cdiv(HIST_ITEMS * programs, hist_rows))
+         hchunk = tl.cdiv(tl.cdiv(vocab, hsplits), BLOCK) * BLOCK
+         for item in range(pid, rows * hsplits, programs):
++            item = rows * hsplits - 1 - item  # last rows first, they may be in L2
+             row = item // hsplits
+             if tl.load(state_ptr + row, volatile=True) == HIST_C:
+                 _histogram(

@@ -1,0 +1,3 @@
+#!/bin/bash
+# Run a command in the sm120 pod on pirate2.
+exec oc exec -n tomasruizt-sm120 --kubeconfig "$HOME/.kube/pirate2" sm120 -- bash -c "$*"

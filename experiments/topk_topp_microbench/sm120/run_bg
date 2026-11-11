@@ -1,0 +1,4 @@
+#!/bin/bash
+# Run a command in the pod's PR tree in the background, log to /tmp/work/$1.log with an EXIT line.
+name=$1; shift
+"$(dirname "$0")/px" ". /tmp/work/env.sh; cd /tmp/work/src && nohup bash -c '$* > /tmp/work/$name.log 2>&1; echo EXIT \$? >> /tmp/work/$name.log' > /dev/null 2>&1 < /dev/null &"

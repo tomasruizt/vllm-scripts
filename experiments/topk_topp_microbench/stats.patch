@@ -1,0 +1,122 @@
+--- a/csrc/topk_topp_filter.cu	2026-11-09 12:29:52
++++ b/csrc/topk_topp_filter.cu	2026-11-09 12:30:09
+@@ -59,6 +59,14 @@
+ // A row mass is a sum of at most MAX_VOCAB terms of at most MASS_SCALE.
+ static_assert(double(MASS_SCALE) * MAX_VOCAB <= 18446744073709551616.0);
+ constexpr int OK = 0, GLOBAL = 1;
++
++// Research-only path counters, in the last 256 bytes of the workspace.
++__device__ unsigned long long* g_stats;
++#define STAT(i)                                                      \
++  do {                                                               \
++    if (threadIdx.x == 0 && (!CL || cg::this_cluster().block_rank() == 0)) \
++      atomicAdd(g_stats + (i), 1ull);                                \
++  } while (0)
+ constexpr int SBINS = 256;       // sample histogram bins
+ constexpr float SB_NATS = 32.f;  // sample histogram range below the sample max
+ enum Weight {
+@@ -1484,6 +1492,7 @@
+   auto prefetch_next = [&] {
+     if (vec && next) ring.prefetch(next, begin, end);
+   };
++  STAT(0);
+   StreamArgs a;
+   a.gather = !use_k || kk <= MAX_CAND_K;
+   a.need_sum = use_p && !use_k;
+@@ -1498,17 +1507,20 @@
+   a.sample_size = sample_size;
+   a.p = p;
+   Stats st = stream_row<CL>(s, store, ring, x, begin, end, vec, a);
++  if (s.total > CAP) STAT(2);
+   unsigned n_row = group_reduce<CL>(
+       s, count_above(store, min(s.total, STORE), st.tk), Sum());
+   bool restarted =
+       st.status == OK && a.gather && use_k && n_row < kk && st.tk > KEY_NEGINF;
+   if (restarted) {
++    STAT(1);
+     a.sample = false;
+     st = stream_row<CL>(s, store, ring, x, begin, end, vec, a);
+     n_row = group_reduce<CL>(s, count_above(store, min(s.total, STORE), st.tk),
+                              Sum());
+   }
+   if (!a.gather || st.status != OK) {
++    STAT(a.gather ? 4 : 3);
+     if (a.gather && !a.need_sum) st.maximum = row_max<CL>(s, x, begin, end);
+     if (st.maximum == -INFINITY) return;
+     return global_path<CL>(s, x, begin, end, vocab, vec, use_k, kk, use_p, p,
+@@ -1519,8 +1531,10 @@
+   if (!may_window) prefetch_next();
+   bool exact_k =
+       !use_k || n_row <= kk;  // candidates already form the top-k set
++  if (exact_k && !use_p && st.tk == KEY_NEGINF) STAT(14);
+   if (exact_k && !use_p && st.tk == KEY_NEGINF)
+     return;  // only -inf would be masked
++  if (!exact_k) STAT(13);
+   Candidates src{store, min(s.total, STORE), st.tk};
+   unsigned prefix;
+   int start = common_start(st.tk + 1, ordered(st.maximum), prefix);
+@@ -1540,23 +1554,30 @@
+       sel = near_cut<CL>(s, src, st, target, a);
+       if (sel.floor == src.floor ||
+           set_mass<CL>(s, sel, ALL, st.maximum) < target) {
++        STAT(5);
+         U64 cand_mass = set_mass<CL>(s, src, ALL, st.maximum);
+         unsigned lower =
+             cand_mass < target
+                 ? second_threshold<CL>(s, st, target - cand_mass, src.n, a)
+                 : NO_CANDIDATES;
+         if (lower != NO_CANDIDATES) {
++          STAT(6);
+           if (second_gather<CL>(s, store, ring, x, begin, end, vec, lower,
+                                 st.tk)) {
++            STAT(7);
+             src = Candidates{store, min(s.total, STORE), lower};
+             n_row = group_reduce<CL>(s, threadIdx.x ? 0u : src.n, Sum());
+             cand_mass = set_mass<CL>(s, src, ALL, st.maximum);
+           }
+         }
+         if (cand_mass < target) {
++          STAT(8);
+           if (window_path<CL>(s, ring, x, begin, end, vec, vocab, st, cand_mass,
+-                              target))
++                              target)) {
++            STAT(9);
+             return;
++          }
++          STAT(10);
+           return global_path<CL>(s, x, begin, end, vocab, vec, use_k, kk, use_p,
+                                  p, st);
+         }
+@@ -1572,7 +1593,11 @@
+   // Large kept sets: a masked read-modify-write beats writing the row twice.
+   // One CTA per long row (large batches) gains from it with smaller sets.
+   if ((CL || vocab < 16 * STAGE ? 4ull : 8ull) * n_row > unsigned(vocab))
++  {
++    STAT(11);
+     return mask_row(x, begin, end, vec, cut);
++  }
++  STAT(12);
+   fill_and_scatter(x, begin, end, vec, src, cut);
+ }
+ 
+@@ -1754,7 +1779,7 @@
+ 
+ // At most two CTAs per SM run at once, each with its own overflow store.
+ int64_t workspace_bytes(int64_t sm_count) {
+-  return 2 * sm_count * 2 * int64_t(GCAP) * int64_t(sizeof(unsigned));
++  return 2 * sm_count * 2 * int64_t(GCAP) * int64_t(sizeof(unsigned)) + 256;
+ }
+ 
+ }  // namespace topk_topp_filter
+@@ -1822,6 +1847,11 @@
+   const size_t smem = tf::RING_OFFSET + size_t(a.depth) * tf::STAGE * 4;
+   const cudaStream_t stream =
+       get_current_cuda_stream(logits.get_device_index());
++  unsigned long long* stats = reinterpret_cast<unsigned long long*>(
++      reinterpret_cast<char*>(a.workspace) + tf::workspace_bytes(pl.sms) - 256);
++  tf::check(cudaMemcpyToSymbolAsync(tf::g_stats, &stats, sizeof(stats), 0,
++                                    cudaMemcpyHostToDevice, stream),
++            "stats");
+ 
+   cudaLaunchConfig_t config = {};
+   cudaLaunchAttribute attr;
