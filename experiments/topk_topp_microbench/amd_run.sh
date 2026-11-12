@@ -9,6 +9,13 @@ ops=/usr/local/lib/python3.12/dist-packages/vllm/v1/sample/ops
 mounts=(-v "$PWD:/work:z")
 for f in ${OVERLAY:-}; do mounts+=(-v "$PWD/$f:$ops/$f:ro,z"); done
 mkdir -p tmp/triton
+# HIP numbers the GPUs by render node, not in amd-smi/chg order: map them by PCI address.
+hip=()
+for gpu in ${CUDA_VISIBLE_DEVICES//,/ }; do
+  bdf=$(amd-smi list | awk -v g="GPU: $gpu" '$0 == g {getline; print $2}')
+  render=$(readlink -f "/dev/dri/by-path/pci-$bdf-render")
+  hip+=($(( (${render#/dev/dri/renderD} - 128) / 8 )))
+done
 exec podman run --rm --device /dev/kfd --device /dev/dri --ipc=host \
-  --security-opt seccomp=unconfined -e HIP_VISIBLE_DEVICES="$CUDA_VISIBLE_DEVICES" \
+  --security-opt seccomp=unconfined -e HIP_VISIBLE_DEVICES="$(IFS=,; echo "${hip[*]}")" \
   -e TRITON_CACHE_DIR=/work/tmp/triton "${mounts[@]}" -w /work --entrypoint python3 "$image" "$@"

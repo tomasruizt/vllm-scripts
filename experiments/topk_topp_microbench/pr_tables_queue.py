@@ -65,14 +65,21 @@ def real_table(g: str, data: dict, suite: str, scenario: str, k: int) -> str:
 
 
 def synthetic_table(g: str, data: dict) -> str:
-    lines = ["| scenario | rows | change |", "|---|---|---:|"]
+    """Per scenario and batch range: geomeans of the kernel times, their difference, and
+    the geomean change (the ratio of the two geomeans)."""
+    lines = ["| scenario | rows | Triton µs | New kernel µs | delta µs | change |", "|---|---|---:|---:|---:|---:|"]
     for scenario, label in SYNTH:
         for i, (rng, lo, hi) in enumerate(RANGES):
-            ratios = [n / t for (gg, su, sc, b, v), (t, n) in data.items()
-                      if (gg, su, sc) == (g, "report", scenario) and lo <= b <= hi and t and n]
-            geo = 100 * (math.exp(sum(map(math.log, ratios)) / len(ratios)) - 1)
-            lines.append(f"| {label if i == 0 else ''} | {rng} | {fmt(geo, 0, False)}% |")
+            pairs = [(t, n) for (gg, su, sc, b, v), (t, n) in data.items()
+                     if (gg, su, sc) == (g, "report", scenario) and lo <= b <= hi and t and n]
+            triton, new = (geomean([p[j] for p in pairs]) for j in (0, 1))
+            change = 100 * (new / triton - 1)
+            lines.append(f"| {label if i == 0 else ''} | {rng} | {triton:.1f} | {new:.1f} | {fmt(new - triton)} | {fmt(change, 0)}% |")
     return "\n".join(lines)
+
+
+def geomean(xs: list[float]) -> float:
+    return math.exp(sum(map(math.log, xs)) / len(xs))
 
 
 if __name__ == "__main__":
