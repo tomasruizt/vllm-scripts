@@ -49,14 +49,14 @@ def main() -> None:
 
 
 def spec_title(spec: str) -> str:
-    return f"DSpark K={spec[1:]}" if spec.startswith("k") else spec.upper()
+    return f"DSpark K={spec[1:]}" if spec.startswith("k") else f"MTP K={spec[3:]}"
 
 
 def load_rows(parquet: Path, spec: str, variants: str, include_invalid: bool) -> list[dict]:
     valid = "true" if include_invalid else "valid"
     query = f"""
         select case when variant like 'main%' then 'main' else 'pr' end arm, concurrency, throughput, 1000 / mean_tpot_ms interactivity
-        from '{parquet}' where {valid} and regexp_matches(variant, '^(main|pr|hier)') and regexp_matches(variant, '-{spec}(\\.|$)') and regexp_matches(variant, '{variants}')"""
+        from '{parquet}' where {valid} and regexp_matches(variant, '^(main|pr|hier)') and regexp_matches(variant, '-{spec}([.-]|$)') and regexp_matches(variant, '{variants}')"""
     columns = ["arm", "concurrency", "throughput", "interactivity"]
     return [dict(zip(columns, row)) for row in duckdb.sql(query).fetchall()]
 
