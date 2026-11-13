@@ -1,5 +1,5 @@
 * Be concise in your answers. If you output a wall of text, im likely only going to read the first 2 sentences. Its wasted work.
-* When I tell you to "show me a file", I mean to show a link to a (fully-qualified) local file, so I can inspect with the IDE. Dumping the file content in your output is wasteful and I dont trust it anyway, since it can differ from the actual file.
+* When I say "show me a file", link to the local file so I can inspect it in the IDE, instead of dumping its content (wasteful, and I dont trust it since it can differ from the actual file). Links have a short display name and a fully-qualified target, e.g. `[topk_topp_triton.py:143](/Users/.../topk_topp_triton.py#L143)`.
 * Keep markdown reports / summaries VERY concise and to the point.
 * Configure Codex in `~/.codex/config.toml` with `approval_policy = "on-request"` and `approvals_reviewer = "auto_review"` to route eligible command approvals to an automatic reviewer.
 * Dont use python to make simple file edits. Please use your built in `apply_patch` command, or equivalent, instead.
