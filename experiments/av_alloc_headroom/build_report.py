@@ -99,14 +99,14 @@ def plot_headroom(gains: pd.DataFrame) -> None:
         rows = gains[gains["model"] == model]
         own = rows[rows["budget"].isin(["policy", "chunk_cap"])].to_dict("records")
         forced = rows[~rows["budget"].isin(["policy", "chunk_cap"])].to_dict("records")
-        scatter_series(ax, own, "verified_frac", "oracle", s=36, color=color, label=f"{model}, oracle at AV's budget")
+        scatter_series(ax, own, "verified_frac", "oracle", s=36, color=color, label=f"{model}: perfect allocation, AV's budget")
         scatter_series(ax, forced, "verified_frac", "oracle", s=36, facecolors="none", edgecolors=color,
-                       label=f"{model}, oracle at a forced budget")
+                       label=f"{model}: perfect allocation, forced budget")
     scatter_series(ax, gains.to_dict("records"), "verified_frac", "hindsight", s=14, marker="x", color="#6b6a66",
-                   label="Best per-request offset (hindsight bound)")
+                   label="Best per-request correction (both models)")
     ax.axhline(0, color="#b0aea6", linewidth=0.8)
-    ax.set_xlabel("Fraction of drafted tokens verified")
-    ax.set_ylabel("Output tokens per step vs. AV ranking (%)")
+    ax.set_xlabel("Share of draft tokens that get verified")
+    ax.set_ylabel("Extra tokens per step vs. AV today (%)")
     ax.set_xlim(0, 1)
     ax.grid(alpha=0.25)
     ax.spines[["top", "right"]].set_visible(False)
