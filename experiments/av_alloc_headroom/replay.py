@@ -28,13 +28,21 @@ UCB_LAMBDAS = (0.5, 1.0, 2.0)
 EPS = 1e-6
 # None replays at the policy's own budget, a float forces B = frac * scheduled drafts.
 BUDGET_FRACS = (None, 0.25, 0.5, 0.75)
+# Production caps the AV budget at the 1GB rejection-sampler chunk (logits rows) minus one
+# bonus logit per request. Experiment runs lift that cap, "chunk_cap" replays it.
+CHUNK_BYTES = 2**30
+VOCAB = {"Qwen/Qwen3-4B": 151936, "Qwen/Qwen3.8-27B": 248320}
 
 
 def main(run_dir: Path) -> None:
-    print("greedy replay == production widths:", check_fidelity(load_steps(run_dir / "policy")))
+    if (run_dir / "policy").exists():
+        print("greedy replay == production widths:", check_fidelity(load_steps(run_dir / "policy")))
     steps = load_steps(run_dir / "verify_all")
+    model = (run_dir / "verify_all" / "serve-command.txt").read_text().split()[2]
+    max_logits = CHUNK_BYTES // (VOCAB[model] * 4)
     workloads = [w for _, w in steps.groupby(["dataset", "concurrency"])]
-    results = [replay_workload(w, frac) for frac in BUDGET_FRACS for w in workloads]
+    modes = [*BUDGET_FRACS, ("chunk_cap", max_logits)]
+    results = [replay_workload(w, frac) for frac in modes for w in workloads]
     out = pd.concat([r[0] for r in results])
     residuals = pd.concat([r[1] for r in results if r[0]["budget_frac"].iloc[0] == "policy"])
     out.to_parquet(run_dir / "replay.parquet")
@@ -114,7 +122,7 @@ def replay_workload(w: pd.DataFrame, frac: float | None) -> tuple[pd.DataFrame, 
         a = np.asarray(step.accepted)
         s = np.asarray(step.scheduled)
         logits = logit(np.asarray(step.p))
-        budget = min(step.policy_budget, int(s.sum())) if frac is None else round(frac * s.sum())
+        budget = step_budget(frac, step.policy_budget, s)
         u_star = np.array([hindsight[r] for r in step.req_ids])
         widths = {"greedy": allocate(logits, s, budget), "verify_all": s,
                   "hindsight": allocate(logits + u_star[:, None], s, budget)}
@@ -125,7 +133,7 @@ def replay_workload(w: pd.DataFrame, frac: float | None) -> tuple[pd.DataFrame, 
             widths[name] = allocate(logits + shift[:, None], s, budget)
             beliefs[name].update(step.req_ids, logits, widths[name], a)
         base = dict(dataset=step.dataset, concurrency=step.concurrency, step=step.Index,
-                    budget_frac="policy" if frac is None else str(frac),
+                    budget_frac=budget_label(frac),
                     num_reqs=len(a), budget=budget, max_budget=int(s.sum()))
         for name, width in widths.items():
             acc = int(np.minimum(width, a).sum())
@@ -134,6 +142,18 @@ def replay_workload(w: pd.DataFrame, frac: float | None) -> tuple[pd.DataFrame, 
         rows.append(dict(base, policy="oracle", accepted=oracle, tokens=len(a) + oracle))
         residual_rows += residuals(step, logits, a, s)
     return pd.DataFrame(rows), pd.DataFrame(residual_rows)
+
+
+def step_budget(frac, policy_budget: int, s: np.ndarray) -> int:
+    if frac is None:
+        return min(policy_budget, int(s.sum()))
+    if isinstance(frac, tuple):
+        return max(0, min(policy_budget, int(s.sum()), frac[1] - len(s)))
+    return round(frac * s.sum())
+
+
+def budget_label(frac) -> str:
+    return "policy" if frac is None else frac[0] if isinstance(frac, tuple) else str(frac)
 
 
 def hindsight_offsets(w: pd.DataFrame, iters: int = 8) -> dict[str, float]:

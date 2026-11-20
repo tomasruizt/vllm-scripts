@@ -39,4 +39,19 @@ Mixed workload: all 9 `speculator_benchmarks` subsets in one seeded shuffle, thi
 vllm serve Qwen/Qwen3.8-27B --max-model-len 16384 --max-num-seqs 128 --max-num-batched-tokens 16384 --gpu-memory-utilization 0.85 --no-enable-prefix-caching --speculative-config '{"model":"RedHatAI/Qwen3.8-27B-speculator.dflash2","num_speculative_tokens":7,"method":"dflash","enable_adaptive_verification":true}' --default-chat-template-kwargs '{"enable_thinking": false}'
 ```
 
+### Settings with oracle headroom (2026-11-20)
+
+Two confounders fixed. CUDA graphs now cover every tested size (`max_cudagraph_capture_size = max_num_seqs * (K+1)`, the Blackwell default of 1,024 tokens ran the 4B c128 verify-all step eager). And the 1GB rejection-sampler chunk caps the AV budget at `2**30 / (vocab * 4)` logits (1,766 for Qwen3-4B, 1,081 for Qwen3.8-27B), which censored verify-all at c>=256. The branch lifts it with `AV_TRACE_MAX_CHUNK_BYTES=8GiB`, the replay reapplies it offline as `chunk_cap`. Mixed prompts, thinking on, temp 0.
+
+| model | c (mean running) | budget | drafts verified | oracle vs greedy |
+|---|---|---|---|---|
+| Qwen3.8-27B TP2 | 256 (128) | AV cost model (cap not binding) | 58% | **+6.6%** |
+| Qwen3.8-27B TP2 | 128 (86) | AV cost model | 68% | +3.3% |
+| Qwen3-4B | 512 (393) | production chunk cap | 34% | **+8.8%** |
+| Qwen3-4B | 512 (393) | AV cost model, cap lifted | 68% | +2.1% |
+| Qwen3-4B | 256 (194) | AV cost model | 76% | +0.8% |
+| both | 128 to 512 | forced 50% | 50% | +9.2 to +10.7% |
+
+Per-request policies stay at ~0 (hindsight offset +0.1 to +0.2%, UCB -0.2 to 0%) in all of them.
+
 Run: `make launch watch fetch-results analyze` (see the Makefile variables for model, prompts and GPUs).
