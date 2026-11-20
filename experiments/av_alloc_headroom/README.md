@@ -55,3 +55,5 @@ Two confounders fixed. CUDA graphs now cover every tested size (`max_cudagraph_c
 Per-request policies stay at ~0 (hindsight offset +0.1 to +0.2%, UCB -0.2 to 0%) in all of them.
 
 Run: `make launch watch fetch-results analyze` (see the Makefile variables for model, prompts and GPUs).
+
+Published: research note [speculators#1430](https://github.com/vllm-project/speculators/pull/1430), summary on [vllm#51303](https://github.com/vllm-project/vllm/issues/51303#issuecomment-7043828070), Jira INFERENG-12195. Rebuild the combined data and figure with `~/.venv/bin/python build_report.py` (after `replay.py` on each run).
