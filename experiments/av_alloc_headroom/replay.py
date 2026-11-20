@@ -82,6 +82,7 @@ def load_steps(mode_dir: Path) -> pd.DataFrame:
 class RequestBelief:
     """Per-request logit offset u with precision h, fitted by online Newton steps."""
 
+    decay: float = 1.0  # < 1 forgets old labels, so u can follow phases within a request
     u: dict[str, float] = field(default_factory=dict)
     h: dict[str, float] = field(default_factory=dict)
 
@@ -98,22 +99,25 @@ class RequestBelief:
                 continue
             y = np.arange(n_obs) < accepted[i]
             p = sigmoid(logits[i, :n_obs] + self.u.get(r, 0.0))
-            h = self.h.get(r, 0.0) + float((p * (1 - p)).sum())
+            h = self.decay * self.h.get(r, 0.0) + float((p * (1 - p)).sum())
             self.h[r] = h
             self.u[r] = self.u.get(r, 0.0) + float((y - p).sum()) / (h + PRIOR_PRECISION)
 
 
 def replay_workload(w: pd.DataFrame, frac: float | None) -> tuple[pd.DataFrame, pd.DataFrame]:
     rng = np.random.default_rng(0)
-    policies = ["calib", "thompson"] + [f"ucb_{lam}" for lam in UCB_LAMBDAS]
-    beliefs = {name: RequestBelief() for name in policies}
+    policies = ["calib", "calib_fast", "thompson"] + [f"ucb_{lam}" for lam in UCB_LAMBDAS]
+    beliefs = {name: RequestBelief(decay=0.8 if name == "calib_fast" else 1.0) for name in policies}
+    hindsight = hindsight_offsets(w)
     rows, residual_rows = [], []
     for step in w.itertuples():
         a = np.asarray(step.accepted)
         s = np.asarray(step.scheduled)
         logits = logit(np.asarray(step.p))
         budget = min(step.policy_budget, int(s.sum())) if frac is None else round(frac * s.sum())
-        widths = {"greedy": allocate(logits, s, budget), "verify_all": s}
+        u_star = np.array([hindsight[r] for r in step.req_ids])
+        widths = {"greedy": allocate(logits, s, budget), "verify_all": s,
+                  "hindsight": allocate(logits + u_star[:, None], s, budget)}
         for name in policies:
             u, h = beliefs[name].get(step.req_ids)
             sd = 1 / np.sqrt(h + PRIOR_PRECISION)
@@ -132,8 +136,30 @@ def replay_workload(w: pd.DataFrame, frac: float | None) -> tuple[pd.DataFrame, 
     return pd.DataFrame(rows), pd.DataFrame(residual_rows)
 
 
+def hindsight_offsets(w: pd.DataFrame, iters: int = 8) -> dict[str, float]:
+    """Non-causal upper bound for per-request calibration: each request's logit offset
+    fitted (Newton) on all of its uncensored labels in the workload."""
+    labels: dict[str, list[tuple[np.ndarray, np.ndarray]]] = {}
+    for step in w.itertuples():
+        logits = logit(np.asarray(step.p))
+        for i, r in enumerate(step.req_ids):
+            n_obs = min(step.scheduled[i], step.accepted[i] + 1)
+            y = np.arange(n_obs) < step.accepted[i]
+            labels.setdefault(r, []).append((logits[i, :n_obs], y))
+    return {r: fit_offset(np.concatenate([x for x, _ in obs]), np.concatenate([y for _, y in obs]), iters)
+            for r, obs in labels.items()}
+
+
+def fit_offset(x: np.ndarray, y: np.ndarray, iters: int) -> float:
+    u = 0.0
+    for _ in range(iters):
+        p = sigmoid(x + u)
+        u += float((y - p).sum()) / (float((p * (1 - p)).sum()) + EPS)
+    return u
+
+
 def policy_shift(name: str, u: np.ndarray, sd: np.ndarray, rng) -> np.ndarray:
-    if name == "calib":
+    if name in ("calib", "calib_fast"):
         return u
     if name == "thompson":
         return u + sd * rng.standard_normal(len(u))

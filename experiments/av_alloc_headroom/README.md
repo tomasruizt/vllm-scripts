@@ -23,4 +23,20 @@ Tokens per step vs greedy, at the same budget (so the same step cost):
 - At c>=32 AV already verifies 63-90% of drafts on this setup, so there is little left to reallocate.
 - The oracle gap is per-step luck (which draft gets rejected), not a persistent per-request bias. Per-request mean residual (observed minus predicted acceptance) has an sd of only 0.013-0.033, and step-to-step residual correlation is 0.01-0.05. Writing shows a stable per-request offset (split-half correlation ~0.6), but it is too small to change rankings.
 
-Run: `make launch watch fetch-results analyze`.
+### Mixed batches and a 27B target (2026-11-20)
+
+Mixed workload: all 9 `speculator_benchmarks` subsets in one seeded shuffle, thinking off, c in {32, 64, 128}. Qwen3.8-27B + `RedHatAI/Qwen3.8-27B-speculator.dflash2` (k=7) and Qwen3-4B, each on one B200. AV verifies 58-85% of drafts.
+
+| | oracle | hindsight per-request offset | calib | UCB λ=1 | Thompson |
+|---|---|---|---|---|---|
+| 27B mixed | +1.6 to +3.0% | -0.02 to +0.08% | -0.14 to -0.05% | -0.11 to -0.05% | -0.31 to -0.10% |
+| 4B mixed | +1.1 to +1.7% | +0.07 to +0.08% | ~-0.05% | -0.08 to -0.04% | -0.23 to -0.11% |
+
+- Mixing raises the per-request residual sd (4B: 0.04 vs 0.013-0.033), but even the hindsight offset (fitted on the request's whole uncensored history) gains <0.1%. Per-request information is not where the oracle gap is.
+- [recalib.py](recalib.py): a per-position 20-bin calibration of the same q_max feature, fitted on c32/c64 and tested on c128, changes tokens by -0.06 to +0.02% while the oracle has +1.1 to +9.7% at the same budgets. The online logistic already extracts what q_max offers. Closing the gap needs new lossless per-draft features.
+
+```
+vllm serve Qwen/Qwen3.8-27B --max-model-len 16384 --max-num-seqs 128 --max-num-batched-tokens 16384 --gpu-memory-utilization 0.85 --no-enable-prefix-caching --speculative-config '{"model":"RedHatAI/Qwen3.8-27B-speculator.dflash2","num_speculative_tokens":7,"method":"dflash","enable_adaptive_verification":true}' --default-chat-template-kwargs '{"enable_thinking": false}'
+```
+
+Run: `make launch watch fetch-results analyze` (see the Makefile variables for model, prompts and GPUs).
