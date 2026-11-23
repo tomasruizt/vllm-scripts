@@ -35,10 +35,10 @@ VOCAB = {"Qwen/Qwen3-4B": 151936, "Qwen/Qwen3.8-27B": 248320}
 
 
 def main(run_dir: Path) -> None:
-    if (run_dir / "policy").exists():
-        print("greedy replay == production widths:", check_fidelity(load_steps(run_dir / "policy")))
-    steps = load_steps(run_dir / "verify_all")
-    model = (run_dir / "verify_all" / "serve-command.txt").read_text().split()[2]
+    if any(run_dir.glob("policy*")):
+        print("greedy replay == production widths:", check_fidelity(load_mode(run_dir, "policy")))
+    steps = load_mode(run_dir, "verify_all")
+    model = serve_model(run_dir, "verify_all")
     max_logits = CHUNK_BYTES // (VOCAB[model] * 4)
     workloads = [w for _, w in steps.groupby(["dataset", "concurrency"])]
     modes = [*BUDGET_FRACS, ("chunk_cap", max_logits)]
@@ -69,6 +69,22 @@ def check_fidelity(steps: pd.DataFrame) -> str:
 
 
 # ---------------------------------------------------------------- trace loading
+
+
+def load_mode(run_dir: Path, mode: str) -> pd.DataFrame:
+    """A raw run (`<mode>/trace.jsonl`) or the data release (`<mode>.parquet`, one row per request)."""
+    if (run_dir / mode).is_dir():
+        return load_steps(run_dir / mode)
+    rows = pd.read_parquet(run_dir / f"{mode}.parquet").rename(columns={"req_id": "req_ids"})
+    per_req = ["req_ids", "scheduled", "admitted", "accepted", "p"]
+    agg = {c: list if c in per_req else "first" for c in rows.columns.drop("step")}
+    return rows.groupby("step", sort=True).agg(agg).reset_index(drop=True)
+
+
+def serve_model(run_dir: Path, mode: str) -> str:
+    path = run_dir / mode / "serve-command.txt"
+    path = path if path.exists() else run_dir / f"{mode}_serve_command.txt"
+    return path.read_text().split()[2]
 
 
 def load_steps(mode_dir: Path) -> pd.DataFrame:
