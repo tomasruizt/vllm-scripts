@@ -1,0 +1,44 @@
+# Per cell, fill __CONCURRENCY__, __DURATION__ (seconds) and __ARTIFACTS__ (output dir).
+schemaVersion: "2.0"
+randomSeed: 42
+benchmark:
+  model: zai-org/GLM-5.3-Flash
+  endpoint:
+    url: http://127.0.0.1:8000
+    type: chat
+    streaming: true
+    use_server_token_count: true
+    timeout: 120
+    extra:
+      temperature: 1.0
+      top_p: 0.95
+      max_completion_tokens: 1024
+      chat_template_kwargs:
+        reasoning_effort: low
+  tokenizer:
+    name: zai-org/GLM-5.3-Flash
+  datasets:
+    - name: main
+      type: file
+      path: throughput_1k.jsonl  # from prepare_data.py
+      format: speed_bench_throughput_1k
+      sampling: shuffle
+      random_seed: 42
+  phases:
+    - name: profiling
+      type: concurrency
+      concurrency: __CONCURRENCY__
+      duration: __DURATION__
+      grace_period: 120
+  server_metrics:
+    enabled: true
+    urls: [http://127.0.0.1:8000/metrics]
+    formats: [json]
+  artifacts:
+    dir: __ARTIFACTS__
+    summary: [json]
+    records: [jsonl]
+    raw: true
+    export_outputs_json: true
+  runtime:
+    ui: none
