@@ -34,7 +34,7 @@ K=8 is the speculator's block size (K=7 only if the kernel caps at 8 tokens). Ca
 
 ## Memory
 
-Expected savings: 307 to 397 MiB per GPU per request, i.e. 77 to 100 GiB per GPU at c256, and ~3x max concurrency at 8K tokens.
-Main keeps 9 state slots of 1.13 MiB per request in each of the 34 KDA layers, ReplaySSM 1 (8 x 34 x 1.13 = 307 MiB, 397 if padded to 44 layers).
+Expected savings: 307 to 407 MiB per GPU per request, i.e. 77 to 102 GiB per GPU at c256, and ~3.5x max concurrency at 8K tokens.
+Without prefix caching, main keeps 1+K = 9 state slots per request in each of the 34 KDA layers, ReplaySSM 1. A slot is 1.13 MiB per GPU (fp32 state 16 x 128 x 128, plus conv state), so 8 x 34 x 1.13 = 307 MiB. Allocator padding can raise this to 407 MiB (KDA grouped by the 11 attention layers into 44 slots, pages rounded up to the attention block). An in-pool replay ring (25 tokens of k, v, g, beta per layer) gives back ~15 MiB.
 
-Measure: memory per request = KV pool / max concurrency (startup log), freed = main - pr. Also report `vllm:kv_cache_usage_perc` per cell.
+Measure: freed = main - pr of KV pool / max concurrency (startup log). Compare the pool sizes too, since buffers outside the pool (like the Kimi-K3 RecoverSSM records) shrink it. Also report `vllm:kv_cache_usage_perc` per cell.
