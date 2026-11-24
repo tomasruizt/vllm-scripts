@@ -10,8 +10,8 @@ import sys
 
 import duckdb
 
-PEAK_TBS = {"b300": 8.0, "b200": 8.0, "h100": 3.35, "a100": 2.04, "rtx": 1.79, "mi355x": 8.0}
-NAMES = {"b300": "B300", "b200": "B200", "h100": "H100", "a100": "A100", "rtx": "RTX PRO 6000", "mi355x": "MI355X (ROCm)"}
+PEAK_TBS = {"rubin": 19.2, "b300": 8.0, "b200": 8.0, "h100": 3.35, "a100": 2.04, "rtx": 1.79, "mi355x": 8.0}
+NAMES = {"rubin": "Vera Rubin", "b300": "B300", "b200": "B200", "h100": "H100", "a100": "A100", "rtx": "RTX PRO 6000", "mi355x": "MI355X (ROCm)"}
 SYNTH = [("topk_whole", "top-k 50"), ("topk_topp_whole", "top-k 100, top-p 0.9"),
          ("topk_partial", "half top-k 50, half no-op"), ("mixed_partial", "thirds: top-k 50, top-p 0.5, both"),
          ("topp_whole", "top-p 0.9 (nuclei of 15k to 23k tokens)"), ("topp_partial", "half top-p 0.9, half no-op")]
