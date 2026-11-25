@@ -36,7 +36,8 @@ def pack_trace(run: str, mode_dir: Path) -> None:
     steps = steps.drop(columns=["kind"]).explode(["req_ids", "scheduled", "admitted", "accepted", "p"])
     steps = steps.rename(columns={"req_ids": "req_id"}).reset_index(names="step")
     steps.to_parquet(dest / f"{mode_dir.name}.parquet", compression="zstd")
-    costs = next(json.loads(line) for line in open(mode_dir / "trace.jsonl") if line.startswith('{"kind":"costs"'))
+    # The server emits the cost tables twice at startup, the last record is the one in effect.
+    costs = [json.loads(line) for line in open(mode_dir / "trace.jsonl") if line.startswith('{"kind":"costs"')][-1]
     (dest / f"{mode_dir.name}_cost_tables.json").write_text(json.dumps(costs))
     shutil.copy(mode_dir / "serve-command.txt", dest / f"{mode_dir.name}_serve_command.txt")
 
