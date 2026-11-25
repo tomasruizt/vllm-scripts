@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# SessionStart hook helper: inject beads memories without exceeding the host's hook output cap.
+# `bd prime` dumps every memory in full, and hosts truncate large hook output to a short preview.
+#   bd-memory-digest rules   short memories in full (mostly standing rules and preferences)
+#   bd-memory-digest index   keys of all other memories, to fetch with `bd recall <key>`
+set -euo pipefail
+
+BUDGET_CHARS=9000   # stay below the ~10k chars a host ingests per hook
+MAX_RULE_CHARS=350  # longer memories are findings, listed in the index only
+
+main() {
+  local memories
+  memories=$(bd memories --json | jq 'del(.schema_version)')
+  case "${1:-}" in
+    rules) print_rules "$memories" ;;
+    index) print_index "$memories" ;;
+    *) echo "usage: $0 rules|index" >&2; exit 2 ;;
+  esac
+}
+
+print_rules() {
+  echo "# Beads memories: standing rules (full text)"
+  echo
+  jq -r "$SPLIT"' | .rules[] | "* \(.key): \(.value)"' \
+    --argjson budget "$BUDGET_CHARS" --argjson max "$MAX_RULE_CHARS" <<<"$1"
+}
+
+print_index() {
+  echo "# Beads memories: index of findings (keys only)"
+  echo
+  echo "Before working on a topic, read the matching memories with \`bd recall <key>\` or search with \`bd memories <keyword>\`."
+  echo
+  jq -r "$SPLIT"' | .rest | map(.key) | join(", ")' \
+    --argjson budget "$BUDGET_CHARS" --argjson max "$MAX_RULE_CHARS" <<<"$1"
+}
+
+# Splits memories into {rules, rest}: the shortest ones go to rules until the budget is used up.
+SPLIT='
+  def cost: (.key | length) + (.value | length) + 5;
+  (to_entries | sort_by(.value | length)) as $all
+  | reduce $all[] as $m ({rules: [], rest: [], used: 0};
+      if ($m.value | length) <= $max and (.used + ($m | cost)) <= $budget
+      then .rules += [$m] | .used += ($m | cost)
+      else .rest += [$m] end)
+  | .rules |= sort_by(.key) | .rest |= sort_by(.key)'
+
+main "$@"

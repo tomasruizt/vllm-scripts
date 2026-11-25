@@ -10,6 +10,7 @@
 * to use GPUs, reserve them over canhazgpu (https://github.com/russellb/canhazgpu).
 * The available GPU machines and clusters (hosts, GPU models, how to get a GPU, envs) are documented in `~/code/priv-knowledge-base/clusters.md`. Check it before concluding that some hardware is not available, and update it when you learn something new about a host.
 * When creating Jira tickets, fill the fields listed in `~/code/priv-knowledge-base/jira.md`, otherwise the ticket does not show up on my board.
+* Before stating spec-decode facts (K, block_size, AV, ReplaySSM, RecoverSSM), check `vllm-scripts/rh-setup/spec-decode-glossary.md`.
 * when writing md files, dont break lines unless there is a good reason, since e.g. on Github your lines will be wrapped. Let the IDE / website take care of rendering, so you don't have to. I suggest only breaking lines after a dot, or similar.
 * in terms of writing stlye, don't use em-dashes, or ";", because I dont use them either. Use commas, dots, parenthesis and colons instead.
 * Never rewrite the style of my prose, unless I explictily ask you to.
