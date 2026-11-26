@@ -1,4 +1,7 @@
-"""Throughput-interactivity (Pareto) curve of the vLLM AgentX runs against a reference CSV (e.g. SGLang numbers)."""
+"""Throughput-interactivity (Pareto) curve of the vLLM AgentX runs against reference CSVs (e.g. SGLang numbers).
+
+Runs with and without host KV offloading form separate series, and repeated runs of a point are averaged.
+"""
 
 import argparse
 import json
@@ -12,7 +15,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from reporting.plots import plot_series, save_figure
+from reporting.plots import aggregate_concurrency, plot_series, save_figure
 
 HERE = Path(__file__).parent
 NUM_GPUS = 4
@@ -27,7 +30,10 @@ def main() -> None:
     parser.add_argument("--label", default="vLLM on 4x B200")
     parser.add_argument("--output", type=Path, default=HERE / "plots/pareto")
     args = parser.parse_args()
-    ours = sorted((load_run(HERE / "results" / run) for run in args.runs), key=lambda row: row["concurrency"])
+    runs = [load_run(HERE / "results" / run) for run in args.runs]
+    metrics = ["interactivity", "throughput"]
+    plain = aggregate_concurrency([row for row in runs if not row["host_offload"]], metrics)
+    offload = aggregate_concurrency([row for row in runs if row["host_offload"]], metrics)
     references = [(label, load_reference(Path(path))) for label, path in (ref.split("=", 1) for ref in args.reference)]
     plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 11})
     fig, ax = plt.subplots(figsize=(9.5, 5.5), layout="constrained")
@@ -35,15 +41,17 @@ def main() -> None:
     for (label, points), color in zip(references, REFERENCE_COLORS):
         draw_series(ax, points, label, color, "s", below=True, skip=frozenset(labelled))
         labelled.update(row["concurrency"] for row in points)
-    draw_series(ax, ours, args.label, "#2a78d6", "o", below=False, skip=frozenset())
-    rows = ours + [row for _, points in references for row in points]
+    draw_series(ax, plain, args.label, "#2a78d6", "o", below=False, skip=frozenset())
+    draw_series(ax, offload, f"{args.label}, host KV offloading", "#1b4f8f", "D", below=False, skip=frozenset())
+    rows = plain + offload + [row for _, points in references for row in points]
     ax.set(title="GLM-5.3-Flash AgentX · FP8, TP4, MTP 5 with forced AL 3.60 · 60 min per point",
            xlabel="Interactivity: 1000 / mean ITL (tok/s/user)", ylabel="Throughput per GPU, input + output (tok/s)",
            xlim=(0, max(row["interactivity"] for row in rows) * 1.12), ylim=(0, max(row["throughput"] for row in rows) * 1.12))
     ax.grid(alpha=0.2)
     ax.spines[["top", "right"]].set_visible(False)
     ax.legend(frameon=False, loc="upper right")
-    fig.supxlabel("one run per point · host KV offloading on from c40, off below", fontsize=9, color="#52514e")
+    fig.supxlabel("mean over runs per point · SGLang: host KV offloading (HiCache) on from c40, off below", fontsize=9,
+                  color="#52514e")
     save_figure(fig, args.output)
 
 
@@ -51,7 +59,9 @@ def load_run(root: Path) -> dict:
     summary = json.loads((root / "aiperf_artifacts/profile_export_aiperf.json").read_text())
     tokens_per_s = summary["input_token_throughput"]["avg"] + summary["output_token_throughput"]["avg"]
     concurrency = int(re.search(r"-c(\d+)-", root.name).group(1))  # run ids look like full-c16-1
-    return point(concurrency, tokens_per_s / NUM_GPUS, 1000 / summary["inter_token_latency"]["avg"])
+    host_offload = "SimpleCPUOffloadConnector" in (root / "server.log").read_text(errors="replace")
+    row = point(concurrency, tokens_per_s / NUM_GPUS, 1000 / summary["inter_token_latency"]["avg"])
+    return {**row, "host_offload": host_offload}
 
 
 def load_reference(path: Path) -> list[dict]:

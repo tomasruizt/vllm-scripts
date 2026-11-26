@@ -57,7 +57,7 @@ fetch-results:
 	mkdir -p results
 	$(K) exec $(PREFIX)-box -- tar -C /models/results --exclude='*raw*' --exclude='*.jsonl' --exclude='*.duckdb' -czf - $(RUN_ID) | tar -C results -xzf -
 
-RUNS ?= full-c1-1 full-c16-1 full-c32-1 full-c48-1
+RUNS ?= full-c1-1 full-c16-1 full-c32-1 full-c32-2 full-c32-offload-1 full-c48-1
 
 summary:
 	~/.venv/bin/python summarize.py $(RUNS)

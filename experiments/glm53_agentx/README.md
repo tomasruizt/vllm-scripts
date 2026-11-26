@@ -2,7 +2,7 @@
 
 AgentX is the agentic benchmark of SemiAnalysis InferenceX: it replays recorded coding-agent sessions (very long, mostly cached prompts) on a fixed number of session lanes. This experiment runs it against vLLM with the settings of the published SGLang recipe for GLM-5.3-Flash, to get comparable numbers.
 
-Status: preliminary. One run per point, and the c32 point is under investigation (see below). The profiler trial on the same setup is in [../nsight_perf_sdk](../nsight_perf_sdk).
+Status: preliminary. One run per point (two at c32). vLLM needs host KV offloading from c32 on to stay ahead, earlier than the SGLang recipe enables it (see "The c32 point"). The profiler trial on the same setup is in [../nsight_perf_sdk](../nsight_perf_sdk).
 
 ## Setup
 
@@ -10,7 +10,7 @@ Status: preliminary. One run per point, and the c32 point is under investigation
 - vLLM `0.34.1rc1.dev173+g5aea30579` (nightly image from 2026-11-26).
 - `zai-org/GLM-5.3-Flash` at revision `46a050bec1`, native FP8 weights, FP8 KV cache, prefix caching on.
 - Speculative decoding: MTP with 5 speculative tokens. AgentX prescribes a fixed ("golden") acceptance length per model, 3.60 for this setup, which vLLM applies with `rejection_sample_method=synthetic`.
-- Host KV offloading only where the SGLang recipe enables HiCache (from c40 on): `SimpleCPUOffloadConnector`, 88 GiB per rank, eager.
+- Host KV offloading where the SGLang recipe enables HiCache (from c40 on), plus one extra run at c32: `SimpleCPUOffloadConnector`, 88 GiB per rank, eager.
 - Client: agentx-harness 1.0.14, dataset `semianalysis_cc_traces_weka_062126`, 3,600 s per point, 10 warmup requests per lane, server restarted for every point.
 
 ```bash
@@ -19,7 +19,7 @@ VLLM_USE_RUST_FRONTEND=1 vllm serve zai-org/GLM-5.3-Flash \
     --tokenizer-mode glm5_next --tensor-parallel-size 4 --kv-cache-dtype fp8 --language-model-only \
     --speculative-config '{"method":"mtp","num_speculative_tokens":5,"rejection_sample_method":"synthetic","synthetic_acceptance_length":3.60}' \
     --tool-call-parser glm47 --reasoning-parser glm47 --enable-auto-tool-choice
-# c48 only:
+# runs with host offload only:
     --kv-transfer-config '{"kv_connector":"SimpleCPUOffloadConnector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_bytes_to_use_per_rank":94489280512,"lazy_offload":false}}'
 
 agentx profile --url http://127.0.0.1:8000 --endpoint /v1/chat/completions \
@@ -36,25 +36,41 @@ Throughput is per GPU and counts input plus output tokens, as InferenceX reports
 |---|---|---|---|---|---|---|---|---|
 | 1 | 7,260 | 5,860 | 535 | 407 | 189 | 810 | 98.0% | 0.09 |
 | 16 | 29,094 | 27,280 | 351 | 225 | 212 | 600 | 96.2% | 0.75 |
-| 32 | 44,537 | 52,940 | 95 | 125 | 1,927 | 868 | 85.8% | 1.10 |
-| 48 (host offload) | 69,272 | 63,873 | 115 | 89 | 1,194 | 1,166 | 93.0% | 1.80 |
+| 32, run 1 | 44,537 | 52,940 | 95 | 125 | 1,927 | 868 | 85.8% | 1.10 |
+| 32, run 2 | 45,916 | 52,940 | 109 | 125 | 1,895 | 868 | 86.8% | 1.12 |
+| 32 (vLLM host offload) | 59,891 | 52,940 | 220 | 125 | 379 | 868 | 96.4% | 1.32 |
+| 48 (host offload, both) | 69,272 | 63,873 | 115 | 89 | 1,194 | 1,166 | 93.0% | 1.80 |
 
-- vLLM is ahead on throughput and interactivity at c1, c16 and c48, and behind at c32.
-- At c48, 63.8% of the prompt tokens are served from the GPU KV cache and 29.2% from host memory.
-- 2 or 3 requests fail per run (out of 322 to 6,521): empty responses and broken pipes. Not investigated.
+- vLLM is ahead on throughput and interactivity at c1, c16 and c48. At c32 it is behind in the SGLang configuration (no host offloading), and ahead once host offloading is on.
+- Cache hits from host memory: 7.2% of the prompt tokens at c32 and 29.2% at c48 (on top of 89.2% and 63.8% from the GPU KV cache).
+- 1 to 3 requests fail per run (out of 322 to 6,521): empty responses and broken pipes. Not investigated.
 - The mean input length matches the public runs within a few percent at c16 and above (about 155k tokens), which shows that a 60-minute window replays the same sessions. Shorter runs (20 min) cover different sessions, so their throughput is not comparable.
 
 `make summary` rebuilds this table (and `results/metrics.parquet`), `make plot` draws the throughput-interactivity curve.
 
 ## The c32 point
 
-The c32 run is slower than the c48 run from the first minutes on, although c48 has more requests decoding at the same time (16 against 11 on average). A curve that improves with load points to something specific to that run, and two reruns are in progress (plain repeat, and c32 with host offloading).
+Without host offloading, c32 is slower than c48 with it, although c48 has more requests decoding at the same time (16 against 11 on average). A plain repeat reproduced the first run within 3% on throughput (ITL 9.2 against 10.5 ms), so it is not a disturbed run. Turning host offloading on at c32 changes the picture: throughput +32%, ITL from about 10 ms to 4.6 ms, TTFT from 1.9 s to 0.4 s.
 
-What we know so far:
+The cause is eviction of cached prefixes. The AgentX client reports how many prompt tokens could have been cache hits given the traces, next to what the server served from cache:
 
-- The only configuration difference between c32 and c48 is host offloading. Without it, the GPU KV cache got tight at c32 (peak usage 83%) and the cache hit rate dropped to 85.8%.
-- Uncached prompt tokens are expensive for everyone: a step that carries a prefill chunk delays all requests decoding in that step (see the microbenchmark below). At c32 about 25k uncached tokens arrive per second, against a prefill speed of about 52k tok/s, so roughly half of the wall time goes to steps with prefill. At c16 it is under 10%.
+| Run | Theoretical hit | Hit from GPU KV cache | Hit from host memory | Lost |
+|---|---|---|---|---|
+| c16 | 97.5% | 96.2% | off | 1.3% |
+| c32, run 1 | 97.7% | 85.8% | off | 11.9% |
+| c32, run 2 | 97.7% | 86.8% | off | 10.9% |
+| c32, host offload | 97.9% | 89.2% | 7.2% | 1.5% |
+| c48, host offload | 97.4% | 63.8% | 29.2% | 4.4% |
+
+Why offloading matters this much:
+
+- The KV cache is 88 GiB per GPU (the server uses 82.6 of 178 GiB for weights and runtime). 32 sessions with about 160k tokens of context each want their prefix kept while they idle between turns, and the blocks held by running requests alone peak at 81 to 83% of the pool.
+- `vllm:kv_cache_usage_perc` only counts blocks held by running requests. The prefix of an idle session lives in blocks that count as free, and it is overwritten when running requests need the space. So eviction starts long before the gauge reads 100% (its mean at c32 is 32%).
+- An evicted session has to prefill up to 160k tokens again on its next turn, which keeps more requests in flight (10 on average against 6.1 with offloading) and raises the pressure further. Offloading breaks that loop: only 7.2% of the prompt tokens come from host memory, but the GPU cache hit rate itself also rises from 86% to 89%.
+- Uncached prompt tokens are expensive for everyone: a step that carries a prefill chunk delays all requests decoding in that step (see the microbenchmark below). At 86% hits about 25k uncached tokens arrive per second, against a prefill speed of about 52k tok/s, so roughly half of the wall time goes to steps with prefill. At c16 it is under 10%.
 - The batch-size cap of the specialized decode (see below) is not the main cause: it is worth about 15% per step, and c48 exceeds the cap more often than c32.
+
+Caveats: the offloading run and the repeat ran at the same time on separate GPUs of the same node, and the SGLang numbers at c32 are without HiCache, so the offloading row is not a like-for-like comparison. The two setups also differ in GPU memory (B200 against GB300), which may be why the KV cache gets tight earlier here. Not verified.
 
 ## Step-time microbenchmark
 
