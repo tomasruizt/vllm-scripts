@@ -1,0 +1,40 @@
+# Profiling pod for nsight.sh: 1 GPU, runs as root with only CAP_PERFMON, which the Nsight daemon needs for GPU
+# kernel timings and PM counters. The service account must be allowed to add that capability (on OpenShift: an SCC).
+# The SCC we used forbids projected volumes, hence no service account token.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: __PREFIX__-nsight-__RUN_ID__
+  labels: {app: __PREFIX__-run}
+spec:
+  serviceAccountName: __PROFILER_SA__
+  automountServiceAccountToken: false
+  nodeSelector: {kubernetes.io/hostname: __NODE__}
+  restartPolicy: Never
+  activeDeadlineSeconds: 5400
+  containers:
+  - name: main
+    image: docker.io/vllm/vllm-openai:nightly
+    imagePullPolicy: Always
+    command: ["bash", "/scripts/nsight.sh"]
+    securityContext: {capabilities: {add: ["PERFMON"]}}
+    env:
+    - {name: HOME, value: /models/home}
+    - {name: HF_HOME, value: /models/hf}
+    - {name: NVIDIA_VISIBLE_DEVICES, value: all}
+    - {name: NVIDIA_DRIVER_CAPABILITIES, value: "compute,utility"}
+    - {name: RUN_ID, value: "__RUN_ID__"}
+    - {name: CONC, value: "__CONC__"}
+    - {name: DURATION, value: "__DURATION__"}
+    - {name: WARMUP, value: "__WARMUP__"}
+    resources:
+      limits: {nvidia.com/gpu: 1, cpu: "32", memory: 128Gi}
+      requests: {nvidia.com/gpu: 1, cpu: "32", memory: 128Gi}
+    volumeMounts:
+    - {name: models, mountPath: /models}
+    - {name: scripts, mountPath: /scripts}
+    - {name: shm, mountPath: /dev/shm}
+  volumes:
+  - {name: models, persistentVolumeClaim: {claimName: __PREFIX__-models}}
+  - {name: scripts, configMap: {name: __PREFIX__-nsight-scripts}}
+  - {name: shm, emptyDir: {medium: Memory, sizeLimit: 16Gi}}
