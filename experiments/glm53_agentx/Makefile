@@ -52,10 +52,10 @@ run: scripts
 status:
 	$(K) get pods --no-headers | grep -- '-$(RUN_ID) '; $(K) exec $(PREFIX)-box -- bash -c 'cd /models/results/$(RUN_ID) && cat startup.txt status.txt 2> /dev/null; tail -n 3 server.log; tail -n 5 client.log'
 
-# Results without the raw per-request records and the trace database, which are large.
+# Results without the raw per-request records, which are large.
 fetch-results:
 	mkdir -p results
-	$(K) exec $(PREFIX)-box -- tar -C /models/results --exclude='*raw*' --exclude='*.jsonl' --exclude='*.duckdb' -czf - $(RUN_ID) | tar -C results -xzf -
+	$(K) exec $(PREFIX)-box -- tar -C /models/results --exclude='*raw*' --exclude='*.jsonl' -czf - $(RUN_ID) | tar -C results -xzf -
 
 RUNS ?= full-c1-1 full-c16-1 full-c32-1 full-c32-2 full-c32-offload-1 full-c48-1
 

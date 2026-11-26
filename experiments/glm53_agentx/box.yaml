@@ -1,5 +1,5 @@
 # The model disk is node-local LVM, so every pod using it is pinned to that node.
-# `box` is a CPU pod for downloads and for fetching results. See run.yaml and nsight.yaml for the GPU pods.
+# `box` is a CPU pod for downloads and for fetching results. See run.yaml for the GPU pods.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

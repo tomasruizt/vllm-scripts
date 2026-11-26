@@ -2,7 +2,7 @@
 
 AgentX is the agentic benchmark of SemiAnalysis InferenceX: it replays recorded coding-agent sessions (very long, mostly cached prompts) on a fixed number of session lanes. This experiment runs it against vLLM with the settings of the published SGLang recipe for GLM-5.3-Flash, to get comparable numbers.
 
-Status: preliminary. One run per point (two at c32). vLLM needs host KV offloading from c32 on to stay ahead, earlier than the SGLang recipe enables it (see "The c32 point"). The profiler trial on the same setup is in [../nsight_perf_sdk](../nsight_perf_sdk).
+Status: preliminary. One run per point (two at c32). vLLM needs host KV offloading from c32 on to stay ahead, earlier than the SGLang recipe enables it (see "The c32 point").
 
 ## Setup
 
