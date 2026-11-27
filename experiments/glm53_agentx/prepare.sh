@@ -8,8 +8,6 @@ hf download zai-org/GLM-5.3-Flash --revision $REVISION > /dev/null
 # The AgentX client loads the tokenizer by repo name, which resolves through refs/main. A download by revision does not write it.
 refs=/models/hf/hub/models--zai-org--GLM-5.3-Flash/refs
 mkdir -p $refs && printf %s $REVISION > $refs/main
-# The small clone, for smoke tests of the scripts on one GPU.
-hf download inference-optimization/GLM-5.3-Flash-2.6B-A2.3B-small > /dev/null
 
 export UV_PYTHON_INSTALL_DIR=/models/uv-python UV_CACHE_DIR=/models/uv-cache
 uv venv --clear --python 3.12 --managed-python /models/agentx-venv

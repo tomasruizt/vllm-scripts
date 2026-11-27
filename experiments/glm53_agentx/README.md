@@ -72,30 +72,10 @@ Why offloading matters this much:
 - The KV cache is 88 GiB per GPU (the server uses 82.6 of 178 GiB for weights and runtime). 32 sessions with about 160k tokens of context each want their prefix kept while they idle between turns, and the blocks held by running requests alone peak at 81 to 83% of the pool.
 - `vllm:kv_cache_usage_perc` only counts blocks held by running requests. The prefix of an idle session lives in blocks that count as free, and it is overwritten when running requests need the space. So eviction starts long before the gauge reads 100% (its mean at c32 is 32%).
 - An evicted session has to prefill up to 160k tokens again on its next turn, which keeps more requests in flight (10 on average against 6.1 with offloading) and raises the pressure further. Offloading breaks that loop: only 7.2% of the prompt tokens come from host memory, but the GPU cache hit rate itself also rises from 86% to 89%.
-- Uncached prompt tokens are expensive for everyone: a step that carries a prefill chunk delays all requests decoding in that step (see the microbenchmark below). At 86% hits about 25k uncached tokens arrive per second, against a prefill speed of about 52k tok/s, so roughly half of the wall time goes to steps with prefill. At c16 it is under 10%.
-- The batch-size cap of the specialized decode (see below) is not the main cause: it is worth about 15% per step, and c48 exceeds the cap more often than c32.
+- Uncached prompt tokens are expensive for everyone: a step that carries a prefill chunk delays all requests decoding in that step. Timed with `vllm bench forward`, a step with 8 decoding requests takes 13 ms, and 164 ms when it also carries an 8k-token prefill chunk. At 86% hits about 25k uncached tokens arrive per second, against a prefill speed of about 52k tok/s, so roughly half of the wall time goes to steps with prefill. At c16 it is under 10%.
+- The batch-size cap of the specialized decode is not the main cause. GLM-5.3-Flash's `latency_specialized` decode covers decode-only steps of up to 10 requests (with MTP 5) and falls back to the stock path beyond. It is worth about 15% per step, and c48 exceeds the cap more often than c32.
 
 Caveats: the offloading run and the repeat ran at the same time on separate GPUs of the same node, and the SGLang numbers at c32 are without HiCache, so the offloading row is not a like-for-like comparison. The two setups also differ in GPU memory (B200 against GB300), which may be why the KV cache gets tight earlier here. Not verified.
-
-## Step-time microbenchmark
-
-`forward.sh` times single steps with `vllm bench forward` (TP4, real weights, MTP 5, step including drafter and sampler, 30k tokens of context per request):
-
-| Step | Median (ms) |
-|---|---|
-| 1 request | 7.9 |
-| 4 requests | 11.0 |
-| 8 requests | 13.4 |
-| 10 requests | 14.8 |
-| 11 requests | 15.2 |
-| 16 requests | 16.8 |
-| 24 requests | 18.5 |
-| 32 requests | 21.2 |
-| 8 requests + 2k-token prefill chunk | 54.7 |
-| 8 requests + 8k-token prefill chunk | 163.6 |
-| 8k-token prefill chunk alone | 157.6 |
-
-`vllm bench forward` does not engage GLM-5.3-Flash's specialized decode (`decode_backend=latency_specialized`), so these are stock-path times. In serving, the specialized path is active by default on this setup. It covers decode-only steps of up to 64 rows (10 requests with MTP 5) and falls back to the stock path beyond that or when a step contains prompt rows. At c1 a serving step takes about 6.7 ms (1.87 ms ITL x 3.6 accepted tokens) against 7.9 ms here.
 
 ## Running it
 
@@ -105,12 +85,9 @@ The scripts target a Kubernetes or OpenShift node with free Blackwell GPUs and a
 make box prepare                       # model disk, CPU pod, downloads (weights 306 GiB, client, traces)
 make run CONC=16 DURATION=3600 WARMUP=10 RUN_ID=full-c16-1
 make run CONC=48 DURATION=3600 WARMUP=10 RUN_ID=full-c48-1 OFFLOAD=88 MEM=800Gi
-make run ENTRY=forward.sh RUN_ID=forward-1                                    # step-time microbenchmark
 make fetch-results RUN_ID=full-c16-1   # into results/ (git-ignored)
 make summary plot
 ```
-
-Smoke-test script changes on one GPU with the small clone before spending 4 GPUs: `make run ENTRY=forward.sh GPUS=1 MEM=128Gi MODEL=inference-optimization/GLM-5.3-Flash-2.6B-A2.3B-small REVISION= LOAD_FORMAT=dummy RUN_ID=forward-smoke-1`.
 
 ## Caveats
 

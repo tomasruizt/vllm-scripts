@@ -36,5 +36,5 @@ spec:
     - {name: shm, mountPath: /dev/shm}
   volumes:
   - {name: models, persistentVolumeClaim: {claimName: __PREFIX__-models}}
-  - {name: scripts, configMap: {name: __PREFIX__-nsight-scripts}}
+  - {name: scripts, configMap: {name: __PREFIX__-profiling-scripts}}
   - {name: shm, emptyDir: {medium: Memory, sizeLimit: 16Gi}}

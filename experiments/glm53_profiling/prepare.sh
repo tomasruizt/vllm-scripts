@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Runs once in the CPU pod, after ../glm53_agentx/prepare.sh: the Nsight Perf SDK and the CUDA 13.5 user-mode driver
+# Runs once in the CPU pod, after ../glm53_agentx/prepare.sh: the small clone (for nsight.sh and for smoke tests of
+# forward.sh), the Nsight Perf SDK and the CUDA 13.5 user-mode driver
 # (compat package) onto the model disk.
 set -euo pipefail
 
+hf download inference-optimization/GLM-5.3-Flash-2.6B-A2.3B-small > /dev/null
 mkdir -p /models/nsight /models/results && cd /models/nsight
 SDK_URL=https://github.com/NVIDIA/nsight-perf-sdk-for-ai/releases/download/beta-preview-update1
 curl -sfL $SDK_URL/nsight-perf-sdk-for-ai-beta-preview-update1-linux-x86_64.tar.gz | tar xz

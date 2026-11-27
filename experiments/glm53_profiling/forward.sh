@@ -2,8 +2,8 @@
 # Step-time microbenchmark in the GPU pod: MTP 5 verify steps (6 rows per request) at growing batch sizes.
 # `vllm bench forward` does not engage the specialized decode, so every case times the stock path. Still useful for the
 # scaling with batch size, and for the cost of a prefill chunk that shares a step with decoding requests.
-# Same model flags as serve.sh, real weights. Env: RUN_ID, and for smoke tests on the small clone MODEL, REVISION, TP and
-# LOAD_FORMAT (the clone has no MTP weights, so dummy).
+# Same model flags as ../glm53_agentx/serve.sh, real weights. Env: RUN_ID, and for smoke tests on the small clone MODEL,
+# REVISION, TP and LOAD_FORMAT (the clone has no MTP weights, so dummy).
 set -uo pipefail
 
 OUT=/models/results/$RUN_ID

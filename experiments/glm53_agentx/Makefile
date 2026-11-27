@@ -16,20 +16,12 @@ RUN_ID ?= smoke-c$(CONC)-1
 # Host-memory KV offloading per rank in GiB (empty: off), and the pod memory that has to hold it.
 OFFLOAD ?=
 MEM ?= 512Gi
-# Pod entry script: run.sh (one AgentX point) or forward.sh (step-time microbenchmark).
-ENTRY ?= run.sh
-# forward.sh only: GPUs (= TP size), and the model (small clone for smoke tests: pass REVISION= LOAD_FORMAT=dummy too).
-GPUS ?= 4
-MODEL ?= zai-org/GLM-5.3-Flash
-REVISION ?= 46a050bec13002ad29ee795c16e61cf4fa3c4a9c
-LOAD_FORMAT ?= auto
 DEADLINE := $(shell echo $$(( $(DURATION) + 7200 )))
 
-SCRIPTS := serve.sh bench.sh run.sh prepare.sh forward.sh ../../benchmarking/host_load.sh
+SCRIPTS := serve.sh bench.sh run.sh prepare.sh ../../benchmarking/host_load.sh
 COMMON_VARS := s/__PREFIX__/$(PREFIX)/g; s/__NODE__/$(NODE)/
 RUN_VARS := s/__RUN_ID__/$(RUN_ID)/g; s/__CONC__/$(CONC)/; s/__DURATION__/$(DURATION)/; s/__WARMUP__/$(WARMUP)/; s/__OFFLOAD__/$(OFFLOAD)/
-POD_VARS := s/__MEM__/$(MEM)/g; s/__GPUS__/$(GPUS)/g; s/__ENTRY__/$(ENTRY)/; s/__DEADLINE__/$(DEADLINE)/
-MODEL_VARS := s|__MODEL__|$(MODEL)|; s/__REVISION__/$(REVISION)/; s/__LOAD_FORMAT__/$(LOAD_FORMAT)/
+POD_VARS := s/__MEM__/$(MEM)/g; s/__DEADLINE__/$(DEADLINE)/
 
 scripts:
 	$(K) create configmap $(PREFIX)-scripts $(addprefix --from-file=,$(SCRIPTS)) --dry-run=client -o yaml | $(K) apply -f -
@@ -47,7 +39,7 @@ prepare-status:
 
 run: scripts
 	$(K) delete pod $(PREFIX)-run-$(RUN_ID) --ignore-not-found --wait=true
-	sed '$(COMMON_VARS); $(RUN_VARS); $(POD_VARS); $(MODEL_VARS)' run.yaml | $(K) apply -f -
+	sed '$(COMMON_VARS); $(RUN_VARS); $(POD_VARS)' run.yaml | $(K) apply -f -
 
 status:
 	$(K) get pods --no-headers | grep -- '-$(RUN_ID) '; $(K) exec $(PREFIX)-box -- bash -c 'cd /models/results/$(RUN_ID) && cat startup.txt status.txt 2> /dev/null; tail -n 3 server.log; tail -n 5 client.log'

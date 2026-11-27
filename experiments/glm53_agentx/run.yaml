@@ -1,4 +1,4 @@
-# GPU pod for one AgentX point (run.sh) or the step-time microbenchmark (forward.sh). It holds the GPUs until the script exits.
+# GPU pod for one AgentX point (run.sh). It holds the 4 GPUs until the script exits.
 # The model disk is node-local, so the pod is pinned to its node (see box.yaml).
 apiVersion: v1
 kind: Pod
@@ -13,7 +13,7 @@ spec:
   - name: main
     image: docker.io/vllm/vllm-openai:nightly
     imagePullPolicy: Always  # the node caches an old nightly otherwise
-    command: ["bash", "/scripts/__ENTRY__"]
+    command: ["bash", "/scripts/run.sh"]
     securityContext: {allowPrivilegeEscalation: false}
     env:
     - {name: HOME, value: /models/home}
@@ -25,13 +25,9 @@ spec:
     - {name: DURATION, value: "__DURATION__"}
     - {name: WARMUP, value: "__WARMUP__"}
     - {name: OFFLOAD_GIB_PER_RANK, value: "__OFFLOAD__"}
-    - {name: TP, value: "__GPUS__"}
-    - {name: MODEL, value: "__MODEL__"}
-    - {name: REVISION, value: "__REVISION__"}
-    - {name: LOAD_FORMAT, value: "__LOAD_FORMAT__"}
     resources:
-      limits: {nvidia.com/gpu: __GPUS__, cpu: "64", memory: __MEM__}
-      requests: {nvidia.com/gpu: __GPUS__, cpu: "64", memory: __MEM__}
+      limits: {nvidia.com/gpu: 4, cpu: "64", memory: __MEM__}
+      requests: {nvidia.com/gpu: 4, cpu: "64", memory: __MEM__}
     volumeMounts:
     - {name: models, mountPath: /models}
     - {name: scripts, mountPath: /scripts}

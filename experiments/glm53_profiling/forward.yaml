@@ -1,0 +1,38 @@
+# GPU pod for the step-time microbenchmark (forward.sh). It holds the GPUs until the script exits.
+# The model disk is node-local, so the pod is pinned to its node (see ../glm53_agentx/box.yaml).
+apiVersion: v1
+kind: Pod
+metadata:
+  name: __PREFIX__-forward-__RUN_ID__
+  labels: {app: __PREFIX__-run}
+spec:
+  nodeSelector: {kubernetes.io/hostname: __NODE__}
+  restartPolicy: Never
+  activeDeadlineSeconds: 3600
+  containers:
+  - name: main
+    image: docker.io/vllm/vllm-openai:nightly
+    imagePullPolicy: Always  # the node caches an old nightly otherwise
+    command: ["bash", "/scripts/forward.sh"]
+    securityContext: {allowPrivilegeEscalation: false}
+    env:
+    - {name: HOME, value: /models/home}
+    - {name: HF_HOME, value: /models/hf}
+    - {name: NVIDIA_VISIBLE_DEVICES, value: all}
+    - {name: NVIDIA_DRIVER_CAPABILITIES, value: "compute,utility"}
+    - {name: RUN_ID, value: "__RUN_ID__"}
+    - {name: TP, value: "__GPUS__"}
+    - {name: MODEL, value: "__MODEL__"}
+    - {name: REVISION, value: "__REVISION__"}
+    - {name: LOAD_FORMAT, value: "__LOAD_FORMAT__"}
+    resources:
+      limits: {nvidia.com/gpu: __GPUS__, cpu: "64", memory: __MEM__}
+      requests: {nvidia.com/gpu: __GPUS__, cpu: "64", memory: __MEM__}
+    volumeMounts:
+    - {name: models, mountPath: /models}
+    - {name: scripts, mountPath: /scripts}
+    - {name: shm, mountPath: /dev/shm}
+  volumes:
+  - {name: models, persistentVolumeClaim: {claimName: __PREFIX__-models}}
+  - {name: scripts, configMap: {name: __PREFIX__-profiling-scripts}}
+  - {name: shm, emptyDir: {medium: Memory, sizeLimit: 64Gi}}
