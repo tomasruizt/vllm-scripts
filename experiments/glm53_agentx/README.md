@@ -2,7 +2,7 @@
 
 AgentX is the agentic benchmark of SemiAnalysis InferenceX: it replays recorded coding-agent sessions (very long, mostly cached prompts) on a fixed number of session lanes. This experiment runs it against vLLM with the settings of the published SGLang recipe for GLM-5.3-Flash, to get comparable numbers.
 
-Status: preliminary. One run per point (two at c32). vLLM needs host KV offloading from c32 on to stay ahead, earlier than the SGLang recipe enables it (see "The c32 point").
+Status: preliminary. One run per point (two at c32 without offloading). With host KV offloading on, vLLM is ahead of the published SGLang numbers at every measured point. Without it, vLLM falls behind at c32 (see "The c32 point").
 
 ## Setup
 
@@ -10,7 +10,7 @@ Status: preliminary. One run per point (two at c32). vLLM needs host KV offloadi
 - vLLM `0.34.1rc1.dev173+g5aea30579` (nightly image from 2026-11-26).
 - `zai-org/GLM-5.3-Flash` at revision `46a050bec1`, native FP8 weights, FP8 KV cache, prefix caching on.
 - Speculative decoding: MTP with 5 speculative tokens. AgentX prescribes a fixed ("golden") acceptance length per model, 3.60 for this setup, which vLLM applies with `rejection_sample_method=synthetic`.
-- Host KV offloading where the SGLang recipe enables HiCache (from c40 on), plus one extra run at c32: `SimpleCPUOffloadConnector`, 88 GiB per rank, eager.
+- Host KV offloading: every point up to c32 is measured without and with it, c48 only with it (the SGLang recipe enables HiCache from c40 on). `SimpleCPUOffloadConnector`, 88 GiB per rank, eager.
 - Client: agentx-harness 1.0.14, dataset `semianalysis_cc_traces_weka_062126`, 3,600 s per point, 10 warmup requests per lane, server restarted for every point.
 
 ```bash
@@ -32,17 +32,20 @@ agentx profile --url http://127.0.0.1:8000 --endpoint /v1/chat/completions \
 
 Throughput is per GPU and counts input plus output tokens, as InferenceX reports it. Interactivity is 1000 / mean ITL. AIPerf's ITL is per token, not per streamed chunk, so it already accounts for several tokens arriving per step. The SGLang columns are the public InferenceX numbers (GB300, SGLang, published 2026-11-06, [reference/semianalysis-sglang-fp8.csv](reference/semianalysis-sglang-fp8.csv)).
 
-| Concurrency | vLLM tok/s/GPU | SGLang tok/s/GPU | vLLM interactivity | SGLang interactivity | vLLM TTFT (ms) | SGLang TTFT (ms) | vLLM cache hit | vLLM req/s |
-|---|---|---|---|---|---|---|---|---|
-| 1 | 7,260 | 5,860 | 535 | 407 | 189 | 810 | 98.0% | 0.09 |
-| 16 | 29,094 | 27,280 | 351 | 225 | 212 | 600 | 96.2% | 0.75 |
-| 32, run 1 | 44,537 | 52,940 | 95 | 125 | 1,927 | 868 | 85.8% | 1.10 |
-| 32, run 2 | 45,916 | 52,940 | 109 | 125 | 1,895 | 868 | 86.8% | 1.12 |
-| 32 (vLLM host offload) | 59,891 | 52,940 | 220 | 125 | 379 | 868 | 96.4% | 1.32 |
-| 48 (host offload, both) | 69,272 | 63,873 | 115 | 89 | 1,194 | 1,166 | 93.0% | 1.80 |
+"Off" and "on" are vLLM without and with host KV offloading. SGLang runs with HiCache from c40 on.
 
-- vLLM is ahead on throughput and interactivity at c1, c16 and c48. At c32 it is behind in the SGLang configuration (no host offloading), and ahead once host offloading is on.
-- Cache hits from host memory: 7.2% of the prompt tokens at c32 and 29.2% at c48 (on top of 89.2% and 63.8% from the GPU KV cache).
+| Concurrency | tok/s/GPU off | tok/s/GPU on | tok/s/GPU SGLang | Interactivity off | Interactivity on | Interactivity SGLang | TTFT off (ms) | TTFT on (ms) | TTFT SGLang (ms) |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 7,260 | 7,262 | 5,860 | 534 | 533 | 407 | 189 | 188 | 810 |
+| 16 | 29,094 | 29,124 | 27,280 | 351 | 352 | 225 | 212 | 181 | 600 |
+| 24 | 44,395 | 46,244 | 41,907 | 219 | 279 | 160 | 635 | 257 | 768 |
+| 32 | 45,227 (2 runs) | 59,891 | 52,940 | 102 | 220 | 125 | 1,911 | 379 | 868 |
+| 48 | | 69,272 | 63,873 | | 115 | 89 | | 1,194 | 1,166 |
+
+- With host offloading on, vLLM is ahead on throughput and interactivity at every point: +7% to +24% throughput and 1.3x to 1.8x the interactivity.
+- Host offloading costs nothing at low load: c1 and c16 are identical with and without it. So it can simply stay on, which matters because it is a server startup setting.
+- Without it, vLLM stops scaling between c24 and c32 (44.4k and 45.2k tok/s/GPU) and falls behind SGLang at c32.
+- Cache hits from host memory: 0.4% of the prompt tokens at c16, 3.8% at c24, 7.2% at c32 and 29.2% at c48.
 - 1 to 3 requests fail per run (out of 322 to 6,521): empty responses and broken pipes. Not investigated.
 - The mean input length matches the public runs within a few percent at c16 and above (about 155k tokens), which shows that a 60-minute window replays the same sessions. Shorter runs (20 min) cover different sessions, so their throughput is not comparable.
 
@@ -57,6 +60,8 @@ The cause is eviction of cached prefixes. The AgentX client reports how many pro
 | Run | Theoretical hit | Hit from GPU KV cache | Hit from host memory | Lost |
 |---|---|---|---|---|
 | c16 | 97.5% | 96.2% | off | 1.3% |
+| c24 | 97.8% | 93.0% | off | 4.8% |
+| c24, host offload | 97.8% | 92.7% | 3.8% | 1.3% |
 | c32, run 1 | 97.7% | 85.8% | off | 11.9% |
 | c32, run 2 | 97.7% | 86.8% | off | 10.9% |
 | c32, host offload | 97.9% | 89.2% | 7.2% | 1.5% |
@@ -110,5 +115,5 @@ Smoke-test script changes on one GPU with the small clone before spending 4 GPUs
 ## Caveats
 
 - Different GPUs: B200 here, GB300 for the SGLang numbers.
-- One run per point, on a shared node. Host CPU load was not recorded for these runs (`run.sh` records it from now on).
+- One run per point, on a shared node. Host CPU load is recorded for the later runs only (c24, and c1 and c16 with offloading): 8 to 17 busy cores on average out of 224.
 - An older nightly (`0.34.0rc1.dev776+g7c3a9302f`, 2026-11-18) crashed once at c1 with a CUDA "index out of bounds" assert in the KDA layer after 15 minutes. Not reproduced on the nightly used here (one run).
